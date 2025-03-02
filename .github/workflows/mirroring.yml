@@ -1,39 +1,36 @@
 name: Mirroring to Gitlab
 
-on: [push, delete]
+on:
+  push:
+    branches:
+      - "**"
+    tags:
+      - "**"
+  delete:
+    branches:
+      - "**"
 
 jobs:
   to_gitlab:
     runs-on: self-hosted
     steps:
-      - name: Mirror repository to GitLab
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Nécessaire pour récupérer toutes les branches et tags
+          
+      - name: Configure GitLab remote
         run: |
-          echo $USER
-          REPO_NAME=APP_CORE
-          REPO_PATH=/home/pato/repos_github/$REPO_NAME
-          
-          # Vérifier si le dossier existe déjà
-          if [ -d "$REPO_PATH" ]; then
-            echo "Le dépôt existe déjà, mise à jour..."
-            cd $REPO_PATH
-            git fetch --all --prune
-            git fetch --tags --force
-          else
-            echo "Clonage du dépôt..."
-            mkdir -p /home/pato/repos_github
-            git clone --mirror git@github.com:ForcePushRebels/$REPO_NAME.git $REPO_PATH
-            cd $REPO_PATH
-          fi
-          
-          # Configurer le remote GitLab s'il n'existe pas déjà
           if ! git remote get-url gitlab > /dev/null 2>&1; then
-            git remote add gitlab git@gitlab-etu.openstack.etudis.eseo.fr:fisa-ise/pato/2025-2026/forcepushrebels/c.git
+            git remote add gitlab git@gitlab-etu.openstack.etudis.eseo.fr:fisa-ise/pato/2025-2026/forcepushrebels/common.git
           fi
-          
-          # Pousser toutes les branches
-          echo "Envoi de toutes les branches vers GitLab..."
-          git push --force gitlab --all
-          
-          # Pousser tous les tags
-          echo "Envoi de tous les tags vers GitLab..."
-          git push --force gitlab --tags
+
+      - name: Push all branches
+        run: |
+          git fetch --prune
+          for branch in $(git branch -r | grep -v '\->' | sed 's/origin\///'); do
+            git push --force gitlab $branch:$branch
+          done
+
+      - name: Push all tags
+        run: |
+          git push --tags gitlab

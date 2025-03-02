@@ -1,0 +1,16 @@
+name: Mirroring to Gitlab
+
+on: [push, delete]
+
+jobs:
+  to_gitlab:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - uses: pixta-dev/repository-mirroring-action@v1
+        with:
+          target_repo_url:
+            git@gitlab-etu.openstack.etudis.eseo.fr:fisa-ise/pato/2025-2026/forcepushrebels/c.git

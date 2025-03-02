@@ -16,4 +16,11 @@ jobs:
       - name: Push to GitLab
         run: |
           git remote add gitlab git@gitlab-etu.openstack.etudis.eseo.fr:fisa-ise/pato/2025-2026/forcepushrebels/c.git
-          git push --mirror -f gitlab
+          git fetch --prune
+          for branch in $(git branch -r | grep -v '\->' | sed 's/origin\///'); do
+            git push --force gitlab $branch:$branch
+          done
+
+      - name: Push all tags
+        run: |
+          git push --tags gitlab

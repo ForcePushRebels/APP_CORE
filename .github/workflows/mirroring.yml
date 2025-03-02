@@ -21,7 +21,7 @@ jobs:
       - name: Configure GitLab remote
         run: |
           if ! git remote get-url gitlab > /dev/null 2>&1; then
-            git remote add gitlab git@gitlab-etu.openstack.etudis.eseo.fr:fisa-ise/pato/2025-2026/forcepushrebels/common.git
+            git remote add gitlab git@gitlab-etu.openstack.etudis.eseo.fr:fisa-ise/pato/2025-2026/forcepushrebels/c.git
           fi
 
       - name: Push all branches

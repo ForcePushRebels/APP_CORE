@@ -1,7 +1,7 @@
 name: Mirroring to Gitlab
 
 on: [push, delete]
-
+runs-on: self-hosted
 jobs:
   to_gitlab:
     runs-on: ubuntu-latest

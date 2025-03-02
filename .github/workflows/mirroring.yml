@@ -28,7 +28,3 @@ jobs:
         run: |
           git fetch --all --prune
           git push --force gitlab 'refs/remotes/origin/*:refs/heads/*' 'refs/tags/*:refs/tags/*'
-
-      - name: Push all tags
-        run: |
-          git push --tags gitlab

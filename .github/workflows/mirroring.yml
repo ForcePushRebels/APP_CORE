@@ -6,10 +6,13 @@ jobs:
   to_gitlab:
     runs-on: self-hosted
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # Nécessaire pour récupérer toutes les branches et tags
-          
+      # - uses: actions/checkout@v4
+      #   with:
+      #     fetch-depth: 0 # Nécessaire pour récupérer toutes les branches et tags
+      - name: Clone repos
+        run: |
+          git clone --mirror git@github.com:ForcePushRebels/APP_CORE.git .
+          git fetch --prune --unshallow
       - name: Configure GitLab remote
         run: |
           if ! git remote get-url gitlab > /dev/null 2>&1; then

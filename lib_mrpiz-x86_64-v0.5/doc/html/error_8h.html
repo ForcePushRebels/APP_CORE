@@ -1,0 +1,102 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "https://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/xhtml;charset=UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=11"/>
+<meta name="generator" content="Doxygen 1.9.4"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>MRPiZ lib: Référence du fichier src/intox/mrpiz/error.h</title>
+<link href="tabs.css" rel="stylesheet" type="text/css"/>
+<script type="text/javascript" src="jquery.js"></script>
+<script type="text/javascript" src="dynsections.js"></script>
+<link href="doxygen.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+<div id="top"><!-- do not remove this div, it is closed by doxygen! -->
+<div id="titlearea">
+<table cellspacing="0" cellpadding="0">
+ <tbody>
+ <tr id="projectrow">
+  <td id="projectalign">
+   <div id="projectname">MRPiZ lib<span id="projectnumber">&#160;0.1</span>
+   </div>
+   <div id="projectbrief">API de programmation pour un robot MRPiZ</div>
+  </td>
+ </tr>
+ </tbody>
+</table>
+</div>
+<!-- end header part -->
+<!-- Généré par Doxygen 1.9.4 -->
+<script type="text/javascript" src="menudata.js"></script>
+<script type="text/javascript" src="menu.js"></script>
+<script type="text/javascript">
+/* @license magnet:?xt=urn:btih:d3d9a9a6595521f9666a5e94cc830dab83b65699&amp;dn=expat.txt MIT */
+$(function() {
+  initMenu('',false,false,'search.php','Recherche');
+});
+/* @license-end */
+</script>
+<div id="main-nav"></div>
+<div id="nav-path" class="navpath">
+  <ul>
+<li class="navelem"><a class="el" href="dir_68267d1309a1af8e8297ef4c3efbcdba.html">src</a></li><li class="navelem"><a class="el" href="dir_e746c45371ab5146622cee9c45815bfd.html">intox</a></li><li class="navelem"><a class="el" href="dir_379197aad475488a5c9256fe7345238b.html">mrpiz</a></li>  </ul>
+</div>
+</div><!-- top -->
+<div class="header">
+  <div class="summary">
+<a href="#enum-members">Énumérations</a> &#124;
+<a href="#func-members">Fonctions</a>  </div>
+  <div class="headertitle"><div class="title">Référence du fichier error.h</div></div>
+</div><!--header-->
+<div class="contents">
+
+<p><a href="error_8h_source.html">Aller au code source de ce fichier.</a></p>
+<table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="enum-members" name="enum-members"></a>
+Énumérations</h2></td></tr>
+<tr class="memitem:ga5fc4e62306813602b4654269d5b7a8f4"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__mrpiz__error.html#ga5fc4e62306813602b4654269d5b7a8f4">mrpiz_error_t</a> { <br />
+&#160;&#160;<a class="el" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4a1996790489ccd6641e60353f7b50653d">MRPIZ_INTOX_E_SYSTEM</a> = 1
+, <a class="el" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4a12cdc465ed7e957c97f0e72d6da327e9">MRPIZ_INTOX_E_SOCKET</a>
+, <a class="el" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4a12cdcbdb82dd184615306a4dc918ef76">MRPIZ_INTOX_E_CONNECT</a>
+, <a class="el" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4a021ef9840b816fc1aef5d56b7c5151cf">MRPIZ_INTOX_E_CONNECT_REFUSED</a>
+, <br />
+&#160;&#160;<a class="el" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4a3b6f6ecb75e54625dc53ef5a19aaa88b">MRPIZ_INTOX_E_CONNECT_NET</a>
+, <a class="el" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4ab7e831fa964995e549474fb7912b7a5e">MRPIZ_INTOX_E_CONNECT_HOST</a>
+, <a class="el" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4aaf23d281f2d0d252871ca511bc98e139">MRPIZ_INTOX_E_CONNECT_TIMEOUT</a>
+, <a class="el" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4ab2af6792c04728136efeac901cd3791a">MRPIZ_INTOX_E_ACCESS</a>
+, <br />
+&#160;&#160;<a class="el" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4a780f2a6f8de339bb4e38f2d354d3f32c">MRPIZ_INTOX_E_LOST</a>
+, <a class="el" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4a822de3b2c4407876d6757ea5e27dc618">MRPIZ_INTOX_E_CMD</a>
+, <a class="el" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4a5c92d8a8c6bd7c4ea454009e28d61a13">MRPIZ_E_INIT</a>
+, <a class="el" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4a091b8c2b8c9f3c47a9552b6160a86c18">MRPIZ_E_MOTOR_CMD</a>
+, <br />
+&#160;&#160;<a class="el" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4af9faa38519252fd1639116ad3803374e">MRPIZ_E_MOTOR_ID</a>
+, <a class="el" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4a47b7a967c5e722329eb897bcecb3570f">MRPIZ_E_PROXY_SENSOR_ID</a>
+, <a class="el" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4ad3ed1146b7b7cbc0e4c99f42051e7d0c">MRPIZ_E_SYSTEM</a>
+, <a class="el" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4a810ed79895e0e9423f4823a675bdb8f3">MRPIZ_E_UART</a>
+<br />
+ }</td></tr>
+<tr class="memdesc:ga5fc4e62306813602b4654269d5b7a8f4"><td class="mdescLeft">&#160;</td><td class="mdescRight">Liste des erreurs MRPiZ.  <a href="group__mrpiz__error.html#ga5fc4e62306813602b4654269d5b7a8f4">Plus de détails...</a><br /></td></tr>
+<tr class="separator:ga5fc4e62306813602b4654269d5b7a8f4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="func-members" name="func-members"></a>
+Fonctions</h2></td></tr>
+<tr class="memitem:gafec771521710882af37d18ca4afb6117"><td class="memItemLeft" align="right" valign="top">char const *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__mrpiz__error.html#gafec771521710882af37d18ca4afb6117">mrpiz_error_msg</a> ()</td></tr>
+<tr class="memdesc:gafec771521710882af37d18ca4afb6117"><td class="mdescLeft">&#160;</td><td class="mdescRight">Donne le message d'erreur (associé à la valeur de errno de la lib mrpiz).  <a href="group__mrpiz__error.html#gafec771521710882af37d18ca4afb6117">Plus de détails...</a><br /></td></tr>
+<tr class="separator:gafec771521710882af37d18ca4afb6117"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:gacf2525498e7fe36fcf2717ba898a9ea7"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__mrpiz__error.html#gacf2525498e7fe36fcf2717ba898a9ea7">mrpiz_error_print</a> (char *msg)</td></tr>
+<tr class="memdesc:gacf2525498e7fe36fcf2717ba898a9ea7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Affiche le message d'erreur (associé à la valeur errno de la lib mrpiz).  <a href="group__mrpiz__error.html#gacf2525498e7fe36fcf2717ba898a9ea7">Plus de détails...</a><br /></td></tr>
+<tr class="separator:gacf2525498e7fe36fcf2717ba898a9ea7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table>
+<a name="details" id="details"></a><h2 class="groupheader">Description détaillée</h2>
+<div class="textblock"><p >Gestion d'erreur de l'API de programmation du MRPiZ.</p>
+<dl class="section version"><dt>Version</dt><dd>0.1 </dd></dl>
+<dl class="section author"><dt>Auteur</dt><dd>Matthias Brun (<a href="#" onclick="location.href='mai'+'lto:'+'mat'+'th'+'ias'+'.b'+'run'+'@e'+'seo'+'.f'+'r'; return false;">matth<span class="obfuscator">.nosp@m.</span>ias.<span class="obfuscator">.nosp@m.</span>brun@<span class="obfuscator">.nosp@m.</span>eseo<span class="obfuscator">.nosp@m.</span>.fr</a>) </dd></dl>
+</div></div><!-- contents -->
+<!-- start footer part -->
+<hr class="footer"/><address class="footer"><small>
+Généré par&#160;<a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.9.4
+</small></address>
+</body>
+</html>

@@ -1,0 +1,114 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "https://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/xhtml;charset=UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=11"/>
+<meta name="generator" content="Doxygen 1.9.4"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>MRPiZ lib:  Fichier source de src/intox/mrpiz/error.h</title>
+<link href="tabs.css" rel="stylesheet" type="text/css"/>
+<script type="text/javascript" src="jquery.js"></script>
+<script type="text/javascript" src="dynsections.js"></script>
+<link href="doxygen.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+<div id="top"><!-- do not remove this div, it is closed by doxygen! -->
+<div id="titlearea">
+<table cellspacing="0" cellpadding="0">
+ <tbody>
+ <tr id="projectrow">
+  <td id="projectalign">
+   <div id="projectname">MRPiZ lib<span id="projectnumber">&#160;0.1</span>
+   </div>
+   <div id="projectbrief">API de programmation pour un robot MRPiZ</div>
+  </td>
+ </tr>
+ </tbody>
+</table>
+</div>
+<!-- end header part -->
+<!-- Généré par Doxygen 1.9.4 -->
+<script type="text/javascript" src="menudata.js"></script>
+<script type="text/javascript" src="menu.js"></script>
+<script type="text/javascript">
+/* @license magnet:?xt=urn:btih:d3d9a9a6595521f9666a5e94cc830dab83b65699&amp;dn=expat.txt MIT */
+$(function() {
+  initMenu('',false,false,'search.php','Recherche');
+});
+/* @license-end */
+</script>
+<div id="main-nav"></div>
+<div id="nav-path" class="navpath">
+  <ul>
+<li class="navelem"><a class="el" href="dir_68267d1309a1af8e8297ef4c3efbcdba.html">src</a></li><li class="navelem"><a class="el" href="dir_e746c45371ab5146622cee9c45815bfd.html">intox</a></li><li class="navelem"><a class="el" href="dir_379197aad475488a5c9256fe7345238b.html">mrpiz</a></li>  </ul>
+</div>
+</div><!-- top -->
+<div class="header">
+  <div class="headertitle"><div class="title">error.h</div></div>
+</div><!--header-->
+<div class="contents">
+<a href="error_8h.html">Aller à la documentation de ce fichier.</a><div class="fragment"><div class="line"><a id="l00001" name="l00001"></a><span class="lineno">    1</span> </div>
+<div class="line"><a id="l00011" name="l00011"></a><span class="lineno">   11</span><span class="preprocessor">#ifndef MRPIZ_ERROR_H_</span></div>
+<div class="line"><a id="l00012" name="l00012"></a><span class="lineno">   12</span><span class="preprocessor">#define MRPIZ_ERROR_H_</span></div>
+<div class="line"><a id="l00013" name="l00013"></a><span class="lineno">   13</span> </div>
+<div class="line"><a id="l00033" name="l00033"></a><span class="lineno"><a class="line" href="group__mrpiz__error.html#ga5fc4e62306813602b4654269d5b7a8f4">   33</a></span><span class="keyword">typedef</span> <span class="keyword">enum</span></div>
+<div class="line"><a id="l00034" name="l00034"></a><span class="lineno">   34</span>{</div>
+<div class="line"><a id="l00035" name="l00035"></a><span class="lineno">   35</span>    <span class="comment">// Erreurs spécifiques à Intox :</span></div>
+<div class="line"><a id="l00036" name="l00036"></a><span class="lineno">   36</span> </div>
+<div class="line"><a id="l00037" name="l00037"></a><span class="lineno"><a class="line" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4a1996790489ccd6641e60353f7b50653d">   37</a></span>    <a class="code hl_enumvalue" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4a1996790489ccd6641e60353f7b50653d">MRPIZ_INTOX_E_SYSTEM</a>                = 1,        </div>
+<div class="line"><a id="l00039" name="l00039"></a><span class="lineno"><a class="line" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4a12cdc465ed7e957c97f0e72d6da327e9">   39</a></span>    <a class="code hl_enumvalue" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4a12cdc465ed7e957c97f0e72d6da327e9">MRPIZ_INTOX_E_SOCKET</a>,                       </div>
+<div class="line"><a id="l00040" name="l00040"></a><span class="lineno"><a class="line" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4a12cdcbdb82dd184615306a4dc918ef76">   40</a></span>    <a class="code hl_enumvalue" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4a12cdcbdb82dd184615306a4dc918ef76">MRPIZ_INTOX_E_CONNECT</a>,                      </div>
+<div class="line"><a id="l00041" name="l00041"></a><span class="lineno"><a class="line" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4a021ef9840b816fc1aef5d56b7c5151cf">   41</a></span>    <a class="code hl_enumvalue" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4a021ef9840b816fc1aef5d56b7c5151cf">MRPIZ_INTOX_E_CONNECT_REFUSED</a>,              </div>
+<div class="line"><a id="l00042" name="l00042"></a><span class="lineno"><a class="line" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4a3b6f6ecb75e54625dc53ef5a19aaa88b">   42</a></span>    <a class="code hl_enumvalue" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4a3b6f6ecb75e54625dc53ef5a19aaa88b">MRPIZ_INTOX_E_CONNECT_NET</a>,                  </div>
+<div class="line"><a id="l00043" name="l00043"></a><span class="lineno"><a class="line" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4ab7e831fa964995e549474fb7912b7a5e">   43</a></span>    <a class="code hl_enumvalue" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4ab7e831fa964995e549474fb7912b7a5e">MRPIZ_INTOX_E_CONNECT_HOST</a>,                 </div>
+<div class="line"><a id="l00044" name="l00044"></a><span class="lineno"><a class="line" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4aaf23d281f2d0d252871ca511bc98e139">   44</a></span>    <a class="code hl_enumvalue" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4aaf23d281f2d0d252871ca511bc98e139">MRPIZ_INTOX_E_CONNECT_TIMEOUT</a>,              </div>
+<div class="line"><a id="l00046" name="l00046"></a><span class="lineno"><a class="line" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4ab2af6792c04728136efeac901cd3791a">   46</a></span>    <a class="code hl_enumvalue" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4ab2af6792c04728136efeac901cd3791a">MRPIZ_INTOX_E_ACCESS</a>,                       </div>
+<div class="line"><a id="l00047" name="l00047"></a><span class="lineno"><a class="line" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4a780f2a6f8de339bb4e38f2d354d3f32c">   47</a></span>    <a class="code hl_enumvalue" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4a780f2a6f8de339bb4e38f2d354d3f32c">MRPIZ_INTOX_E_LOST</a>,                         </div>
+<div class="line"><a id="l00048" name="l00048"></a><span class="lineno"><a class="line" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4a822de3b2c4407876d6757ea5e27dc618">   48</a></span>    <a class="code hl_enumvalue" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4a822de3b2c4407876d6757ea5e27dc618">MRPIZ_INTOX_E_CMD</a>,                          </div>
+<div class="line"><a id="l00050" name="l00050"></a><span class="lineno">   50</span>    <span class="comment">// Erreurs MRPiZ :</span></div>
+<div class="line"><a id="l00051" name="l00051"></a><span class="lineno">   51</span> </div>
+<div class="line"><a id="l00052" name="l00052"></a><span class="lineno"><a class="line" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4a5c92d8a8c6bd7c4ea454009e28d61a13">   52</a></span>    <a class="code hl_enumvalue" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4a5c92d8a8c6bd7c4ea454009e28d61a13">MRPIZ_E_INIT</a>,                           </div>
+<div class="line"><a id="l00053" name="l00053"></a><span class="lineno"><a class="line" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4a091b8c2b8c9f3c47a9552b6160a86c18">   53</a></span>    <a class="code hl_enumvalue" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4a091b8c2b8c9f3c47a9552b6160a86c18">MRPIZ_E_MOTOR_CMD</a>,                      </div>
+<div class="line"><a id="l00054" name="l00054"></a><span class="lineno"><a class="line" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4af9faa38519252fd1639116ad3803374e">   54</a></span>    <a class="code hl_enumvalue" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4af9faa38519252fd1639116ad3803374e">MRPIZ_E_MOTOR_ID</a>,                       </div>
+<div class="line"><a id="l00055" name="l00055"></a><span class="lineno"><a class="line" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4a47b7a967c5e722329eb897bcecb3570f">   55</a></span>    <a class="code hl_enumvalue" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4a47b7a967c5e722329eb897bcecb3570f">MRPIZ_E_PROXY_SENSOR_ID</a>,                </div>
+<div class="line"><a id="l00057" name="l00057"></a><span class="lineno"><a class="line" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4ad3ed1146b7b7cbc0e4c99f42051e7d0c">   57</a></span>    <a class="code hl_enumvalue" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4ad3ed1146b7b7cbc0e4c99f42051e7d0c">MRPIZ_E_SYSTEM</a>,                         </div>
+<div class="line"><a id="l00059" name="l00059"></a><span class="lineno">   59</span>    <span class="comment">// Erreurs spécifiques à MRPiZ :</span></div>
+<div class="line"><a id="l00060" name="l00060"></a><span class="lineno"><a class="line" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4a810ed79895e0e9423f4823a675bdb8f3">   60</a></span>    <a class="code hl_enumvalue" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4a810ed79895e0e9423f4823a675bdb8f3">MRPIZ_E_UART</a>,                           </div>
+<div class="line"><a id="l00062" name="l00062"></a><span class="lineno">   62</span>    <span class="comment">//  MRPIZ_E_UNDEFINED                       /**&lt; Fin de la liste d&#39;erreurs. */</span></div>
+<div class="line"><a id="l00063" name="l00063"></a><span class="lineno">   63</span> </div>
+<div class="line"><a id="l00064" name="l00064"></a><span class="lineno">   64</span>} <a class="code hl_enumeration" href="group__mrpiz__error.html#ga5fc4e62306813602b4654269d5b7a8f4">mrpiz_error_t</a>;</div>
+<div class="line"><a id="l00065" name="l00065"></a><span class="lineno">   65</span> </div>
+<div class="line"><a id="l00066" name="l00066"></a><span class="lineno">   66</span> </div>
+<div class="line"><a id="l00074" name="l00074"></a><span class="lineno"><a class="line" href="group__mrpiz__error.html#gafec771521710882af37d18ca4afb6117">   74</a></span><span class="keywordtype">char</span> <span class="keyword">const</span> * <a class="code hl_function" href="group__mrpiz__error.html#gafec771521710882af37d18ca4afb6117">mrpiz_error_msg</a>();</div>
+<div class="line"><a id="l00075" name="l00075"></a><span class="lineno">   75</span> </div>
+<div class="line"><a id="l00084" name="l00084"></a><span class="lineno"><a class="line" href="group__mrpiz__error.html#gacf2525498e7fe36fcf2717ba898a9ea7">   84</a></span><span class="keywordtype">void</span> <a class="code hl_function" href="group__mrpiz__error.html#gacf2525498e7fe36fcf2717ba898a9ea7">mrpiz_error_print</a>(<span class="keywordtype">char</span> * msg);</div>
+<div class="line"><a id="l00085" name="l00085"></a><span class="lineno">   85</span> </div>
+<div class="line"><a id="l00087" name="l00087"></a><span class="lineno">   87</span><span class="comment">// end of mrpiz_error group</span></div>
+<div class="line"><a id="l00088" name="l00088"></a><span class="lineno">   88</span> </div>
+<div class="line"><a id="l00089" name="l00089"></a><span class="lineno">   89</span><span class="preprocessor">#endif </span><span class="comment">/* MRPIZ_ERROR_H_ */</span><span class="preprocessor"></span></div>
+<div class="ttc" id="agroup__mrpiz__error_html_ga5fc4e62306813602b4654269d5b7a8f4"><div class="ttname"><a href="group__mrpiz__error.html#ga5fc4e62306813602b4654269d5b7a8f4">mrpiz_error_t</a></div><div class="ttdeci">mrpiz_error_t</div><div class="ttdoc">Liste des erreurs MRPiZ.</div><div class="ttdef"><b>Definition:</b> error.h:34</div></div>
+<div class="ttc" id="agroup__mrpiz__error_html_gacf2525498e7fe36fcf2717ba898a9ea7"><div class="ttname"><a href="group__mrpiz__error.html#gacf2525498e7fe36fcf2717ba898a9ea7">mrpiz_error_print</a></div><div class="ttdeci">void mrpiz_error_print(char *msg)</div><div class="ttdoc">Affiche le message d'erreur (associé à la valeur errno de la lib mrpiz).</div></div>
+<div class="ttc" id="agroup__mrpiz__error_html_gafec771521710882af37d18ca4afb6117"><div class="ttname"><a href="group__mrpiz__error.html#gafec771521710882af37d18ca4afb6117">mrpiz_error_msg</a></div><div class="ttdeci">char const * mrpiz_error_msg()</div><div class="ttdoc">Donne le message d'erreur (associé à la valeur de errno de la lib mrpiz).</div></div>
+<div class="ttc" id="agroup__mrpiz__error_html_gga5fc4e62306813602b4654269d5b7a8f4a021ef9840b816fc1aef5d56b7c5151cf"><div class="ttname"><a href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4a021ef9840b816fc1aef5d56b7c5151cf">MRPIZ_INTOX_E_CONNECT_REFUSED</a></div><div class="ttdeci">@ MRPIZ_INTOX_E_CONNECT_REFUSED</div><div class="ttdef"><b>Definition:</b> error.h:41</div></div>
+<div class="ttc" id="agroup__mrpiz__error_html_gga5fc4e62306813602b4654269d5b7a8f4a091b8c2b8c9f3c47a9552b6160a86c18"><div class="ttname"><a href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4a091b8c2b8c9f3c47a9552b6160a86c18">MRPIZ_E_MOTOR_CMD</a></div><div class="ttdeci">@ MRPIZ_E_MOTOR_CMD</div><div class="ttdef"><b>Definition:</b> error.h:53</div></div>
+<div class="ttc" id="agroup__mrpiz__error_html_gga5fc4e62306813602b4654269d5b7a8f4a12cdc465ed7e957c97f0e72d6da327e9"><div class="ttname"><a href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4a12cdc465ed7e957c97f0e72d6da327e9">MRPIZ_INTOX_E_SOCKET</a></div><div class="ttdeci">@ MRPIZ_INTOX_E_SOCKET</div><div class="ttdef"><b>Definition:</b> error.h:39</div></div>
+<div class="ttc" id="agroup__mrpiz__error_html_gga5fc4e62306813602b4654269d5b7a8f4a12cdcbdb82dd184615306a4dc918ef76"><div class="ttname"><a href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4a12cdcbdb82dd184615306a4dc918ef76">MRPIZ_INTOX_E_CONNECT</a></div><div class="ttdeci">@ MRPIZ_INTOX_E_CONNECT</div><div class="ttdef"><b>Definition:</b> error.h:40</div></div>
+<div class="ttc" id="agroup__mrpiz__error_html_gga5fc4e62306813602b4654269d5b7a8f4a1996790489ccd6641e60353f7b50653d"><div class="ttname"><a href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4a1996790489ccd6641e60353f7b50653d">MRPIZ_INTOX_E_SYSTEM</a></div><div class="ttdeci">@ MRPIZ_INTOX_E_SYSTEM</div><div class="ttdef"><b>Definition:</b> error.h:37</div></div>
+<div class="ttc" id="agroup__mrpiz__error_html_gga5fc4e62306813602b4654269d5b7a8f4a3b6f6ecb75e54625dc53ef5a19aaa88b"><div class="ttname"><a href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4a3b6f6ecb75e54625dc53ef5a19aaa88b">MRPIZ_INTOX_E_CONNECT_NET</a></div><div class="ttdeci">@ MRPIZ_INTOX_E_CONNECT_NET</div><div class="ttdef"><b>Definition:</b> error.h:42</div></div>
+<div class="ttc" id="agroup__mrpiz__error_html_gga5fc4e62306813602b4654269d5b7a8f4a47b7a967c5e722329eb897bcecb3570f"><div class="ttname"><a href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4a47b7a967c5e722329eb897bcecb3570f">MRPIZ_E_PROXY_SENSOR_ID</a></div><div class="ttdeci">@ MRPIZ_E_PROXY_SENSOR_ID</div><div class="ttdef"><b>Definition:</b> error.h:55</div></div>
+<div class="ttc" id="agroup__mrpiz__error_html_gga5fc4e62306813602b4654269d5b7a8f4a5c92d8a8c6bd7c4ea454009e28d61a13"><div class="ttname"><a href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4a5c92d8a8c6bd7c4ea454009e28d61a13">MRPIZ_E_INIT</a></div><div class="ttdeci">@ MRPIZ_E_INIT</div><div class="ttdef"><b>Definition:</b> error.h:52</div></div>
+<div class="ttc" id="agroup__mrpiz__error_html_gga5fc4e62306813602b4654269d5b7a8f4a780f2a6f8de339bb4e38f2d354d3f32c"><div class="ttname"><a href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4a780f2a6f8de339bb4e38f2d354d3f32c">MRPIZ_INTOX_E_LOST</a></div><div class="ttdeci">@ MRPIZ_INTOX_E_LOST</div><div class="ttdef"><b>Definition:</b> error.h:47</div></div>
+<div class="ttc" id="agroup__mrpiz__error_html_gga5fc4e62306813602b4654269d5b7a8f4a810ed79895e0e9423f4823a675bdb8f3"><div class="ttname"><a href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4a810ed79895e0e9423f4823a675bdb8f3">MRPIZ_E_UART</a></div><div class="ttdeci">@ MRPIZ_E_UART</div><div class="ttdef"><b>Definition:</b> error.h:60</div></div>
+<div class="ttc" id="agroup__mrpiz__error_html_gga5fc4e62306813602b4654269d5b7a8f4a822de3b2c4407876d6757ea5e27dc618"><div class="ttname"><a href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4a822de3b2c4407876d6757ea5e27dc618">MRPIZ_INTOX_E_CMD</a></div><div class="ttdeci">@ MRPIZ_INTOX_E_CMD</div><div class="ttdef"><b>Definition:</b> error.h:48</div></div>
+<div class="ttc" id="agroup__mrpiz__error_html_gga5fc4e62306813602b4654269d5b7a8f4aaf23d281f2d0d252871ca511bc98e139"><div class="ttname"><a href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4aaf23d281f2d0d252871ca511bc98e139">MRPIZ_INTOX_E_CONNECT_TIMEOUT</a></div><div class="ttdeci">@ MRPIZ_INTOX_E_CONNECT_TIMEOUT</div><div class="ttdef"><b>Definition:</b> error.h:44</div></div>
+<div class="ttc" id="agroup__mrpiz__error_html_gga5fc4e62306813602b4654269d5b7a8f4ab2af6792c04728136efeac901cd3791a"><div class="ttname"><a href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4ab2af6792c04728136efeac901cd3791a">MRPIZ_INTOX_E_ACCESS</a></div><div class="ttdeci">@ MRPIZ_INTOX_E_ACCESS</div><div class="ttdef"><b>Definition:</b> error.h:46</div></div>
+<div class="ttc" id="agroup__mrpiz__error_html_gga5fc4e62306813602b4654269d5b7a8f4ab7e831fa964995e549474fb7912b7a5e"><div class="ttname"><a href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4ab7e831fa964995e549474fb7912b7a5e">MRPIZ_INTOX_E_CONNECT_HOST</a></div><div class="ttdeci">@ MRPIZ_INTOX_E_CONNECT_HOST</div><div class="ttdef"><b>Definition:</b> error.h:43</div></div>
+<div class="ttc" id="agroup__mrpiz__error_html_gga5fc4e62306813602b4654269d5b7a8f4ad3ed1146b7b7cbc0e4c99f42051e7d0c"><div class="ttname"><a href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4ad3ed1146b7b7cbc0e4c99f42051e7d0c">MRPIZ_E_SYSTEM</a></div><div class="ttdeci">@ MRPIZ_E_SYSTEM</div><div class="ttdef"><b>Definition:</b> error.h:57</div></div>
+<div class="ttc" id="agroup__mrpiz__error_html_gga5fc4e62306813602b4654269d5b7a8f4af9faa38519252fd1639116ad3803374e"><div class="ttname"><a href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4af9faa38519252fd1639116ad3803374e">MRPIZ_E_MOTOR_ID</a></div><div class="ttdeci">@ MRPIZ_E_MOTOR_ID</div><div class="ttdef"><b>Definition:</b> error.h:54</div></div>
+</div><!-- fragment --></div><!-- contents -->
+<!-- start footer part -->
+<hr class="footer"/><address class="footer"><small>
+Généré par&#160;<a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.9.4
+</small></address>
+</body>
+</html>

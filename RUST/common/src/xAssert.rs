@@ -10,7 +10,8 @@
 
 use std::process;
 
-pub enum AssertMode {
+pub enum AssertMode 
+{
     Continue,
     Exit,
     Loop,

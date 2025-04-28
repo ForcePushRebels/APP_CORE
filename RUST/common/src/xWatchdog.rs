@@ -9,7 +9,7 @@
 
 
 use std::sync::atomic::AtomicBool;
-use crate::xOs::threads::Thread;
+use crate::xOs::xThreads::Thread;
 
 /// Configuration du watchdog
 pub struct WatchdogConfig 

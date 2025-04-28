@@ -7,7 +7,7 @@
 // Written: 12/01/2025
 ////////////////////////////////////////////////////////////
 
-pub mod threads;
+pub mod xThreads;
 pub mod mutex;
 
 /// État du système
@@ -45,5 +45,5 @@ pub fn free(ptr: *mut u8) -> Result<(), &'static str>
 /// Met le système en sommeil pour une durée spécifiée
 pub fn sleep_ms(milliseconds: u32) 
 {
-    unimplemented!()
+    std::thread::sleep(std::time::Duration::from_millis(milliseconds as u64));
 } 

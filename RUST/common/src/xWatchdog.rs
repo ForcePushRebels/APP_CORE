@@ -7,10 +7,16 @@
 // Written: 12/01/2025
 ////////////////////////////////////////////////////////////
 
+
+use std::sync::atomic::AtomicBool;
+use crate::xOs::threads::Thread;
+
 /// Configuration du watchdog
-pub struct WatchdogConfig {
+pub struct WatchdogConfig 
+{
     pub timeout_ms: u32,
     pub enable_reset: bool,
+    pub threads: Thread
 }
 
 /// Initialise le watchdog avec la configuration spécifiée

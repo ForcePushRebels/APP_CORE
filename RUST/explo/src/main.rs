@@ -8,52 +8,42 @@
 ////////////////////////////////////////////////////////////
 
 use common::hardwareAbstraction::init_robot;
-use common::xLog;
+use common::xAssert::xAssert;
+use common::xLog::{
+    initialize, write_log, LogConfig, XOS_LOG_ERROR, XOS_LOG_MUTEX_ERROR, XOS_LOG_OK,
+};
 
 fn main() {
-    xLog::log_info("main", "Démarrage du robot");
-    
+    write_log("Démarrage du robot");
+
     // Initialisation du système de journalisation
-    let log_config = xLog::LogConfig {
-        min_level: xLog::LogLevel::Debug,
-        include_timestamp: true,
-        include_source_info: true,
-    };
-    
-    match xLog::init(log_config) {
-        Ok(_) => {},
-        Err(e) => {
-            eprintln!("Erreur d'initialisation du système de journalisation: {}", e);
-            std::process::exit(1);
-        }
-    }
-    
-    // Configuration des assertions
-    common::xAssert::configure(true, true);
-    
+    let log_config = LogConfig::new("explo.log");
+
+    let mut log_initialized: u8 = 0;
+    log_initialized = initialize(log_config);
+
+    // Vérifier si l'initialisation a réussi
+    xAssert(log_initialized == XOS_LOG_OK);
+
     // Initialisation du robot
     if let Err(e) = init_robot() {
-        xLog::log_error("main", &format!("Erreur d'initialisation du robot: {}", e));
+        write_log(&format!("Erreur d'initialisation du robot: {}", e));
         return;
     }
-    
+
     // Exemple : avancer
     if let Err(e) = common::hardwareAbstraction::move_forward(50) {
-        xLog::log_error("main", &format!("Erreur lors de l'avance: {}", e));
+        write_log(&format!("Erreur lors de l'avance: {}", e));
     }
-    
+
     // Attendre quelques secondes
     common::xOs::sleep_ms(3000);
-    
+
     // Arrêter le robot
     if let Err(e) = common::hardwareAbstraction::stop() {
-        xLog::log_error("main", &format!("Erreur lors de l'arrêt: {}", e));
+        write_log(&format!("Erreur lors de l'arrêt: {}", e));
     }
-    
+
     // Afficher la date et l'heure
-    let date_heure = common::xOs::horodateur::get_date_heure();
-    let date_formatee = common::xOs::horodateur::formater_date_heure(date_heure);
-    xLog::log_info("main", &format!("Date et heure actuelles: {}", date_formatee));
-    
-    xLog::log_info("main", "Fin du programme");
-} 
+    write_log("Fin du programme");
+}

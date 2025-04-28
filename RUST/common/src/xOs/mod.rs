@@ -7,7 +7,7 @@
 // Written: 12/01/2025
 ////////////////////////////////////////////////////////////
 
-pub mod horodateur;
+pub mod threads;
 pub mod mutex;
 
 /// État du système

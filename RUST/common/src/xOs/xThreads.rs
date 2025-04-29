@@ -8,36 +8,28 @@
 ////////////////////////////////////////////////////////////
 
 use std::thread;
-use std::time::Duration;
-use std::sync::atomic::AtomicBool;
-use std::sync::atomic::AtomicU32;
 
 use crate::xAssert::xAssert;
-use crate::xLog::write_log;
+use crate::xLog::{self, write_log};
 
-
-pub enum ThreadState 
-{
+pub enum ThreadState {
     Created,
     Running,
     Suspended,
     Terminated,
 }
 
-pub struct ThreadConfig 
-{
-    name: String,
-    priority: u32,
-    stack_size: usize,
-    entry_point: Box<dyn FnOnce() + Send + 'static>,
-}   
-pub struct Thread 
-{
-    handle: Option<thread::JoinHandle<()>>,
-    config: ThreadConfig,
-    state: ThreadState,
+pub struct ThreadConfig {
+    pub name: String,
+    pub priority: u32,
+    pub stack_size: usize,
+    pub entry_point: Box<dyn FnOnce() + Send + 'static>,
 }
-
+pub struct Thread {
+    pub config: ThreadConfig,
+    pub state: ThreadState,
+    handle: Option<thread::JoinHandle<()>>,
+}
 
 impl ThreadConfig {
     pub fn new<F>(name: String, priority: u32, stack_size: usize, entry_point: F) -> Self
@@ -47,8 +39,7 @@ impl ThreadConfig {
         xAssert(!name.is_empty());
         xAssert(priority > 0 && priority <= 10);
         xAssert(stack_size > 0);
-        Self 
-        {
+        Self {
             name,
             priority,
             stack_size,
@@ -57,36 +48,32 @@ impl ThreadConfig {
     }
 }
 
-impl Thread
-{
-    pub fn new(config: ThreadConfig) -> Self 
-    {
+impl Thread {
+    pub fn new(config: ThreadConfig) -> Self {
         xAssert(!config.name.is_empty());
         xAssert(config.priority > 0 && config.priority <= 10);
         xAssert(config.stack_size > 0);
-        Self 
-        {
+        Self {
             handle: None,
             config,
             state: ThreadState::Suspended,
         }
     }
 
-    pub fn start(&mut self) -> Result<(), &'static str> 
-    {
+    pub fn start(&mut self) -> Result<(), &'static str> {
         let entry_point = std::mem::replace(&mut self.config.entry_point, Box::new(|| {}));
         let handle = thread::spawn(entry_point);
         self.handle = Some(handle);
         self.state = ThreadState::Running;
+        xLog::write_log(&format!("Thread {} started", self.config.name));
         Ok(())
     }
 
-    pub fn join(self) -> Result<(), &'static str> 
-    {
+    pub fn join(self) -> Result<(), &'static str> {
         if let Some(handle) = self.handle {
             handle.join().unwrap();
+            xLog::write_log(&format!("Thread {} joined", self.config.name));
         }
         Ok(())
     }
-  
 }

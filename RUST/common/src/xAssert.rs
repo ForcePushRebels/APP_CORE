@@ -37,9 +37,11 @@ pub fn set_assert_mode(mode: AssertMode) {
 }
 
 // Fonction publique simplifiée pour les assertions
+#[track_caller]
 pub fn xAssert(condition: bool) -> bool {
     if !condition {
-        _assert_impl(file!(), line!(), None);
+        let loc = std::panic::Location::caller();
+        _assert_impl(loc.file(), loc.line() as u32, None);
     }
     condition
 }
@@ -55,13 +57,15 @@ macro_rules! X_ASSERT {
 
     ($condition:expr, $message:expr) => {
         if !($condition) {
-            $crate::xAssert::_assert_impl(file!(), line!(), Some($message));
+            let loc = std::panic::Location::caller();
+            $crate::xAssert::_assert_impl(loc.file(), loc.line(), Some($message));
         }
     };
 }
 
 // Simplified assertion logging function
-fn x_log_assert(message: &str) {
+fn x_log_assert(message: &str) 
+{
     eprintln!("ASSERT | {}", message);
     xLog::write_log(&format!("ASSERT | {}", message));
 }

@@ -80,7 +80,7 @@ int main()
 
     // initiatlisation des logs
     l_iReturn = xLogInit(&t_LogConfig);
-    X_ASSERT(l_iReturn == 0);
+    X_ASSERT(l_iReturn == XOS_LOG_OK);
 
     // init hardware abstraction
     l_iReturn = hardwareAbstractionInit();

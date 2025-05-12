@@ -16,12 +16,25 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdatomic.h>
+#include <ulimit.h>
 #include "xAssert.h"  
 
 
 // Return codes
-#define OS_TASK_SUCCESS         0x2F41A50
-#define OS_TASK_ERROR           0x2F41A51
+#define OS_TASK_SUCCESS                 0x2F41A50
+
+#define OS_TASK_ERROR_NULL_POINTER      0x2F41A52
+#define OS_TASK_ERROR_INVALID_PARAM     0x2F41A53
+#define OS_TASK_ERROR_INIT_FAILED       0x2F41A54
+#define OS_TASK_ERROR_CREATE_FAILED     0x2F41A55
+#define OS_TASK_ERROR_ALREADY_RUNNING   0x2F41A56
+#define OS_TASK_ERROR_NOT_RUNNING       0x2F41A57
+#define OS_TASK_ERROR_TERMINATE_FAILED  0x2F41A58
+#define OS_TASK_ERROR_JOIN_FAILED       0x2F41A59
+#define OS_TASK_ERROR_TIMEOUT           0x2F41A5A
+#define OS_TASK_ERROR_PRIORITY          0x2F41A5B
+#define OS_TASK_ERROR_STACK_SIZE        0x2F41A5C
+#define OS_TASK_ERROR_POLICY            0x2F41A5D
 
 // Task states
 #define OS_TASK_STATUS_READY       0UL
@@ -35,11 +48,12 @@
 #define OS_TASK_EXIT_FAILURE 0x2F41A61
 
 // Task stop codes
-#define OS_TASK_STOP_REQUEST  0x2F41A00    // Stop request
-#define OS_TASK_SECURE_FLAG   0x2F41A01    // Security flag for stopping
+#define OS_TASK_STOP_REQUEST  0x2F41A00     // Stop request
+#define OS_TASK_SECURE_FLAG   0x2F41A01     // Security flag for stopping
 #define OS_TASK_STOP_TIMEOUT  5UL           // Timeout in seconds for graceful shutdown
 
-typedef enum {
+typedef enum 
+{
     OS_SCHED_NORMAL = 0,  // SCHED_OTHER - Standard scheduling
     OS_SCHED_FIFO,        // SCHED_FIFO - Real-time FIFO
     OS_SCHED_RR,          // SCHED_RR - Real-time Round Robin
@@ -62,12 +76,13 @@ typedef enum {
 #endif
 
 // Default stack size: 8 MB
-#define OS_TASK_DEFAULT_STACK_SIZE (8 * 1024 * 1024)
+#define OS_TASK_DEFAULT_STACK_SIZE PTHREAD_STACK_MIN
 
 //////////////////////////////////
 // Task management structure
 //////////////////////////////////
-typedef struct {
+typedef struct xos_task_ctx_t
+{
     void* (*t_ptTask)(void*);           // Pointer to the task function
     void* t_ptTaskArg;                  // Task arguments
     int t_iPriority;                    // Task priority (for RT, defined via SCHED_RR; for normal, this value is fixed)
@@ -81,64 +96,71 @@ typedef struct {
     struct sched_param t_sched_param;   // Scheduling parameters
     t_SchedPolicy t_policy;             // Scheduling policy
 #endif
-} t_TaskCtx;
+} xOsTaskCtx;
 
 //////////////////////////////////
 /// @brief Initialise a task context with default values
 /// @param p_pttOSTask : pointer to the task structure context
-/// @return OS_TASK_SUCCESS if success, OS_TASK_ERROR otherwise
+/// @return OS_TASK_SUCCESS if success, error code otherwise
 //////////////////////////////////
-int osTaskInit(t_TaskCtx* p_pttOSTask);
+int osTaskInit(xOsTaskCtx* p_pttOSTask);
 
 //////////////////////////////////
 /// @brief Create a task
 /// @param p_pttOSTask : pointer to the task structure context
-/// @return OS_TASK_SUCCESS if success, OS_TASK_ERROR otherwise
+/// @return OS_TASK_SUCCESS if success, error code otherwise
 /// 
 /// @note create a task with the given parameters
 /// @note the task is created with the default stack size
 /// @pre configuration of the context structure
 //////////////////////////////////
-int osTaskCreate(t_TaskCtx* p_pttOSTask);
+int osTaskCreate(xOsTaskCtx* p_pttOSTask);
 
 //////////////////////////////////
 /// @brief End a task (unsafe method)
 /// @param p_pttOSTask : pointer to the task structure context
-/// @return OS_TASK_SUCCESS if success, OS_TASK_ERROR otherwise
+/// @return OS_TASK_SUCCESS if success, error code otherwise
 /// @deprecated Use osTaskStop() instead
 //////////////////////////////////
-int osTaskEnd(t_TaskCtx* p_pttOSTask);
+int osTaskEnd(xOsTaskCtx* p_pttOSTask);
 
 //////////////////////////////////
 /// @brief Safely stop a task
 /// @param p_pttOSTask : pointer to the task structure context
 /// @param timeout_seconds : timeout in seconds to wait for graceful termination (0 = no timeout)
-/// @return OS_TASK_SUCCESS if success, OS_TASK_ERROR otherwise
+/// @return OS_TASK_SUCCESS if success, error code otherwise
 /// 
 /// @note The task should periodically check the a_iStopFlag in its execution loop
 //////////////////////////////////
-int osTaskStop(t_TaskCtx* p_pttOSTask, int timeout_seconds);
+int osTaskStop(xOsTaskCtx* p_pttOSTask, int timeout_seconds);
 
 //////////////////////////////////
 /// @brief Get the task t_iState
 /// @param p_pttOSTask : pointer to the task structure context
-/// @return Task t_iState or OS_TASK_ERROR if error
+/// @return Task t_iState or error code
 //////////////////////////////////
-int osTaskGetStatus(t_TaskCtx* p_pttOSTask);
+int osTaskGetStatus(xOsTaskCtx* p_pttOSTask);
 
 //////////////////////////////////
 /// @brief Wait for a task to complete
 /// @param p_pttOSTask : pointer to the task structure context
 /// @param p_pvExitValue : pointer to store the exit value (can be NULL)
-/// @return OS_TASK_SUCCESS if success, OS_TASK_ERROR otherwise
+/// @return OS_TASK_SUCCESS if success, error code otherwise
 //////////////////////////////////
-int osTaskWait(t_TaskCtx* p_pttOSTask, void** p_pvExitValue);
+int osTaskWait(xOsTaskCtx* p_pttOSTask, void** p_pvExitValue);
 
 //////////////////////////////////
 /// @brief Get task exit code
 /// @param p_pttOSTask : pointer to the task structure context
-/// @return OS_TASK_SUCCESS if success, OS_TASK_ERROR otherwise
+/// @return OS_TASK_SUCCESS if success, error code otherwise
 //////////////////////////////////
-int osTaskGetExitCode(t_TaskCtx* p_pttOSTask);      //this function will be deleted don't use it 
+int osTaskGetExitCode(xOsTaskCtx* p_pttOSTask);      //this function will be deleted don't use it 
+
+    //////////////////////////////////
+    /// @brief Convertir un code d'erreur en message texte
+/// @param p_iErrorCode : code d'erreur à convertir
+/// @return Chaîne de caractères décrivant l'erreur
+//////////////////////////////////
+const char* osTaskGetErrorString(int p_iErrorCode);
 
 #endif // OS_TASK_H_

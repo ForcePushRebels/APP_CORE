@@ -76,9 +76,10 @@ int osTaskCreate(xOsTaskCtx* p_pttOSTask)
         pthread_attr_destroy(&l_tAttr);
         return OS_TASK_ERROR_INIT_FAILED;
     }
-    int value = pthread_attr_setstacksize(&l_tAttr, p_pttOSTask->t_ulStackSize);
+
     if (pthread_attr_setstacksize(&l_tAttr, p_pttOSTask->t_ulStackSize) != 0) 
     {
+        X_LOG_TRACE("pthread_attr_setstacksize failed with error: %s", strerror(errno));
         pthread_attr_destroy(&l_tAttr);
         return OS_TASK_ERROR_STACK_SIZE;
     }

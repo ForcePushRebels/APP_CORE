@@ -102,7 +102,8 @@ int xLogInit(t_logCtx *p_ptConfig)
 ////////////////////////////////////////////////////////////
 int xLogWrite(const char *p_ptkcFile, uint32_t p_ulLine, const char *p_ptkcFormat, ...)
 {
-    if (p_ptkcFile == NULL || p_ptkcFormat == NULL)
+    // Vérification des pointeurs
+    if (p_ptkcFormat == NULL)
     {
         return XOS_LOG_INVALID;
     }
@@ -113,41 +114,50 @@ int xLogWrite(const char *p_ptkcFile, uint32_t p_ulLine, const char *p_ptkcForma
         return XOS_LOG_NOT_INIT;
     }
 
-    char l_cTimestamp[32] = {0};
+    // Initialiser les buffers avec des valeurs sûres
+    char l_cTimestamp[32] = "UnknownTime";
+    char l_cUserMsg[XOS_LOG_MSG_SIZE] = {0};
+    char l_cFullMsg[XOS_LOG_MSG_SIZE + 128] = {0};
+    const char *l_pcFileName = "UnknownFile";
+    
+    // Récupération sécurisée de l'horodatage
     const char *l_pcTimestamp = xHorodateurGetString();
-
     if (l_pcTimestamp != NULL)
     {
         strncpy(l_cTimestamp, l_pcTimestamp, sizeof(l_cTimestamp) - 1);
         l_cTimestamp[sizeof(l_cTimestamp) - 1] = '\0';
     }
 
-    const char *l_pcFileName = p_ptkcFile;
-    const char *l_pcLastSlash = strrchr(p_ptkcFile, '/');
-    if (l_pcLastSlash != NULL)
+    // Extraction sécurisée du nom de fichier
+    if (p_ptkcFile != NULL)
     {
-        l_pcFileName = l_pcLastSlash + 1;
-    }
-    else
-    {
-        l_pcLastSlash = strrchr(p_ptkcFile, '\\');
+        l_pcFileName = p_ptkcFile;
+        const char *l_pcLastSlash = strrchr(p_ptkcFile, '/');
         if (l_pcLastSlash != NULL)
         {
             l_pcFileName = l_pcLastSlash + 1;
         }
+        else
+        {
+            l_pcLastSlash = strrchr(p_ptkcFile, '\\');
+            if (l_pcLastSlash != NULL)
+            {
+                l_pcFileName = l_pcLastSlash + 1;
+            }
+        }
     }
 
     // Format user message with va_args (outside mutex)
-    char l_cUserMsg[XOS_LOG_MSG_SIZE] = {0};
     va_list args;
     va_start(args, p_ptkcFormat);
     vsnprintf(l_cUserMsg, sizeof(l_cUserMsg) - 1, p_ptkcFormat, args);
+    l_cUserMsg[sizeof(l_cUserMsg) - 1] = '\0'; // Garantie de terminaison
     va_end(args);
 
     // Format complete log message
-    char l_cFullMsg[XOS_LOG_MSG_SIZE + 128] = {0};
     snprintf(l_cFullMsg, sizeof(l_cFullMsg) - 1, "%s | %s:%u | %s\n",
              l_cTimestamp, l_pcFileName, p_ulLine, l_cUserMsg);
+    l_cFullMsg[sizeof(l_cFullMsg) - 1] = '\0'; // Garantie de terminaison
 
     // Now lock mutex only for the actual I/O operations
     int l_iRet = mutexLock(&s_tLogMutex);

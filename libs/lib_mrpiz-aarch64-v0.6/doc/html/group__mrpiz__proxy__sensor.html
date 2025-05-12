@@ -1,0 +1,139 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "https://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/xhtml;charset=UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=11"/>
+<meta name="generator" content="Doxygen 1.9.4"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>MRPiZ lib: Manipulation des capteurs de proximité du robot.</title>
+<link href="tabs.css" rel="stylesheet" type="text/css"/>
+<script type="text/javascript" src="jquery.js"></script>
+<script type="text/javascript" src="dynsections.js"></script>
+<link href="doxygen.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+<div id="top"><!-- do not remove this div, it is closed by doxygen! -->
+<div id="titlearea">
+<table cellspacing="0" cellpadding="0">
+ <tbody>
+ <tr id="projectrow">
+  <td id="projectalign">
+   <div id="projectname">MRPiZ lib<span id="projectnumber">&#160;0.1</span>
+   </div>
+   <div id="projectbrief">API de programmation pour un robot MRPiZ</div>
+  </td>
+ </tr>
+ </tbody>
+</table>
+</div>
+<!-- end header part -->
+<!-- Généré par Doxygen 1.9.4 -->
+<script type="text/javascript" src="menudata.js"></script>
+<script type="text/javascript" src="menu.js"></script>
+<script type="text/javascript">
+/* @license magnet:?xt=urn:btih:d3d9a9a6595521f9666a5e94cc830dab83b65699&amp;dn=expat.txt MIT */
+$(function() {
+  initMenu('',false,false,'search.php','Recherche');
+});
+/* @license-end */
+</script>
+<div id="main-nav"></div>
+</div><!-- top -->
+<div class="header">
+  <div class="summary">
+<a href="#enum-members">Énumérations</a> &#124;
+<a href="#func-members">Fonctions</a>  </div>
+  <div class="headertitle"><div class="title">Manipulation des capteurs de proximité du robot.<div class="ingroups"><a class="el" href="group__mrpiz.html">API de programmation d'un robot MRPiZ.</a></div></div></div>
+</div><!--header-->
+<div class="contents">
+
+<p>Fonctions et macros utiles pour piloter les capteurs de proximité du MRPiZ.  
+<a href="#details">Plus de détails...</a></p>
+<table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="enum-members" name="enum-members"></a>
+Énumérations</h2></td></tr>
+<tr class="memitem:gafcf5d9c081489851d0d49870a37330fd"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__mrpiz__proxy__sensor.html#gafcf5d9c081489851d0d49870a37330fd">mrpiz_proxy_sensor_id</a> { <br />
+&#160;&#160;<a class="el" href="group__mrpiz__proxy__sensor.html#ggafcf5d9c081489851d0d49870a37330fda088af9a2a76396dd19d7a89bd11291a0">MRPIZ_PROXY_SENSOR_FRONT_LEFT</a> = 1
+, <a class="el" href="group__mrpiz__proxy__sensor.html#ggafcf5d9c081489851d0d49870a37330fdae100ec2ead55e4c7b1e5d80ed32a52a2">MRPIZ_PROXY_SENSOR_FRONT_CENTER_LEFT</a> = 2
+, <a class="el" href="group__mrpiz__proxy__sensor.html#ggafcf5d9c081489851d0d49870a37330fdadf0d7334db21ab66d3611249c6e18151">MRPIZ_PROXY_SENSOR_FRONT_CENTER</a> = 3
+, <a class="el" href="group__mrpiz__proxy__sensor.html#ggafcf5d9c081489851d0d49870a37330fdae36396e6c9d43db0d02da9e152e6a263">MRPIZ_PROXY_SENSOR_FRONT_CENTER_RIGHT</a> = 4
+, <br />
+&#160;&#160;<a class="el" href="group__mrpiz__proxy__sensor.html#ggafcf5d9c081489851d0d49870a37330fdabd48efe55cc47247ca236ea34f553dd9">MRPIZ_PROXY_SENSOR_FRONT_RIGHT</a> = 5
+<br />
+ }</td></tr>
+<tr class="memdesc:gafcf5d9c081489851d0d49870a37330fd"><td class="mdescLeft">&#160;</td><td class="mdescRight">Identifiants des capteurs de proximité.  <a href="group__mrpiz__proxy__sensor.html#gafcf5d9c081489851d0d49870a37330fd">Plus de détails...</a><br /></td></tr>
+<tr class="separator:gafcf5d9c081489851d0d49870a37330fd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="func-members" name="func-members"></a>
+Fonctions</h2></td></tr>
+<tr class="memitem:ga017ad821ce36f7092ffe1c4d634370e7"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__mrpiz__proxy__sensor.html#ga017ad821ce36f7092ffe1c4d634370e7">mrpiz_proxy_sensor_get</a> (<a class="el" href="group__mrpiz__proxy__sensor.html#gafcf5d9c081489851d0d49870a37330fd">mrpiz_proxy_sensor_id</a> id)</td></tr>
+<tr class="memdesc:ga017ad821ce36f7092ffe1c4d634370e7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Donne la valeur d'un capteur de proximité.  <a href="group__mrpiz__proxy__sensor.html#ga017ad821ce36f7092ffe1c4d634370e7">Plus de détails...</a><br /></td></tr>
+<tr class="separator:ga017ad821ce36f7092ffe1c4d634370e7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table>
+<a name="details" id="details"></a><h2 class="groupheader">Description détaillée</h2>
+<p >Fonctions et macros utiles pour piloter les capteurs de proximité du MRPiZ. </p>
+<h2 class="groupheader">Documentation du type de l'énumération</h2>
+<a id="gafcf5d9c081489851d0d49870a37330fd" name="gafcf5d9c081489851d0d49870a37330fd"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#gafcf5d9c081489851d0d49870a37330fd">&#9670;&nbsp;</a></span>mrpiz_proxy_sensor_id</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">enum <a class="el" href="group__mrpiz__proxy__sensor.html#gafcf5d9c081489851d0d49870a37330fd">mrpiz_proxy_sensor_id</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Identifiants des capteurs de proximité. </p>
+<table class="fieldtable">
+<tr><th colspan="2">Valeurs énumérées</th></tr><tr><td class="fieldname"><a id="ggafcf5d9c081489851d0d49870a37330fda088af9a2a76396dd19d7a89bd11291a0" name="ggafcf5d9c081489851d0d49870a37330fda088af9a2a76396dd19d7a89bd11291a0"></a>MRPIZ_PROXY_SENSOR_FRONT_LEFT&#160;</td><td class="fielddoc"><p >capteur de proximité avant gauche </p>
+</td></tr>
+<tr><td class="fieldname"><a id="ggafcf5d9c081489851d0d49870a37330fdae100ec2ead55e4c7b1e5d80ed32a52a2" name="ggafcf5d9c081489851d0d49870a37330fdae100ec2ead55e4c7b1e5d80ed32a52a2"></a>MRPIZ_PROXY_SENSOR_FRONT_CENTER_LEFT&#160;</td><td class="fielddoc"><p >capteur de proximité avant centre gauche </p>
+</td></tr>
+<tr><td class="fieldname"><a id="ggafcf5d9c081489851d0d49870a37330fdadf0d7334db21ab66d3611249c6e18151" name="ggafcf5d9c081489851d0d49870a37330fdadf0d7334db21ab66d3611249c6e18151"></a>MRPIZ_PROXY_SENSOR_FRONT_CENTER&#160;</td><td class="fielddoc"><p >capteur de proximité avant centre </p>
+</td></tr>
+<tr><td class="fieldname"><a id="ggafcf5d9c081489851d0d49870a37330fdae36396e6c9d43db0d02da9e152e6a263" name="ggafcf5d9c081489851d0d49870a37330fdae36396e6c9d43db0d02da9e152e6a263"></a>MRPIZ_PROXY_SENSOR_FRONT_CENTER_RIGHT&#160;</td><td class="fielddoc"><p >capteur de proximité avant centre droit </p>
+</td></tr>
+<tr><td class="fieldname"><a id="ggafcf5d9c081489851d0d49870a37330fdabd48efe55cc47247ca236ea34f553dd9" name="ggafcf5d9c081489851d0d49870a37330fdabd48efe55cc47247ca236ea34f553dd9"></a>MRPIZ_PROXY_SENSOR_FRONT_RIGHT&#160;</td><td class="fielddoc"><p >capteur de proximité avant droit </p>
+</td></tr>
+</table>
+
+</div>
+</div>
+<h2 class="groupheader">Documentation des fonctions</h2>
+<a id="ga017ad821ce36f7092ffe1c4d634370e7" name="ga017ad821ce36f7092ffe1c4d634370e7"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ga017ad821ce36f7092ffe1c4d634370e7">&#9670;&nbsp;</a></span>mrpiz_proxy_sensor_get()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int mrpiz_proxy_sensor_get </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="group__mrpiz__proxy__sensor.html#gafcf5d9c081489851d0d49870a37330fd">mrpiz_proxy_sensor_id</a>&#160;</td>
+          <td class="paramname"><em>id</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Donne la valeur d'un capteur de proximité. </p>
+<p >La valeur d'un capteur de proximité se situe dans l'interval [0, 255].</p>
+<dl class="params"><dt>Paramètres</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">id</td><td>l'identifiant du capteur de proximité concerné</td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Renvoie</dt><dd>la valeur du capteur, -1 en cas d'erreur (cf. <a class="el" href="error_8h.html">error.h</a>) </dd></dl>
+
+</div>
+</div>
+</div><!-- contents -->
+<!-- start footer part -->
+<hr class="footer"/><address class="footer"><small>
+Généré par&#160;<a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.9.4
+</small></address>
+</body>
+</html>

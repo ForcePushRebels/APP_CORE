@@ -8,6 +8,7 @@
 ////////////////////////////////////////////////////////////
 
 #include "xTask.h"
+#include "xLog.h"
 #include <errno.h>
 #include <signal.h>  
 #include <time.h>
@@ -15,14 +16,14 @@
 ////////////////////////////////////////////////////////////
 /// osTaskInit
 ////////////////////////////////////////////////////////////
-int osTaskInit(t_TaskCtx* p_pttOSTask)
+int osTaskInit(xOsTaskCtx* p_pttOSTask)
 {
     if (p_pttOSTask == NULL) 
     {
-        return OS_TASK_ERROR;
+        return OS_TASK_ERROR_NULL_POINTER;
     }
 
-    memset(p_pttOSTask, 0, sizeof(t_TaskCtx));
+    memset(p_pttOSTask, 0, sizeof(xOsTaskCtx));
     p_pttOSTask->t_ulStackSize = OS_TASK_DEFAULT_STACK_SIZE;
 #ifdef OS_USE_RT_SCHEDULING
     p_pttOSTask->policy = OS_DEFAULT_SCHED_POLICY;
@@ -37,12 +38,21 @@ int osTaskInit(t_TaskCtx* p_pttOSTask)
 ////////////////////////////////////////////////////////////
 /// osTaskCreate
 ////////////////////////////////////////////////////////////
-int osTaskCreate(t_TaskCtx* p_pttOSTask)
+int osTaskCreate(xOsTaskCtx* p_pttOSTask)
 {
-    if (p_pttOSTask == NULL || p_pttOSTask->t_ptTask == NULL ||
-        p_pttOSTask->t_ulStackSize == 0) 
+    if (p_pttOSTask == NULL) 
     {
-        return OS_TASK_ERROR;
+        return OS_TASK_ERROR_NULL_POINTER;
+    }
+    
+    if (p_pttOSTask->t_ptTask == NULL)
+    {
+        return OS_TASK_ERROR_INVALID_PARAM;
+    }
+    
+    if (p_pttOSTask->t_ulStackSize == 0)
+    {
+        return OS_TASK_ERROR_STACK_SIZE;
     }
 
     // Check t_iPriority values
@@ -50,27 +60,27 @@ int osTaskCreate(t_TaskCtx* p_pttOSTask)
     if (p_pttOSTask->t_iPriority < OS_TASK_LOWEST_PRIORITY || 
         p_pttOSTask->t_iPriority > OS_TASK_HIGHEST_PRIORITY) 
     {
-        return OS_TASK_ERROR;
+        return OS_TASK_ERROR_PRIORITY;
     }
 #endif
 
     pthread_attr_t l_tAttr;
     if (pthread_attr_init(&l_tAttr) != 0) 
     {
-        return OS_TASK_ERROR;
+        return OS_TASK_ERROR_INIT_FAILED;
     }
 
     // Configure the thread attributes
     if (pthread_attr_setdetachstate(&l_tAttr, PTHREAD_CREATE_JOINABLE) != 0) 
     {
         pthread_attr_destroy(&l_tAttr);
-        return OS_TASK_ERROR;
+        return OS_TASK_ERROR_INIT_FAILED;
     }
-
+    int value = pthread_attr_setstacksize(&l_tAttr, p_pttOSTask->t_ulStackSize);
     if (pthread_attr_setstacksize(&l_tAttr, p_pttOSTask->t_ulStackSize) != 0) 
     {
         pthread_attr_destroy(&l_tAttr);
-        return OS_TASK_ERROR;
+        return OS_TASK_ERROR_STACK_SIZE;
     }
 
     // Configure the t_iPriority and scheduling policy
@@ -88,21 +98,21 @@ int osTaskCreate(t_TaskCtx* p_pttOSTask)
     if (pthread_attr_setschedpolicy(&l_tAttr, policy) != 0) 
     {
         pthread_attr_destroy(&l_tAttr);
-        return OS_TASK_ERROR;
+        return OS_TASK_ERROR_POLICY;
     }
     
     p_pttOSTask->sched_param.sched_priority = p_pttOSTask->t_iPriority;
     if (pthread_attr_setschedparam(&l_tAttr, &p_pttOSTask->sched_param) != 0) 
     {
         pthread_attr_destroy(&l_tAttr);
-        return OS_TASK_ERROR;
+        return OS_TASK_ERROR_PRIORITY;
     }
     
     // Ensure that the scheduling attributes are respected
     if (pthread_attr_setinheritsched(&l_tAttr, PTHREAD_EXPLICIT_SCHED) != 0) 
     {
         pthread_attr_destroy(&l_tAttr);
-        return OS_TASK_ERROR;
+        return OS_TASK_ERROR_INIT_FAILED;
     }
 #endif
 
@@ -113,7 +123,7 @@ int osTaskCreate(t_TaskCtx* p_pttOSTask)
 
     if (ret != 0) 
     {
-        return OS_TASK_ERROR;
+        return OS_TASK_ERROR_CREATE_FAILED;
     }
 
     p_pttOSTask->t_iState = OS_TASK_STATUS_RUNNING;
@@ -125,11 +135,11 @@ int osTaskCreate(t_TaskCtx* p_pttOSTask)
 ////////////////////////////////////////////////////////////
 /// osTaskEnd
 ////////////////////////////////////////////////////////////
-int osTaskEnd(t_TaskCtx* p_pttOSTask)
+int osTaskEnd(xOsTaskCtx* p_pttOSTask)
 {
     if (p_pttOSTask == NULL) 
     {
-        return OS_TASK_ERROR;
+        return OS_TASK_ERROR_NULL_POINTER;
     }
 
     if (p_pttOSTask->t_iState == OS_TASK_STATUS_TERMINATED) 
@@ -148,7 +158,7 @@ int osTaskEnd(t_TaskCtx* p_pttOSTask)
     // Request the thread cancellation
     int ret = pthread_cancel(p_pttOSTask->t_tHandle);
     if (ret != 0 && ret != ESRCH) { // ESRCH = No such process
-        return OS_TASK_ERROR;
+        return OS_TASK_ERROR_TERMINATE_FAILED;
     }
 
     // Assign a timeout for the join to avoid blocking
@@ -162,7 +172,7 @@ int osTaskEnd(t_TaskCtx* p_pttOSTask)
     {
         // If the join fails but the thread still exists
         p_pttOSTask->t_iState = OS_TASK_STATUS_BLOCKED;
-        return OS_TASK_ERROR;
+        return OS_TASK_ERROR_JOIN_FAILED;
     }
 
     p_pttOSTask->t_iState = OS_TASK_STATUS_TERMINATED;
@@ -172,10 +182,10 @@ int osTaskEnd(t_TaskCtx* p_pttOSTask)
 ////////////////////////////////////////////////////////////
 /// osTaskGetStatus
 ////////////////////////////////////////////////////////////
-int osTaskGetStatus(t_TaskCtx* p_pttOSTask)
+int osTaskGetStatus(xOsTaskCtx* p_pttOSTask)
 {
     if (p_pttOSTask == NULL) {
-        return OS_TASK_ERROR;
+        return OS_TASK_ERROR_NULL_POINTER;
     }
     
     // If the t_ptTask is not yet terminated, check its current t_iState
@@ -211,11 +221,11 @@ int osTaskGetStatus(t_TaskCtx* p_pttOSTask)
 ////////////////////////////////////////////////////////////
 /// osTaskWait
 ////////////////////////////////////////////////////////////
-int osTaskWait(t_TaskCtx* p_pttOSTask, void** p_pvExitValue)
+int osTaskWait(xOsTaskCtx* p_pttOSTask, void** p_pvExitValue)
 {
     if (p_pttOSTask == NULL) 
     {
-        return OS_TASK_ERROR;
+        return OS_TASK_ERROR_NULL_POINTER;
     }
 
     // If the t_ptTask is already terminated, no need to wait
@@ -229,7 +239,7 @@ int osTaskWait(t_TaskCtx* p_pttOSTask, void** p_pvExitValue)
     
     if (ret != 0) 
     {
-        return OS_TASK_ERROR;
+        return OS_TASK_ERROR_JOIN_FAILED;
     }
     
     p_pttOSTask->t_iState = OS_TASK_STATUS_TERMINATED;
@@ -253,11 +263,11 @@ int osTaskWait(t_TaskCtx* p_pttOSTask, void** p_pvExitValue)
 ////////////////////////////////////////////////////////////
 /// osTaskStop
 ////////////////////////////////////////////////////////////
-int osTaskStop(t_TaskCtx* p_pttOSTask, int timeout_seconds)
+int osTaskStop(xOsTaskCtx* p_pttOSTask, int timeout_seconds)
 {
     if (p_pttOSTask == NULL) 
     {
-        return OS_TASK_ERROR;
+        return OS_TASK_ERROR_NULL_POINTER;
     }
 
     // If the task is already terminated, no need to stop it
@@ -276,7 +286,7 @@ int osTaskStop(t_TaskCtx* p_pttOSTask, int timeout_seconds)
     }
     else if (kill_result != 0)
     {
-        return OS_TASK_ERROR;
+        return OS_TASK_ERROR_NOT_RUNNING;
     }
 
     // Set the stop flag
@@ -308,7 +318,12 @@ int osTaskStop(t_TaskCtx* p_pttOSTask, int timeout_seconds)
         if ((current_time - start_time) >= timeout_seconds)
         {
             // If timeout is reached, force task termination
-            return osTaskEnd(p_pttOSTask);
+            int ret = osTaskEnd(p_pttOSTask);
+            if (ret != OS_TASK_SUCCESS)
+            {
+                return OS_TASK_ERROR_TIMEOUT;
+            }
+            return ret;
         }
         
         // Wait a short moment before testing again
@@ -320,6 +335,30 @@ int osTaskStop(t_TaskCtx* p_pttOSTask, int timeout_seconds)
 }
 
 ////////////////////////////////////////////////////////////
+/// osTaskGetErrorString
+////////////////////////////////////////////////////////////
+const char* osTaskGetErrorString(int p_iErrorCode)
+{
+    switch (p_iErrorCode)
+    {
+        case OS_TASK_SUCCESS:                 return "Success";
+        case OS_TASK_ERROR_NULL_POINTER:      return "Null pointer provided";
+        case OS_TASK_ERROR_INVALID_PARAM:     return "Invalid parameter";
+        case OS_TASK_ERROR_INIT_FAILED:       return "Initialization failed";
+        case OS_TASK_ERROR_CREATE_FAILED:     return "Task creation failed";
+        case OS_TASK_ERROR_ALREADY_RUNNING:   return "Task already running";
+        case OS_TASK_ERROR_NOT_RUNNING:       return "Task not running";
+        case OS_TASK_ERROR_TERMINATE_FAILED:  return "Task termination failed";
+        case OS_TASK_ERROR_JOIN_FAILED:       return "Task join failed";
+        case OS_TASK_ERROR_TIMEOUT:           return "Timeout expired";
+        case OS_TASK_ERROR_PRIORITY:          return "Invalid task priority";
+        case OS_TASK_ERROR_STACK_SIZE:        return "Invalid stack size";
+        case OS_TASK_ERROR_POLICY:            return "Invalid scheduling policy";
+        default:                              return "Unknown error code";
+    }
+}
+
+////////////////////////////////////////////////////////////
 // EXAMPLE OF SAFE TASK STOPPING MECHANISM USAGE
 //
 // For the safe stop mechanism to work, tasks must
@@ -327,7 +366,7 @@ int osTaskStop(t_TaskCtx* p_pttOSTask, int timeout_seconds)
 // Here's an example of a well-designed task:
 //
 // void* myTaskFunction(void* arg) {
-//     t_TaskCtx* self = (t_TaskCtx*)arg;
+//     xOsTaskCtx* self = (xOsTaskCtx*)arg;
 //     
 //     // Resource initialization
 //     FILE* file = fopen("data.txt", "r");

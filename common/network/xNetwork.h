@@ -36,10 +36,10 @@
 #define NETWORK_DEFAULT_TIMEOUT 30000 // Default timeout in milliseconds (30 seconds)
 
 // Network error codes
-#define NETWORK_OK 0xD17A2B40
-#define NETWORK_ERROR 0xD17A2B41
-#define NETWORK_TIMEOUT 0xD17A2B42
-#define NETWORK_INVALID_PARAM 0xD17A2B43
+#define NETWORK_OK 0x17A2B40
+#define NETWORK_ERROR 0x17A2B41
+#define NETWORK_TIMEOUT 0x17A2B42
+#define NETWORK_INVALID_PARAM 0x17A2B43
 
 // Byte order conversion macros
 #define HOST_TO_NET_LONG(p_uiValue) htonl(p_uiValue)

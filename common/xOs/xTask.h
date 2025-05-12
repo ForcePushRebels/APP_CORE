@@ -20,8 +20,8 @@
 
 
 // Return codes
-#define OS_TASK_SUCCESS         0xE2F41A50
-#define OS_TASK_ERROR           0xE2F41A51
+#define OS_TASK_SUCCESS         0x2F41A50
+#define OS_TASK_ERROR           0x2F41A51
 
 // Task states
 #define OS_TASK_STATUS_READY       0UL
@@ -31,12 +31,12 @@
 #define OS_TASK_STATUS_TERMINATED  4UL
 
 // Task exit codes
-#define OS_TASK_EXIT_SUCCESS 0xE2F41A60
-#define OS_TASK_EXIT_FAILURE 0xE2F41A61
+#define OS_TASK_EXIT_SUCCESS 0x2F41A60
+#define OS_TASK_EXIT_FAILURE 0x2F41A61
 
 // Task stop codes
-#define OS_TASK_STOP_REQUEST  0xE2F41A00    // Stop request
-#define OS_TASK_SECURE_FLAG   0xE2F41A01    // Security flag for stopping
+#define OS_TASK_STOP_REQUEST  0x2F41A00    // Stop request
+#define OS_TASK_SECURE_FLAG   0x2F41A01    // Security flag for stopping
 #define OS_TASK_STOP_TIMEOUT  5UL           // Timeout in seconds for graceful shutdown
 
 typedef enum {

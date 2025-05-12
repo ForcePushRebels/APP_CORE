@@ -14,9 +14,9 @@
 #include <stdint.h>
 
 // Horodateur error codes
-#define XOS_HORODATEUR_OK            0xB8E73D90
-#define XOS_HORODATEUR_ERROR         0xB8E73D91
-#define XOS_HORODATEUR_INVALID       0xB8E73D92
+#define XOS_HORODATEUR_OK            0x8E73D90
+#define XOS_HORODATEUR_ERROR         0x8E73D91
+#define XOS_HORODATEUR_INVALID       0x8E73D92
 
 //////////////////////////////////
 /// @brief Get current formatted timestamp

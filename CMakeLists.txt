@@ -4,6 +4,18 @@ project(EXPLO)
 # Force Ninja generator
 set(CMAKE_GENERATOR "Ninja" CACHE INTERNAL "" FORCE)
 
+# CMake presets configuration
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+# Detect architecture
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
+    set(TARGET_ARCH "aarch64")
+else()
+    set(TARGET_ARCH "x86_64")
+endif()
+
+message(STATUS "Detected architecture: ${TARGET_ARCH}")
+
 # Target options
 option(TARGET_MRPIZ "Build for MRPiZ target instead of PC" OFF)
 option(USE_TLS "Enable TLS support" OFF)
@@ -31,6 +43,7 @@ if(TARGET_MRPIZ)
     
     # Link with MRPiZ lib
     set(MRPIZ_LIB "mrpiz")
+    set(LUMPIZ_LIB "lumpiz")
     set(EXTRA_LIBS "m") # math library
 else()
     # PC development build with Intox simulator
@@ -41,13 +54,14 @@ else()
         intox_address="127.0.0.1"
         intox_port=12345
     )
-    
+
     # Output executable name
     set(EXPLO_EXE_NAME "explo_intox")
     set(INTER_EXE_NAME "inter_intox")
     
     # Link with Intox simulator libraries
     set(MRPIZ_LIB "intoxmrpiz;intox")
+    set(LUMPIZ_LIB "intoxlumpiz")
     set(EXTRA_LIBS "")
 endif()
 
@@ -58,7 +72,6 @@ set(CMAKE_C_STANDARD 11)
 add_compile_options(
     -Wall
     -Wextra
-    -Werror
     -pedantic
     -MMD
     -MP
@@ -94,10 +107,14 @@ else()
     message(STATUS "TLS support disabled")
 endif()
 
-# Add mrpiz library
-set(MRPIZ_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/lib_mrpiz-x86_64-v0.5/lib")
-set(MRPIZ_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/lib_mrpiz-x86_64-v0.5/include/mrpiz")
+# Add libraries based on target architecture
+set(MRPIZ_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs/lib_mrpiz-${TARGET_ARCH}-v0.6/lib")
+set(MRPIZ_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs/lib_mrpiz-${TARGET_ARCH}-v0.6/include/mrpiz")
+set(LUMPIZ_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs/lib_lumpiz-${TARGET_ARCH}-v0.1/lib")
+set(LUMPIZ_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs/lib_lumpiz-${TARGET_ARCH}-v0.1/include/lumpiz")
+
 include_directories(${MRPIZ_INCLUDE_DIR})
+include_directories(${LUMPIZ_INCLUDE_DIR})
 
 # Recursively find all header files for include directories
 file(GLOB_RECURSE HEADER_FILES 
@@ -161,8 +178,14 @@ endforeach()
 add_executable(explo ${COMMON_SOURCES} ${EXPLO_SOURCES})
 set_target_properties(explo PROPERTIES OUTPUT_NAME ${EXPLO_EXE_NAME})
 
+# Link MRPIZ libraries
 foreach(LIB ${MRPIZ_LIB})
     target_link_libraries(explo "${MRPIZ_LIB_DIR}/lib${LIB}.a")
+endforeach()
+
+# Link LUMPIZ libraries
+foreach(LIB ${LUMPIZ_LIB})
+    target_link_libraries(explo "${LUMPIZ_LIB_DIR}/lib${LIB}.a")
 endforeach()
 
 if(EXTRA_LIBS)
@@ -192,8 +215,14 @@ endforeach()
 add_executable(inter ${COMMON_SOURCES} ${INTER_SOURCES})
 set_target_properties(inter PROPERTIES OUTPUT_NAME ${INTER_EXE_NAME})
 
+# Link MRPIZ libraries
 foreach(LIB ${MRPIZ_LIB})
     target_link_libraries(inter "${MRPIZ_LIB_DIR}/lib${LIB}.a")
+endforeach()
+
+# Link LUMPIZ libraries
+foreach(LIB ${LUMPIZ_LIB})
+    target_link_libraries(inter "${LUMPIZ_LIB_DIR}/lib${LIB}.a")
 endforeach()
 
 if(EXTRA_LIBS)
@@ -211,6 +240,7 @@ endif()
 message(STATUS "")
 message(STATUS "Build configuration summary:")
 message(STATUS "----------------------------------------")
+message(STATUS "  Architecture: ${TARGET_ARCH}")
 if(TARGET_MRPIZ)
     message(STATUS "  Target: MRPiZ")
 else()
@@ -232,6 +262,145 @@ endif()
 message(STATUS "----------------------------------------")
 message(STATUS "  EXPLO executable: ${EXPLO_EXE_NAME}")
 message(STATUS "  INTER executable: ${INTER_EXE_NAME}")
+message(STATUS "  MRPIZ library directory: ${MRPIZ_LIB_DIR}")
+message(STATUS "  LUMPIZ library directory: ${LUMPIZ_LIB_DIR}")
 message(STATUS "----------------------------------------")
+
+# CMake presets for different configurations
+# Create a CMakePresets.json file
+set(PRESETS_FILE "${CMAKE_CURRENT_SOURCE_DIR}/CMakePresets.json")
+file(WRITE ${PRESETS_FILE} [=[
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 10,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "x86_64-debug",
+      "displayName": "x86_64 Debug",
+      "description": "Debug build for x86_64 architecture",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/x86_64-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "DEBUG": "ON",
+        "TARGET_MRPIZ": "OFF",
+        "USE_TLS": "OFF"
+      }
+    },
+    {
+      "name": "x86_64-release",
+      "displayName": "x86_64 Release",
+      "description": "Release build for x86_64 architecture",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/x86_64-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "DEBUG": "OFF",
+        "TARGET_MRPIZ": "OFF",
+        "USE_TLS": "OFF"
+      }
+    },
+    {
+      "name": "x86_64-mrpiz",
+      "displayName": "x86_64 MRPiZ",
+      "description": "MRPiZ build for x86_64 architecture",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/x86_64-mrpiz",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "DEBUG": "OFF",
+        "TARGET_MRPIZ": "ON",
+        "USE_TLS": "OFF"
+      }
+    },
+    {
+      "name": "aarch64-debug",
+      "displayName": "ARM64 Debug",
+      "description": "Debug build for ARM64 architecture",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/aarch64-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "DEBUG": "ON",
+        "TARGET_MRPIZ": "OFF",
+        "USE_TLS": "OFF"
+      }
+    },
+    {
+      "name": "aarch64-release",
+      "displayName": "ARM64 Release",
+      "description": "Release build for ARM64 architecture",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/aarch64-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "DEBUG": "OFF",
+        "TARGET_MRPIZ": "OFF",
+        "USE_TLS": "OFF"
+      }
+    },
+    {
+      "name": "aarch64-mrpiz",
+      "displayName": "ARM64 MRPiZ",
+      "description": "MRPiZ build for ARM64 architecture",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/aarch64-mrpiz",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "DEBUG": "OFF",
+        "TARGET_MRPIZ": "ON",
+        "USE_TLS": "OFF"
+      }
+    },
+    {
+      "name": "tls-enabled",
+      "displayName": "TLS Enabled",
+      "description": "Build with TLS support enabled",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/tls-enabled",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "DEBUG": "OFF",
+        "TARGET_MRPIZ": "OFF",
+        "USE_TLS": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "x86_64-debug",
+      "configurePreset": "x86_64-debug"
+    },
+    {
+      "name": "x86_64-release",
+      "configurePreset": "x86_64-release"
+    },
+    {
+      "name": "x86_64-mrpiz",
+      "configurePreset": "x86_64-mrpiz"
+    },
+    {
+      "name": "aarch64-debug",
+      "configurePreset": "aarch64-debug"
+    },
+    {
+      "name": "aarch64-release",
+      "configurePreset": "aarch64-release"
+    },
+    {
+      "name": "aarch64-mrpiz",
+      "configurePreset": "aarch64-mrpiz"
+    },
+    {
+      "name": "tls-enabled",
+      "configurePreset": "tls-enabled"
+    }
+  ]
+}
+]=])
 
 

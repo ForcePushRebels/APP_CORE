@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.10)
 project(EXPLO)
 
+# Force Ninja generator
+set(CMAKE_GENERATOR "Ninja" CACHE INTERNAL "" FORCE)
+
 # Target options
 option(TARGET_MRPIZ "Build for MRPiZ target instead of PC" OFF)
 option(USE_TLS "Enable TLS support" OFF)
@@ -54,6 +57,8 @@ set(CMAKE_C_STANDARD 11)
 # Common flags from the Makefile
 add_compile_options(
     -Wall
+    -Wextra
+    -Werror
     -pedantic
     -MMD
     -MP

@@ -4,6 +4,7 @@
 //
 // general discloser: copy or share the file is forbidden
 // Written : 14/11/2024
+// Intellectual property of Christophe Benedetti
 ////////////////////////////////////////////////////////////
 #pragma once
 
@@ -18,18 +19,11 @@
 #include "xAssert.h"
 #include <pthread.h>
 #include <sys/time.h>
+#include <stdatomic.h>
 #define _POSIX_C_SOURCE 200809L
 
-#ifdef __cplusplus
-#include <atomic>   //only for test lib and C++ 20
-#else
-#include <stdatomic.h>
-#endif
-
-
-
-#define OS_CRITICAL_SUCCESS 0
-#define OS_CRITICAL_ERROR -1
+#define OS_CRITICAL_SUCCESS 0xC6FB2A70
+#define OS_CRITICAL_ERROR 0xC6FB2A71
 
 #define OS_CRITICAL_LOCKED 0
 #define OS_CRITICAL_UNLOCKED 1
@@ -47,13 +41,8 @@
 //////////////////////////////////
 typedef struct {
     pthread_mutex_t critical; // section critique
-#ifdef __cplusplus
-    std::atomic<unsigned short> a_usLockCounter; // compteur de verrous
-    std::atomic<bool> a_bLock;                  // état du verrou
-#else
     _Atomic unsigned short a_usLockCounter;     // compteur de verrous
-    _Atomic bool a_bLock;                         // état du verrou
-#endif
+    _Atomic bool a_bLock;                       // Ã©tat du verrou
 } t_osCriticalCtx;
 
 

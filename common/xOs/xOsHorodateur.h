@@ -1,9 +1,10 @@
 ////////////////////////////////////////////////////////////
 //  horodateur header file
-//  defines timestamp types and functions
+//  defines horodateur functions for timestamp
 //
 // general discloser: copy or share the file is forbidden
-// Written : 12/01/2025
+// Written : 14/11/2024
+// Intellectual property of Christophe Benedetti
 ////////////////////////////////////////////////////////////
 #pragma once
 
@@ -13,9 +14,9 @@
 #include <stdint.h>
 
 // Horodateur error codes
-#define XOS_HORODATEUR_OK            0
-#define XOS_HORODATEUR_ERROR        -1
-#define XOS_HORODATEUR_INVALID      -2
+#define XOS_HORODATEUR_OK            0xB8E73D90
+#define XOS_HORODATEUR_ERROR         0xB8E73D91
+#define XOS_HORODATEUR_INVALID       0xB8E73D92
 
 //////////////////////////////////
 /// @brief Get current formatted timestamp

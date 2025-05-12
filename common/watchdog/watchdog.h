@@ -1,3 +1,11 @@
+////////////////////////////////////////////////////////////
+//  Watchdog header file
+//  Provides watchdog support using POSIX timer
+//
+// general disclosure: copy or share the file is forbidden
+// Written : 02/05/2025
+////////////////////////////////////////////////////////////
+
 #ifndef WATCHDOG_H
 #define WATCHDOG_H
 
@@ -11,16 +19,20 @@
 
 // Définitions pour le timer
 #define WATCHDOG_DEFAULT_TIMEOUT 100 // 100ms
-#define WATCHDOG_DEVICE_NAME "watchdog_pmu"
+#define WATCHDOG_DEVICE_NAME "watchdog"
 
+////////////////////////////////////////////////////////////
+/// @param watchdog_t
+/// @brief Watchdog structure
+////////////////////////////////////////////////////////////
 typedef struct watchdog
 {
-    t_TaskCtx task_ctx;      // Contexte de tâche pour la gestion du watchdog
-    void* timer_id;          // Timer POSIX (void* pour éviter les dépendances de types)
-    uint32_t timeout;        // Délai d'expiration en ms
-    t_MutexCtx mutex;        // Mutex pour protéger l'accès concurrent
-    bool should_reset;       // Indique si un reset du système est nécessaire
-    int is_running;          // Indique si le thread watchdog est en cours d'exécution
+    t_TaskCtx task_ctx;              // Contexte de tâche pour la gestion du watchdog
+    void *timer_id;                  // Timer POSIX (void* pour éviter les dépendances de types)
+    uint32_t timeout;                // Délai d'expiration en ms
+    xOsMutexCtx mutex;               // Mutex pour protéger l'accès concurrent
+    bool should_reset;               // Indique si un reset du système est nécessaire
+    int is_running;                  // Indique si le thread watchdog est en cours d'exécution
     volatile sig_atomic_t terminate; // Signal pour arrêter proprement le thread
 } watchdog_t;
 
@@ -29,7 +41,7 @@ typedef struct watchdog
 /// @param arg : Thread argument pointer
 /// @return Pointer for pthread compatibility
 //////////////////////////////////
-void* watchdog_thread(void *arg);
+void *watchdog_thread(void *arg);
 
 //////////////////////////////////
 /// @brief Initialize the software watchdog with POSIX timer

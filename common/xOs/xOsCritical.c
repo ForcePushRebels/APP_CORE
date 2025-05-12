@@ -4,6 +4,7 @@
 //
 // general discloser: copy or share the file is forbidden
 // Written : 14/11/2024
+// Intellectual property of Christophe Benedetti
 ////////////////////////////////////////////////////////////
 
 #include "xOsCritical.h"
@@ -87,20 +88,20 @@ int osCriticalDestroy(t_osCriticalCtx* p_pttOSCritical)
 {
     X_ASSERT(p_pttOSCritical != NULL);
 
-    // Vérifier que le compteur de verrou est à zéro
+    // Vï¿½rifier que le compteur de verrou est ï¿½ zï¿½ro
     if (atomic_load(&p_pttOSCritical->a_usLockCounter) != 0)
     {
         // Un ou plusieurs verrous sont toujours en place
         return OS_CRITICAL_ERROR;
     }
 
-    // Vérifier que le flag du verrou indique bien que le mutex n'est pas verrouillé
+    // Vï¿½rifier que le flag du verrou indique bien que le mutex n'est pas verrouillï¿½
     if (atomic_load(&p_pttOSCritical->a_bLock))
     {
         return OS_CRITICAL_ERROR;
     }
 
-    // À ce stade, on considère que le mutex n'est plus en cours d'utilisation
+    // ï¿½ ce stade, on considï¿½re que le mutex n'est plus en cours d'utilisation
     if (pthread_mutex_destroy(&p_pttOSCritical->critical) != 0)
     {
         return OS_CRITICAL_ERROR;

@@ -36,10 +36,10 @@
 #define NETWORK_DEFAULT_TIMEOUT 30000 // Default timeout in milliseconds (30 seconds)
 
 // Network error codes
-#define NETWORK_OK              0
-#define NETWORK_ERROR           -1
-#define NETWORK_TIMEOUT         -2
-#define NETWORK_INVALID_PARAM   -3
+#define NETWORK_OK 0xD17A2B40
+#define NETWORK_ERROR 0xD17A2B41
+#define NETWORK_TIMEOUT 0xD17A2B42
+#define NETWORK_INVALID_PARAM 0xD17A2B43
 
 // Byte order conversion macros
 #define HOST_TO_NET_LONG(p_uiValue) htonl(p_uiValue)
@@ -53,7 +53,7 @@ typedef struct
     int t_iSocketFd;     // Socket file descriptor
     int t_iType;         // Socket type (TCP/UDP)
     bool t_bConnected;   // Connection state
-    t_MutexCtx t_Mutex;  // Mutex for thread safety
+    xOsMutexCtx t_Mutex; // Mutex for thread safety
 } NetworkSocket;
 
 // Network address structure (IPv4 only)
@@ -88,77 +88,77 @@ NetworkAddress networkMakeAddress(const char *p_pcAddress, unsigned short p_usPo
 
 //////////////////////////////////
 /// @brief Bind socket to address
-/// @param p_pSocket Socket handle
+/// @param p_ptSocket Socket handle
 /// @param p_pAddress Address structure
 /// @return int Error code
 //////////////////////////////////
-int networkBind(NetworkSocket *p_pSocket, const NetworkAddress *p_pAddress);
+int networkBind(NetworkSocket *p_ptSocket, const NetworkAddress *p_pAddress);
 
 //////////////////////////////////
 /// @brief Listen for incoming connections
-/// @param p_pSocket Socket handle
+/// @param p_ptSocket Socket handle
 /// @param p_iBacklog Maximum pending connections
 /// @return int Error code
 //////////////////////////////////
-int networkListen(NetworkSocket *p_pSocket, int p_iBacklog);
+int networkListen(NetworkSocket *p_ptSocket, int p_iBacklog);
 
 //////////////////////////////////
 /// @brief Accept incoming connection
-/// @param p_pSocket Listening socket
+/// @param p_ptSocket Listening socket
 /// @param p_pClientAddress Address to store client info (can be NULL)
 /// @return NetworkSocket* New socket handle or NULL on error
 //////////////////////////////////
-NetworkSocket *networkAccept(NetworkSocket *p_pSocket, NetworkAddress *p_pClientAddress);
+NetworkSocket *networkAccept(NetworkSocket *p_ptSocket, NetworkAddress *p_pClientAddress);
 
 //////////////////////////////////
 /// @brief Connect to remote server
-/// @param p_pSocket Socket handle
+/// @param p_ptSocket Socket handle
 /// @param p_pAddress Remote address
 /// @return int Error code
 //////////////////////////////////
-int networkConnect(NetworkSocket *p_pSocket, const NetworkAddress *p_pAddress);
+int networkConnect(NetworkSocket *p_ptSocket, const NetworkAddress *p_pAddress);
 
 //////////////////////////////////
 /// @brief Send data
-/// @param p_pSocket Socket handle
+/// @param p_ptSocket Socket handle
 /// @param p_pBuffer Data buffer
 /// @param p_ulSize Data size
 /// @return int Bytes sent or error code
 //////////////////////////////////
-int networkSend(NetworkSocket *p_pSocket, const void *p_pBuffer, unsigned long p_ulSize);
+int networkSend(NetworkSocket *p_ptSocket, const void *p_pBuffer, unsigned long p_ulSize);
 
 //////////////////////////////////
 /// @brief Receive data
-/// @param p_pSocket Socket handle
+/// @param p_ptSocket Socket handle
 /// @param p_pBuffer Data buffer
 /// @param p_ulSize Buffer size
 /// @return int Bytes received or error code
 //////////////////////////////////
-int networkReceive(NetworkSocket *p_pSocket, void *p_pBuffer, unsigned long p_ulSize);
+int networkReceive(NetworkSocket *p_ptSocket, void *p_pBuffer, unsigned long p_ulSize);
 
 //////////////////////////////////
 /// @brief Close socket
-/// @param p_pSocket Socket handle
+/// @param p_ptSocket Socket handle
 /// @return int Error code
 //////////////////////////////////
-int networkCloseSocket(NetworkSocket *p_pSocket);
+int networkCloseSocket(NetworkSocket *p_ptSocket);
 
 //////////////////////////////////
 /// @brief Set socket timeout for send or receive operations
-/// @param p_pSocket Socket handle
+/// @param p_ptSocket Socket handle
 /// @param p_iTimeoutMs Timeout in milliseconds (0 to disable timeout)
 /// @param p_bSendTimeout True for send timeout, false for receive timeout
 /// @return int Error code
 //////////////////////////////////
-int networkSetTimeout(NetworkSocket *p_pSocket, int p_iTimeoutMs, bool p_bSendTimeout);
+int networkSetTimeout(NetworkSocket *p_ptSocket, int p_iTimeoutMs, bool p_bSendTimeout);
 
 //////////////////////////////////
 /// @brief Wait for events on socket
-/// @param p_pSocket Socket handle
+/// @param p_ptSocket Socket handle
 /// @param p_iTimeoutMs Timeout in milliseconds (-1 for infinite)
 /// @return int 1 if ready, 0 if timeout, negative for error
 //////////////////////////////////
-int networkWaitForActivity(NetworkSocket *p_pSocket, int p_iTimeoutMs);
+int networkWaitForActivity(NetworkSocket *p_ptSocket, int p_iTimeoutMs);
 
 //////////////////////////////////
 /// @brief Get last error description
@@ -169,9 +169,9 @@ const char *networkGetErrorString(int p_iError);
 
 //////////////////////////////////
 /// @brief Check if socket is connected
-/// @param p_pSocket Socket handle
+/// @param p_ptSocket Socket handle
 /// @return bool True if connected
 //////////////////////////////////
-bool networkIsConnected(NetworkSocket *p_pSocket);
+bool networkIsConnected(NetworkSocket *p_ptSocket);
 
 #endif // NETWORK_CORE_H_

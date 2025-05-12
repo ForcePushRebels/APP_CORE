@@ -4,6 +4,7 @@
 //
 // general discloser: copy or share the file is forbidden
 // Written : 14/11/2024
+// Intellectual property of Christophe Benedetti
 ////////////////////////////////////////////////////////////
 
 #include "xOsMutex.h"
@@ -13,7 +14,7 @@
 ////////////////////////////////////////////////////////////
 /// mutexCreate
 ////////////////////////////////////////////////////////////
-int mutexCreate(t_MutexCtx *p_ptMutex)
+int mutexCreate(xOsMutexCtx *p_ptMutex)
 {
     X_ASSERT(p_ptMutex != NULL);
 
@@ -42,7 +43,7 @@ int mutexCreate(t_MutexCtx *p_ptMutex)
 ////////////////////////////////////////////////////////////
 /// mutexLock
 ////////////////////////////////////////////////////////////
-int mutexLock(t_MutexCtx *p_ptMutex)
+int mutexLock(xOsMutexCtx *p_ptMutex)
 {
     X_ASSERT(p_ptMutex != NULL);
 
@@ -58,16 +59,16 @@ int mutexLock(t_MutexCtx *p_ptMutex)
 ////////////////////////////////////////////////////////////
 /// mutexTryLock
 ////////////////////////////////////////////////////////////
-int mutexTryLock(t_MutexCtx *p_ptMutex)
+int mutexTryLock(xOsMutexCtx *p_ptMutex)
 {
     X_ASSERT(p_ptMutex != NULL);
 
-    int l_iResult = pthread_mutex_trylock(&p_ptMutex->t_mutex);
-    if (l_iResult == EBUSY)
+    int l_ulReturn = pthread_mutex_trylock(&p_ptMutex->t_mutex);
+    if (l_ulReturn == EBUSY)
     {
         return MUTEX_TIMEOUT;
     }
-    if (l_iResult != 0)
+    if (l_ulReturn != 0)
     {
         return MUTEX_ERROR;
     }
@@ -79,7 +80,7 @@ int mutexTryLock(t_MutexCtx *p_ptMutex)
 ////////////////////////////////////////////////////////////
 /// mutexLockTimeout
 ////////////////////////////////////////////////////////////
-int mutexLockTimeout(t_MutexCtx *p_ptMutex, unsigned long p_ulTimeout)
+int mutexLockTimeout(xOsMutexCtx *p_ptMutex, unsigned long p_ulTimeout)
 {
     X_ASSERT(p_ptMutex != NULL);
 
@@ -88,12 +89,12 @@ int mutexLockTimeout(t_MutexCtx *p_ptMutex, unsigned long p_ulTimeout)
     l_tTimeout.tv_sec += p_ulTimeout / 1000;
     l_tTimeout.tv_nsec += (p_ulTimeout % 1000) * 1000000;
 
-    int l_iResult = pthread_mutex_timedlock(&p_ptMutex->t_mutex, &l_tTimeout);
-    if (l_iResult == ETIMEDOUT)
+    int l_ulReturn = pthread_mutex_timedlock(&p_ptMutex->t_mutex, &l_tTimeout);
+    if (l_ulReturn == ETIMEDOUT)
     {
         return MUTEX_TIMEOUT;
     }
-    if (l_iResult != 0)
+    if (l_ulReturn != 0)
     {
         return MUTEX_ERROR;
     }
@@ -105,7 +106,7 @@ int mutexLockTimeout(t_MutexCtx *p_ptMutex, unsigned long p_ulTimeout)
 ////////////////////////////////////////////////////////////
 /// mutexUnlock
 ////////////////////////////////////////////////////////////
-int mutexUnlock(t_MutexCtx *p_ptMutex)
+int mutexUnlock(xOsMutexCtx *p_ptMutex)
 {
     X_ASSERT(p_ptMutex != NULL);
 
@@ -121,7 +122,7 @@ int mutexUnlock(t_MutexCtx *p_ptMutex)
 ////////////////////////////////////////////////////////////
 /// mutexDestroy
 ////////////////////////////////////////////////////////////
-int mutexDestroy(t_MutexCtx *p_ptMutex)
+int mutexDestroy(xOsMutexCtx *p_ptMutex)
 {
     X_ASSERT(p_ptMutex != NULL);
 
@@ -137,7 +138,7 @@ int mutexDestroy(t_MutexCtx *p_ptMutex)
 ////////////////////////////////////////////////////////////
 /// mutexSetTimeout
 ////////////////////////////////////////////////////////////
-int mutexSetTimeout(t_MutexCtx *p_ptMutex, unsigned long p_ulTimeout)
+int mutexSetTimeout(xOsMutexCtx *p_ptMutex, unsigned long p_ulTimeout)
 {
     X_ASSERT(p_ptMutex != NULL);
 
@@ -148,7 +149,7 @@ int mutexSetTimeout(t_MutexCtx *p_ptMutex, unsigned long p_ulTimeout)
 ////////////////////////////////////////////////////////////
 /// mutexGetState
 ////////////////////////////////////////////////////////////
-int mutexGetState(t_MutexCtx *p_ptMutex)
+int mutexGetState(xOsMutexCtx *p_ptMutex)
 {
     X_ASSERT(p_ptMutex != NULL);
 

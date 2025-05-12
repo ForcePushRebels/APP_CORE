@@ -4,6 +4,7 @@
 //
 // general discloser: copy or share the file is forbidden
 // Written : 12/01/2025
+// Intellectual property of Christophe Benedetti
 ////////////////////////////////////////////////////////////
 
 #include "xLog.h"
@@ -13,80 +14,84 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
+#include <stdatomic.h>
 
-#ifdef __cplusplus
-#include <atomic>   //only for test lib and C++ 20
-#else
-#include <stdatomic.h> 
-#endif
+// Logger state
+typedef enum
+{
+    XOS_LOG_STATE_UNINITIALIZED = 0x0,
+    XOS_LOG_STATE_INITIALIZED = 0x1
+} t_logState;
 
-//
-static t_logCtx s_tLogConfig = { 0 };
-static t_MutexCtx s_tLogMutex;
-#ifdef __cplusplus
-static std::atomic_bool s_bInitialized = ATOMIC_VAR_INIT(false);
-static std::atomic_bool s_bMutexInitialized = ATOMIC_VAR_INIT(false);
-#else
-static atomic_bool s_bInitialized = ATOMIC_VAR_INIT(false);
-static atomic_bool s_bMutexInitialized = ATOMIC_VAR_INIT(false);
-#endif
+// Logger context
+static t_logCtx s_tLogConfig = {0};
+static xOsMutexCtx s_tLogMutex;
+static FILE *s_ptLogFile = NULL;
+
+static atomic_int s_eLogState = ATOMIC_VAR_INIT(XOS_LOG_STATE_UNINITIALIZED);
 
 ////////////////////////////////////////////////////////////
 /// xLogInit
 ////////////////////////////////////////////////////////////
-int xLogInit(t_logCtx* p_ptConfig)
+int xLogInit(t_logCtx *p_ptConfig)
 {
-    X_ASSERT(p_ptConfig != NULL);
+    if (p_ptConfig == NULL)
+    {
+        return XOS_LOG_INVALID;
+    }
 
-    // Vérification rapide si déjà initialisé
-    if (atomic_load(&s_bInitialized)) 
+    // Early return if already initialized
+    if (atomic_load(&s_eLogState) == XOS_LOG_STATE_INITIALIZED)
     {
         return XOS_LOG_OK;
     }
 
-    // Initialisation du mutex si nécessaire
-    bool expected = false;
-    if (atomic_compare_exchange_strong(&s_bMutexInitialized, &expected, true)) 
-    {
-        int l_iRet = mutexCreate(&s_tLogMutex);
-        if (l_iRet != MUTEX_OK) 
-        {
-            atomic_store(&s_bMutexInitialized, false);
-            return XOS_LOG_MUTEX_ERROR;
-        }
-    }
-
-    // Verrouiller le mutex pour l'initialisation
-    int l_iRet = mutexLock(&s_tLogMutex);
-    if (l_iRet != MUTEX_OK) 
+    // Create mutex
+    int l_iRet = mutexCreate(&s_tLogMutex);
+    if (l_iRet != (int)MUTEX_OK)
     {
         return XOS_LOG_MUTEX_ERROR;
     }
 
-    // Double vérification après verrouillage
-    if (atomic_load(&s_bInitialized)) 
+    // Lock mutex for initialization
+    l_iRet = mutexLock(&s_tLogMutex);
+    if (l_iRet != (int)MUTEX_OK)
+    {
+        mutexDestroy(&s_tLogMutex);
+        return XOS_LOG_MUTEX_ERROR;
+    }
+
+    // Double-check after acquiring lock
+    if (atomic_load(&s_eLogState) == XOS_LOG_STATE_INITIALIZED)
     {
         mutexUnlock(&s_tLogMutex);
         return XOS_LOG_OK;
     }
 
-    // Copier la configuration
+    // Copy configuration (with size limits)
     memcpy(&s_tLogConfig, p_ptConfig, sizeof(t_logCtx));
 
-    // Créer ou vérifier le fichier de log
-    if (s_tLogConfig.t_bLogToFile) 
+    // Open log file if needed
+    if (s_tLogConfig.t_bLogToFile)
     {
-        FILE* l_ptFile = fopen(s_tLogConfig.t_cLogPath, "w");
-        if (l_ptFile == NULL) 
+        if (s_tLogConfig.t_cLogPath[0] == '\0')
         {
             mutexUnlock(&s_tLogMutex);
+            mutexDestroy(&s_tLogMutex);
+            return XOS_LOG_INVALID;
+        }
+
+        s_ptLogFile = fopen(s_tLogConfig.t_cLogPath, "w");
+        if (s_ptLogFile == NULL)
+        {
+            mutexUnlock(&s_tLogMutex);
+            mutexDestroy(&s_tLogMutex);
             return XOS_LOG_ERROR;
         }
-        fclose(l_ptFile);
     }
 
-    // Marquer comme initialisé
-    atomic_store(&s_bInitialized, true);
+    // Mark as initialized
+    atomic_store(&s_eLogState, XOS_LOG_STATE_INITIALIZED);
     mutexUnlock(&s_tLogMutex);
 
     return XOS_LOG_OK;
@@ -95,57 +100,81 @@ int xLogInit(t_logCtx* p_ptConfig)
 ////////////////////////////////////////////////////////////
 /// xLogWrite
 ////////////////////////////////////////////////////////////
-int xLogWrite(const char* p_ptkcFile, uint32_t p_ulLine, const char* p_ptkcFormat, ...)
+int xLogWrite(const char *p_ptkcFile, uint32_t p_ulLine, const char *p_ptkcFormat, ...)
 {
-    X_ASSERT(p_ptkcFile != NULL);
-    X_ASSERT(p_ptkcFormat != NULL);
+    if (p_ptkcFile == NULL || p_ptkcFormat == NULL)
+    {
+        return XOS_LOG_INVALID;
+    }
 
-    // Vérification rapide de l'initialisation
-    if (!atomic_load(&s_bInitialized)) {
+    // Early return if not initialized
+    if (atomic_load(&s_eLogState) != XOS_LOG_STATE_INITIALIZED)
+    {
         return XOS_LOG_NOT_INIT;
     }
 
-    // Vérifier si le mutex est initialisé
-    if (!atomic_load(&s_bMutexInitialized)) {
-        return XOS_LOG_NOT_INIT;
+    char l_cTimestamp[32] = {0};
+    const char *l_pcTimestamp = xHorodateurGetString();
+
+    if (l_pcTimestamp != NULL)
+    {
+        strncpy(l_cTimestamp, l_pcTimestamp, sizeof(l_cTimestamp) - 1);
+        l_cTimestamp[sizeof(l_cTimestamp) - 1] = '\0';
     }
 
-    // Verrouiller le mutex pour l'écriture
+    const char *l_pcFileName = p_ptkcFile;
+    const char *l_pcLastSlash = strrchr(p_ptkcFile, '/');
+    if (l_pcLastSlash != NULL)
+    {
+        l_pcFileName = l_pcLastSlash + 1;
+    }
+    else
+    {
+        l_pcLastSlash = strrchr(p_ptkcFile, '\\');
+        if (l_pcLastSlash != NULL)
+        {
+            l_pcFileName = l_pcLastSlash + 1;
+        }
+    }
+
+    // Format user message with va_args (outside mutex)
+    char l_cUserMsg[XOS_LOG_MSG_SIZE] = {0};
+    va_list args;
+    va_start(args, p_ptkcFormat);
+    vsnprintf(l_cUserMsg, sizeof(l_cUserMsg) - 1, p_ptkcFormat, args);
+    va_end(args);
+
+    // Format complete log message
+    char l_cFullMsg[XOS_LOG_MSG_SIZE + 128] = {0};
+    snprintf(l_cFullMsg, sizeof(l_cFullMsg) - 1, "%s | %s:%u | %s\n",
+             l_cTimestamp, l_pcFileName, p_ulLine, l_cUserMsg);
+
+    // Now lock mutex only for the actual I/O operations
     int l_iRet = mutexLock(&s_tLogMutex);
-    if (l_iRet != MUTEX_OK) {
+    if (l_iRet != (int)MUTEX_OK)
+    {
         return XOS_LOG_MUTEX_ERROR;
     }
 
-    // Double vérification après verrouillage
-    if (!atomic_load(&s_bInitialized)) {
+    // Verify we're still initialized after lock
+    if (atomic_load(&s_eLogState) != XOS_LOG_STATE_INITIALIZED)
+    {
         mutexUnlock(&s_tLogMutex);
         return XOS_LOG_NOT_INIT;
     }
 
-    // Formater le message
-    va_list args;
-    va_start(args, p_ptkcFormat);
-    char l_cBuffer[XOS_LOG_MSG_SIZE];
-    vsnprintf(l_cBuffer, sizeof(l_cBuffer), p_ptkcFormat, args);
-    va_end(args);
-
-    // Écrire le log sur la console si activé
-    if (s_tLogConfig.t_bLogToConsole) 
+    // Write to console if enabled
+    if (s_tLogConfig.t_bLogToConsole)
     {
-        printf("%s | %s:%d | %s\n", xHorodateurGetString(), p_ptkcFile, p_ulLine, l_cBuffer);
+        fputs(l_cFullMsg, stdout);
+        fflush(stdout);
     }
 
-    // Écrire le log dans le fichier si activé
-    if (s_tLogConfig.t_bLogToFile) 
+    // Write to file if enabled
+    if (s_tLogConfig.t_bLogToFile && s_ptLogFile != NULL)
     {
-        FILE* l_ptFile = fopen(s_tLogConfig.t_cLogPath, "a");
-        if (l_ptFile == NULL) 
-        {
-            mutexUnlock(&s_tLogMutex);
-            return XOS_LOG_ERROR;
-        }
-        fprintf(l_ptFile, "%s | %s:%d | %s\n", xHorodateurGetString(), p_ptkcFile, p_ulLine, l_cBuffer);
-        fclose(l_ptFile);
+        fputs(l_cFullMsg, s_ptLogFile);
+        fflush(s_ptLogFile);
     }
 
     mutexUnlock(&s_tLogMutex);
@@ -157,36 +186,39 @@ int xLogWrite(const char* p_ptkcFile, uint32_t p_ulLine, const char* p_ptkcForma
 ////////////////////////////////////////////////////////////
 int xLogClose(void)
 {
-    // Vérifier si le système est initialisé
-    if (!atomic_load(&s_bInitialized)) {
+    // Early return if not initialized
+    if (atomic_load(&s_eLogState) != XOS_LOG_STATE_INITIALIZED)
+    {
         return XOS_LOG_NOT_INIT;
     }
 
-    // Vérifier si le mutex est initialisé
-    if (!atomic_load(&s_bMutexInitialized)) {
-        return XOS_LOG_NOT_INIT;
-    }
-
-    // Verrouiller le mutex pour la fermeture
+    // Lock mutex for shutdown
     int l_iRet = mutexLock(&s_tLogMutex);
-    if (l_iRet != MUTEX_OK) {
+    if (l_iRet != (int)MUTEX_OK)
+    {
         return XOS_LOG_MUTEX_ERROR;
     }
 
-    // Marquer comme non initialisé
-    atomic_store(&s_bInitialized, false);
+    // Double-check after acquiring lock
+    if (atomic_load(&s_eLogState) != XOS_LOG_STATE_INITIALIZED)
+    {
+        mutexUnlock(&s_tLogMutex);
+        return XOS_LOG_NOT_INIT;
+    }
 
-    // Déverrouiller le mutex avant de le détruire
+    // Close log file if open
+    if (s_ptLogFile != NULL)
+    {
+        fclose(s_ptLogFile);
+        s_ptLogFile = NULL;
+    }
+
+    // Mark as uninitialized first (prevents new logging operations)
+    atomic_store(&s_eLogState, XOS_LOG_STATE_UNINITIALIZED);
+
+    // Release mutex and destroy it
     mutexUnlock(&s_tLogMutex);
-
-    // Détruire le mutex
-    l_iRet = mutexDestroy(&s_tLogMutex);
-    if (l_iRet != MUTEX_OK) {
-        return XOS_LOG_MUTEX_ERROR;
-    }
-
-    // Marquer le mutex comme non initialisé
-    atomic_store(&s_bMutexInitialized, false);
+    mutexDestroy(&s_tLogMutex);
 
     return XOS_LOG_OK;
 }

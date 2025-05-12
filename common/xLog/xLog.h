@@ -14,11 +14,11 @@
 #include <stdbool.h>
 
 // Log error codes
-#define XOS_LOG_OK            0
-#define XOS_LOG_ERROR        -1
-#define XOS_LOG_INVALID      -2
-#define XOS_LOG_NOT_INIT     -3
-#define XOS_LOG_MUTEX_ERROR  -4
+#define XOS_LOG_OK            0xC9E82F70
+#define XOS_LOG_ERROR         0xC9E82F71
+#define XOS_LOG_INVALID       0xC9E82F72
+#define XOS_LOG_NOT_INIT      0xC9E82F73
+#define XOS_LOG_MUTEX_ERROR   0xC9E82F74
 
 // Log buffer sizes
 #define XOS_LOG_PATH_SIZE    256
@@ -55,7 +55,7 @@ int xLogWrite(const char* p_ptkcFile, uint32_t p_ulLine, const char* p_ptkcForma
 int xLogClose(void);
 
 // Log macros
-#define X_LOG_TRACE(msg, ...) xLogWrite(__FILE__, __LINE__, "TRACE | " msg, ##__VA_ARGS__)
-#define X_LOG_ASSERT(msg, ...) xLogWrite(__FILE__, __LINE__, "ASSERT | " msg, ##__VA_ARGS__)
+#define X_LOG_TRACE(msg, ...) xLogWrite(__FILE__, __LINE__, "TRACE | " msg "%s", ##__VA_ARGS__)
+#define X_LOG_ASSERT(msg, ...) xLogWrite(__FILE__, __LINE__, "ASSERT | " msg "%s", ##__VA_ARGS__)
 
 #endif // XOS_LOG_H_

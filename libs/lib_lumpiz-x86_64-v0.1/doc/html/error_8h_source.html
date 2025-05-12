@@ -1,0 +1,115 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "https://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/xhtml;charset=UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=11"/>
+<meta name="generator" content="Doxygen 1.9.4"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>LumPiZ lib:  Fichier source de src/lumpiz/error.h</title>
+<link href="tabs.css" rel="stylesheet" type="text/css"/>
+<script type="text/javascript" src="jquery.js"></script>
+<script type="text/javascript" src="dynsections.js"></script>
+<link href="doxygen.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+<div id="top"><!-- do not remove this div, it is closed by doxygen! -->
+<div id="titlearea">
+<table cellspacing="0" cellpadding="0">
+ <tbody>
+ <tr id="projectrow">
+  <td id="projectalign">
+   <div id="projectname">LumPiZ lib<span id="projectnumber">&#160;0.1</span>
+   </div>
+   <div id="projectbrief">API de programmation pour un capteur de luminosité de PiZ</div>
+  </td>
+ </tr>
+ </tbody>
+</table>
+</div>
+<!-- end header part -->
+<!-- Généré par Doxygen 1.9.4 -->
+<script type="text/javascript" src="menudata.js"></script>
+<script type="text/javascript" src="menu.js"></script>
+<script type="text/javascript">
+/* @license magnet:?xt=urn:btih:d3d9a9a6595521f9666a5e94cc830dab83b65699&amp;dn=expat.txt MIT */
+$(function() {
+  initMenu('',false,false,'search.php','Recherche');
+});
+/* @license-end */
+</script>
+<div id="main-nav"></div>
+<div id="nav-path" class="navpath">
+  <ul>
+<li class="navelem"><a class="el" href="dir_68267d1309a1af8e8297ef4c3efbcdba.html">src</a></li><li class="navelem"><a class="el" href="dir_f712def9c2e39ba7b6747d1499385798.html">lumpiz</a></li>  </ul>
+</div>
+</div><!-- top -->
+<div class="header">
+  <div class="headertitle"><div class="title">error.h</div></div>
+</div><!--header-->
+<div class="contents">
+<div class="fragment"><div class="line"><a id="l00001" name="l00001"></a><span class="lineno">    1</span><span class="comment">/*</span></div>
+<div class="line"><a id="l00002" name="l00002"></a><span class="lineno">    2</span><span class="comment"> * @file error.h</span></div>
+<div class="line"><a id="l00003" name="l00003"></a><span class="lineno">    3</span><span class="comment"> *</span></div>
+<div class="line"><a id="l00004" name="l00004"></a><span class="lineno">    4</span><span class="comment"> * Gestion d&#39;erreur de l&#39;API de programmation du capteur de luminosité d&#39;une PiZ.</span></div>
+<div class="line"><a id="l00005" name="l00005"></a><span class="lineno">    5</span><span class="comment"> *</span></div>
+<div class="line"><a id="l00006" name="l00006"></a><span class="lineno">    6</span><span class="comment"> * @version 0.1</span></div>
+<div class="line"><a id="l00007" name="l00007"></a><span class="lineno">    7</span><span class="comment"> * @author Matthias Brun (matthias.brun@eseo.fr)</span></div>
+<div class="line"><a id="l00008" name="l00008"></a><span class="lineno">    8</span><span class="comment"> */</span></div>
+<div class="line"><a id="l00009" name="l00009"></a><span class="lineno">    9</span> </div>
+<div class="line"><a id="l00010" name="l00010"></a><span class="lineno">   10</span><span class="preprocessor">#ifndef LUMPIZ_ERROR_H_</span></div>
+<div class="line"><a id="l00011" name="l00011"></a><span class="lineno">   11</span><span class="preprocessor">#define LUMPIZ_ERROR_H_</span></div>
+<div class="line"><a id="l00012" name="l00012"></a><span class="lineno">   12</span> </div>
+<div class="line"><a id="l00032" name="l00032"></a><span class="lineno"><a class="line" href="group__lumpiz__error.html#ga199074b4ea577cc18471912553976277">   32</a></span><span class="keyword">typedef</span> <span class="keyword">enum</span></div>
+<div class="line"><a id="l00033" name="l00033"></a><span class="lineno">   33</span>{</div>
+<div class="line"><a id="l00034" name="l00034"></a><span class="lineno">   34</span>    <span class="comment">// Erreurs spécifiques à Intox :</span></div>
+<div class="line"><a id="l00035" name="l00035"></a><span class="lineno">   35</span> </div>
+<div class="line"><a id="l00036" name="l00036"></a><span class="lineno"><a class="line" href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277a1107f99b4f5da0154a5f2958783f1aa5">   36</a></span>    <a class="code hl_enumvalue" href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277a1107f99b4f5da0154a5f2958783f1aa5">LUMPIZ_INTOX_E_SYSTEM</a>               = 1,        </div>
+<div class="line"><a id="l00038" name="l00038"></a><span class="lineno"><a class="line" href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277a591c3fe33bceaaf747f86b106a7a7095">   38</a></span>    <a class="code hl_enumvalue" href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277a591c3fe33bceaaf747f86b106a7a7095">LUMPIZ_INTOX_E_SOCKET</a>,                      </div>
+<div class="line"><a id="l00039" name="l00039"></a><span class="lineno"><a class="line" href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277af15fc149f017a22c815390c4aa224b15">   39</a></span>    <a class="code hl_enumvalue" href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277af15fc149f017a22c815390c4aa224b15">LUMPIZ_INTOX_E_CONNECT</a>,                     </div>
+<div class="line"><a id="l00040" name="l00040"></a><span class="lineno"><a class="line" href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277af2646128ee2fb3464d6e3835ccb1e2ba">   40</a></span>    <a class="code hl_enumvalue" href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277af2646128ee2fb3464d6e3835ccb1e2ba">LUMPIZ_INTOX_E_CONNECT_REFUSED</a>,             </div>
+<div class="line"><a id="l00041" name="l00041"></a><span class="lineno"><a class="line" href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277ae85715edb003087a27542a3e87c6c5f1">   41</a></span>    <a class="code hl_enumvalue" href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277ae85715edb003087a27542a3e87c6c5f1">LUMPIZ_INTOX_E_CONNECT_NET</a>,                 </div>
+<div class="line"><a id="l00042" name="l00042"></a><span class="lineno"><a class="line" href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277aa3e95847f7de6a75561f2960a8b4b3ba">   42</a></span>    <a class="code hl_enumvalue" href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277aa3e95847f7de6a75561f2960a8b4b3ba">LUMPIZ_INTOX_E_CONNECT_HOST</a>,                    </div>
+<div class="line"><a id="l00043" name="l00043"></a><span class="lineno"><a class="line" href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277a07fcdd4b5aaad442b4955c314568d2cb">   43</a></span>    <a class="code hl_enumvalue" href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277a07fcdd4b5aaad442b4955c314568d2cb">LUMPIZ_INTOX_E_CONNECT_TIMEOUT</a>,             </div>
+<div class="line"><a id="l00045" name="l00045"></a><span class="lineno"><a class="line" href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277a5e8db12beb693b3f0806ce2a6458a41d">   45</a></span>    <a class="code hl_enumvalue" href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277a5e8db12beb693b3f0806ce2a6458a41d">LUMPIZ_INTOX_E_ACCESS</a>,                      </div>
+<div class="line"><a id="l00046" name="l00046"></a><span class="lineno"><a class="line" href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277ad2690770a2a3bffa793ff393759ae931">   46</a></span>    <a class="code hl_enumvalue" href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277ad2690770a2a3bffa793ff393759ae931">LUMPIZ_INTOX_E_LOST</a>,                        </div>
+<div class="line"><a id="l00047" name="l00047"></a><span class="lineno"><a class="line" href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277a25d54e9dc90d394f1d9ac3ba9828fecf">   47</a></span>    <a class="code hl_enumvalue" href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277a25d54e9dc90d394f1d9ac3ba9828fecf">LUMPIZ_INTOX_E_CMD</a>,                         </div>
+<div class="line"><a id="l00049" name="l00049"></a><span class="lineno">   49</span>    <span class="comment">// Erreurs LUMPIZ :</span></div>
+<div class="line"><a id="l00050" name="l00050"></a><span class="lineno">   50</span> </div>
+<div class="line"><a id="l00051" name="l00051"></a><span class="lineno"><a class="line" href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277ad390e8d3112e01db9e4622c12390b0e3">   51</a></span>    <a class="code hl_enumvalue" href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277ad390e8d3112e01db9e4622c12390b0e3">LUMPIZ_E_LUM_INIT</a>,                      </div>
+<div class="line"><a id="l00052" name="l00052"></a><span class="lineno"><a class="line" href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277a04efb5dc3ec26f0b6eef482aae6af596">   52</a></span>    <a class="code hl_enumvalue" href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277a04efb5dc3ec26f0b6eef482aae6af596">LUMPIZ_E_LUM_SENSOR_ID</a>,                 </div>
+<div class="line"><a id="l00053" name="l00053"></a><span class="lineno"><a class="line" href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277aba35b68b9507782d2da189746e4308fb">   53</a></span>    <a class="code hl_enumvalue" href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277aba35b68b9507782d2da189746e4308fb">LUMPIZ_E_LUM_SENSOR_STATE</a>,              </div>
+<div class="line"><a id="l00055" name="l00055"></a><span class="lineno">   55</span>    <a class="code hl_enumvalue" href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277a7df38b798870bcf3156e501e27e325f2">LUMPIZ_E_SYSTEM</a>                         </div>
+<div class="line"><a id="l00057" name="l00057"></a><span class="lineno"><a class="line" href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277a7df38b798870bcf3156e501e27e325f2">   57</a></span>} <a class="code hl_enumeration" href="group__lumpiz__error.html#ga199074b4ea577cc18471912553976277">lumpiz_error_t</a>;</div>
+<div class="line"><a id="l00058" name="l00058"></a><span class="lineno">   58</span> </div>
+<div class="line"><a id="l00059" name="l00059"></a><span class="lineno">   59</span> </div>
+<div class="line"><a id="l00067" name="l00067"></a><span class="lineno"><a class="line" href="group__lumpiz__error.html#ga6f77c897016a3af6107e02fc8611c072">   67</a></span><span class="keywordtype">char</span> <span class="keyword">const</span> * <a class="code hl_function" href="group__lumpiz__error.html#ga6f77c897016a3af6107e02fc8611c072">lumpiz_error_msg</a>();</div>
+<div class="line"><a id="l00068" name="l00068"></a><span class="lineno">   68</span> </div>
+<div class="line"><a id="l00077" name="l00077"></a><span class="lineno"><a class="line" href="group__lumpiz__error.html#gadb334cf74213ff2e8e600763333e5790">   77</a></span><span class="keywordtype">void</span> <a class="code hl_function" href="group__lumpiz__error.html#gadb334cf74213ff2e8e600763333e5790">lumpiz_error_print</a>(<span class="keywordtype">char</span> * msg);</div>
+<div class="line"><a id="l00078" name="l00078"></a><span class="lineno">   78</span> </div>
+<div class="line"><a id="l00080" name="l00080"></a><span class="lineno">   80</span><span class="comment">// end of lumpiz_error group</span></div>
+<div class="line"><a id="l00081" name="l00081"></a><span class="lineno">   81</span> </div>
+<div class="line"><a id="l00082" name="l00082"></a><span class="lineno">   82</span><span class="preprocessor">#endif </span><span class="comment">/* LUMPIZ_ERROR_H_ */</span><span class="preprocessor"></span></div>
+<div class="ttc" id="agroup__lumpiz__error_html_ga199074b4ea577cc18471912553976277"><div class="ttname"><a href="group__lumpiz__error.html#ga199074b4ea577cc18471912553976277">lumpiz_error_t</a></div><div class="ttdeci">lumpiz_error_t</div><div class="ttdoc">Liste des erreurs LumPiz.</div><div class="ttdef"><b>Definition:</b> error.h:33</div></div>
+<div class="ttc" id="agroup__lumpiz__error_html_ga6f77c897016a3af6107e02fc8611c072"><div class="ttname"><a href="group__lumpiz__error.html#ga6f77c897016a3af6107e02fc8611c072">lumpiz_error_msg</a></div><div class="ttdeci">char const * lumpiz_error_msg()</div><div class="ttdoc">Donne le message d'erreur (associé à la valeur de errno de la lib lumpiz).</div></div>
+<div class="ttc" id="agroup__lumpiz__error_html_gadb334cf74213ff2e8e600763333e5790"><div class="ttname"><a href="group__lumpiz__error.html#gadb334cf74213ff2e8e600763333e5790">lumpiz_error_print</a></div><div class="ttdeci">void lumpiz_error_print(char *msg)</div><div class="ttdoc">Affiche le message d'erreur (associé à la valeur errno de la lib lumpiz).</div></div>
+<div class="ttc" id="agroup__lumpiz__error_html_gga199074b4ea577cc18471912553976277a04efb5dc3ec26f0b6eef482aae6af596"><div class="ttname"><a href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277a04efb5dc3ec26f0b6eef482aae6af596">LUMPIZ_E_LUM_SENSOR_ID</a></div><div class="ttdeci">@ LUMPIZ_E_LUM_SENSOR_ID</div><div class="ttdef"><b>Definition:</b> error.h:52</div></div>
+<div class="ttc" id="agroup__lumpiz__error_html_gga199074b4ea577cc18471912553976277a07fcdd4b5aaad442b4955c314568d2cb"><div class="ttname"><a href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277a07fcdd4b5aaad442b4955c314568d2cb">LUMPIZ_INTOX_E_CONNECT_TIMEOUT</a></div><div class="ttdeci">@ LUMPIZ_INTOX_E_CONNECT_TIMEOUT</div><div class="ttdef"><b>Definition:</b> error.h:43</div></div>
+<div class="ttc" id="agroup__lumpiz__error_html_gga199074b4ea577cc18471912553976277a1107f99b4f5da0154a5f2958783f1aa5"><div class="ttname"><a href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277a1107f99b4f5da0154a5f2958783f1aa5">LUMPIZ_INTOX_E_SYSTEM</a></div><div class="ttdeci">@ LUMPIZ_INTOX_E_SYSTEM</div><div class="ttdef"><b>Definition:</b> error.h:36</div></div>
+<div class="ttc" id="agroup__lumpiz__error_html_gga199074b4ea577cc18471912553976277a25d54e9dc90d394f1d9ac3ba9828fecf"><div class="ttname"><a href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277a25d54e9dc90d394f1d9ac3ba9828fecf">LUMPIZ_INTOX_E_CMD</a></div><div class="ttdeci">@ LUMPIZ_INTOX_E_CMD</div><div class="ttdef"><b>Definition:</b> error.h:47</div></div>
+<div class="ttc" id="agroup__lumpiz__error_html_gga199074b4ea577cc18471912553976277a591c3fe33bceaaf747f86b106a7a7095"><div class="ttname"><a href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277a591c3fe33bceaaf747f86b106a7a7095">LUMPIZ_INTOX_E_SOCKET</a></div><div class="ttdeci">@ LUMPIZ_INTOX_E_SOCKET</div><div class="ttdef"><b>Definition:</b> error.h:38</div></div>
+<div class="ttc" id="agroup__lumpiz__error_html_gga199074b4ea577cc18471912553976277a5e8db12beb693b3f0806ce2a6458a41d"><div class="ttname"><a href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277a5e8db12beb693b3f0806ce2a6458a41d">LUMPIZ_INTOX_E_ACCESS</a></div><div class="ttdeci">@ LUMPIZ_INTOX_E_ACCESS</div><div class="ttdef"><b>Definition:</b> error.h:45</div></div>
+<div class="ttc" id="agroup__lumpiz__error_html_gga199074b4ea577cc18471912553976277a7df38b798870bcf3156e501e27e325f2"><div class="ttname"><a href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277a7df38b798870bcf3156e501e27e325f2">LUMPIZ_E_SYSTEM</a></div><div class="ttdeci">@ LUMPIZ_E_SYSTEM</div><div class="ttdef"><b>Definition:</b> error.h:55</div></div>
+<div class="ttc" id="agroup__lumpiz__error_html_gga199074b4ea577cc18471912553976277aa3e95847f7de6a75561f2960a8b4b3ba"><div class="ttname"><a href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277aa3e95847f7de6a75561f2960a8b4b3ba">LUMPIZ_INTOX_E_CONNECT_HOST</a></div><div class="ttdeci">@ LUMPIZ_INTOX_E_CONNECT_HOST</div><div class="ttdef"><b>Definition:</b> error.h:42</div></div>
+<div class="ttc" id="agroup__lumpiz__error_html_gga199074b4ea577cc18471912553976277aba35b68b9507782d2da189746e4308fb"><div class="ttname"><a href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277aba35b68b9507782d2da189746e4308fb">LUMPIZ_E_LUM_SENSOR_STATE</a></div><div class="ttdeci">@ LUMPIZ_E_LUM_SENSOR_STATE</div><div class="ttdef"><b>Definition:</b> error.h:53</div></div>
+<div class="ttc" id="agroup__lumpiz__error_html_gga199074b4ea577cc18471912553976277ad2690770a2a3bffa793ff393759ae931"><div class="ttname"><a href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277ad2690770a2a3bffa793ff393759ae931">LUMPIZ_INTOX_E_LOST</a></div><div class="ttdeci">@ LUMPIZ_INTOX_E_LOST</div><div class="ttdef"><b>Definition:</b> error.h:46</div></div>
+<div class="ttc" id="agroup__lumpiz__error_html_gga199074b4ea577cc18471912553976277ad390e8d3112e01db9e4622c12390b0e3"><div class="ttname"><a href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277ad390e8d3112e01db9e4622c12390b0e3">LUMPIZ_E_LUM_INIT</a></div><div class="ttdeci">@ LUMPIZ_E_LUM_INIT</div><div class="ttdef"><b>Definition:</b> error.h:51</div></div>
+<div class="ttc" id="agroup__lumpiz__error_html_gga199074b4ea577cc18471912553976277ae85715edb003087a27542a3e87c6c5f1"><div class="ttname"><a href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277ae85715edb003087a27542a3e87c6c5f1">LUMPIZ_INTOX_E_CONNECT_NET</a></div><div class="ttdeci">@ LUMPIZ_INTOX_E_CONNECT_NET</div><div class="ttdef"><b>Definition:</b> error.h:41</div></div>
+<div class="ttc" id="agroup__lumpiz__error_html_gga199074b4ea577cc18471912553976277af15fc149f017a22c815390c4aa224b15"><div class="ttname"><a href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277af15fc149f017a22c815390c4aa224b15">LUMPIZ_INTOX_E_CONNECT</a></div><div class="ttdeci">@ LUMPIZ_INTOX_E_CONNECT</div><div class="ttdef"><b>Definition:</b> error.h:39</div></div>
+<div class="ttc" id="agroup__lumpiz__error_html_gga199074b4ea577cc18471912553976277af2646128ee2fb3464d6e3835ccb1e2ba"><div class="ttname"><a href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277af2646128ee2fb3464d6e3835ccb1e2ba">LUMPIZ_INTOX_E_CONNECT_REFUSED</a></div><div class="ttdeci">@ LUMPIZ_INTOX_E_CONNECT_REFUSED</div><div class="ttdef"><b>Definition:</b> error.h:40</div></div>
+</div><!-- fragment --></div><!-- contents -->
+<!-- start footer part -->
+<hr class="footer"/><address class="footer"><small>
+Généré par&#160;<a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.9.4
+</small></address>
+</body>
+</html>

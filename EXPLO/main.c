@@ -17,8 +17,8 @@
 #include "xLog.h"
 #include "xAssert.h"
 #include "watchdog.h"
-#include "ui.h"
-static const uint8_t s_aCLogPath[] = "build/bin/explo.log";
+
+static const uint8_t s_aCLogPath[] = "explo.log";
 
 // Définition des durées pour le code morse (en millisecondes)
 #define UNIT_TIME 300
@@ -80,7 +80,7 @@ int main()
 
     // initiatlisation des logs
     l_iReturn = xLogInit(&t_LogConfig);
-    X_ASSERT(l_iReturn == 0);
+    X_ASSERT(l_iReturn == XOS_LOG_OK);
 
     // init hardware abstraction
     l_iReturn = hardwareAbstractionInit();
@@ -90,13 +90,6 @@ int main()
     l_iReturn = watchdog_init(300);
     X_ASSERT(l_iReturn == 0);
     watchdog_set_expiry_handler(l_fWatchdogExpiryHandler);
-
-    // init ui
-    ihm_init();
-    X_ASSERT(l_iReturn == 0);
-    ihm_display_header();
-    ihm_display_status("Initializing", 100, "NORMAL");
-    ihm_run();
 
     while (1)
     {

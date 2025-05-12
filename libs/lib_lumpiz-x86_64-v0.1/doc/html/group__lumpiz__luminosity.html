@@ -1,0 +1,196 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "https://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/xhtml;charset=UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=11"/>
+<meta name="generator" content="Doxygen 1.9.4"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>LumPiZ lib: Manipulation du capteur de luminosité du robot.</title>
+<link href="tabs.css" rel="stylesheet" type="text/css"/>
+<script type="text/javascript" src="jquery.js"></script>
+<script type="text/javascript" src="dynsections.js"></script>
+<link href="doxygen.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+<div id="top"><!-- do not remove this div, it is closed by doxygen! -->
+<div id="titlearea">
+<table cellspacing="0" cellpadding="0">
+ <tbody>
+ <tr id="projectrow">
+  <td id="projectalign">
+   <div id="projectname">LumPiZ lib<span id="projectnumber">&#160;0.1</span>
+   </div>
+   <div id="projectbrief">API de programmation pour un capteur de luminosité de PiZ</div>
+  </td>
+ </tr>
+ </tbody>
+</table>
+</div>
+<!-- end header part -->
+<!-- Généré par Doxygen 1.9.4 -->
+<script type="text/javascript" src="menudata.js"></script>
+<script type="text/javascript" src="menu.js"></script>
+<script type="text/javascript">
+/* @license magnet:?xt=urn:btih:d3d9a9a6595521f9666a5e94cc830dab83b65699&amp;dn=expat.txt MIT */
+$(function() {
+  initMenu('',false,false,'search.php','Recherche');
+});
+/* @license-end */
+</script>
+<div id="main-nav"></div>
+</div><!-- top -->
+<div class="header">
+  <div class="summary">
+<a href="#enum-members">Énumérations</a> &#124;
+<a href="#func-members">Fonctions</a>  </div>
+  <div class="headertitle"><div class="title">Manipulation du capteur de luminosité du robot.<div class="ingroups"><a class="el" href="group__lumpiz.html">API de programmation du système de capteur de luminosité pour PiZ.</a></div></div></div>
+</div><!--header-->
+<div class="contents">
+
+<p>Fonctions et macros utiles pour piloter le capteur de luminosité du robot..  
+<a href="#details">Plus de détails...</a></p>
+<table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="enum-members" name="enum-members"></a>
+Énumérations</h2></td></tr>
+<tr class="memitem:ga7efb5b4fdfd9b79f63e0fe22d4fcc064"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__lumpiz__luminosity.html#ga7efb5b4fdfd9b79f63e0fe22d4fcc064">lumpiz_luminosity_state_t</a> { <a class="el" href="group__lumpiz__luminosity.html#gga7efb5b4fdfd9b79f63e0fe22d4fcc064a7351160f0b68c26389099a7752320883">LUMPIZ_LUMINOSITY_OFF</a> = 0
+, <a class="el" href="group__lumpiz__luminosity.html#gga7efb5b4fdfd9b79f63e0fe22d4fcc064a4b369759f07823866313fa8795e99740">LUMPIZ_LUMINOSITY_ON</a> = 1
+ }</td></tr>
+<tr class="memdesc:ga7efb5b4fdfd9b79f63e0fe22d4fcc064"><td class="mdescLeft">&#160;</td><td class="mdescRight">valeurs des états d'allumage du capteur de luminosité.  <a href="group__lumpiz__luminosity.html#ga7efb5b4fdfd9b79f63e0fe22d4fcc064">Plus de détails...</a><br /></td></tr>
+<tr class="separator:ga7efb5b4fdfd9b79f63e0fe22d4fcc064"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="func-members" name="func-members"></a>
+Fonctions</h2></td></tr>
+<tr class="memitem:ga6a1b2c758a793ab074f937721406a04c"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__lumpiz__luminosity.html#ga6a1b2c758a793ab074f937721406a04c">lumpiz_luminosity_init</a> ()</td></tr>
+<tr class="memdesc:ga6a1b2c758a793ab074f937721406a04c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Initialise le capteur de luminosité.  <a href="group__lumpiz__luminosity.html#ga6a1b2c758a793ab074f937721406a04c">Plus de détails...</a><br /></td></tr>
+<tr class="separator:ga6a1b2c758a793ab074f937721406a04c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ga23c2ad9393700337bddb50f498c4ce9b"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__lumpiz__luminosity.html#ga23c2ad9393700337bddb50f498c4ce9b">lumpiz_luminosity_light_set</a> (<a class="el" href="group__lumpiz__luminosity.html#ga7efb5b4fdfd9b79f63e0fe22d4fcc064">lumpiz_luminosity_state_t</a> state)</td></tr>
+<tr class="memdesc:ga23c2ad9393700337bddb50f498c4ce9b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Fixe l'allumage du capteur de luminosité.  <a href="group__lumpiz__luminosity.html#ga23c2ad9393700337bddb50f498c4ce9b">Plus de détails...</a><br /></td></tr>
+<tr class="separator:ga23c2ad9393700337bddb50f498c4ce9b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ga3a0e1b82ee0ec4b368fa841c31f9b433"><td class="memItemLeft" align="right" valign="top"><a class="el" href="group__lumpiz__luminosity.html#ga7efb5b4fdfd9b79f63e0fe22d4fcc064">lumpiz_luminosity_state_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__lumpiz__luminosity.html#ga3a0e1b82ee0ec4b368fa841c31f9b433">lumpiz_luminosity_light_get</a> ()</td></tr>
+<tr class="memdesc:ga3a0e1b82ee0ec4b368fa841c31f9b433"><td class="mdescLeft">&#160;</td><td class="mdescRight">Donne l'état d'allumage du capteur de luminosité.  <a href="group__lumpiz__luminosity.html#ga3a0e1b82ee0ec4b368fa841c31f9b433">Plus de détails...</a><br /></td></tr>
+<tr class="separator:ga3a0e1b82ee0ec4b368fa841c31f9b433"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ga59297a331d8e5cb740eed5818a14a1dc"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__lumpiz__luminosity.html#ga59297a331d8e5cb740eed5818a14a1dc">lumpiz_luminosity_get</a> ()</td></tr>
+<tr class="memdesc:ga59297a331d8e5cb740eed5818a14a1dc"><td class="mdescLeft">&#160;</td><td class="mdescRight">Donne la valeur du capteur de luminosité.  <a href="group__lumpiz__luminosity.html#ga59297a331d8e5cb740eed5818a14a1dc">Plus de détails...</a><br /></td></tr>
+<tr class="separator:ga59297a331d8e5cb740eed5818a14a1dc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table>
+<a name="details" id="details"></a><h2 class="groupheader">Description détaillée</h2>
+<p >Fonctions et macros utiles pour piloter le capteur de luminosité du robot.. </p>
+<h2 class="groupheader">Documentation du type de l'énumération</h2>
+<a id="ga7efb5b4fdfd9b79f63e0fe22d4fcc064" name="ga7efb5b4fdfd9b79f63e0fe22d4fcc064"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ga7efb5b4fdfd9b79f63e0fe22d4fcc064">&#9670;&nbsp;</a></span>lumpiz_luminosity_state_t</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">enum <a class="el" href="group__lumpiz__luminosity.html#ga7efb5b4fdfd9b79f63e0fe22d4fcc064">lumpiz_luminosity_state_t</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>valeurs des états d'allumage du capteur de luminosité. </p>
+<table class="fieldtable">
+<tr><th colspan="2">Valeurs énumérées</th></tr><tr><td class="fieldname"><a id="gga7efb5b4fdfd9b79f63e0fe22d4fcc064a7351160f0b68c26389099a7752320883" name="gga7efb5b4fdfd9b79f63e0fe22d4fcc064a7351160f0b68c26389099a7752320883"></a>LUMPIZ_LUMINOSITY_OFF&#160;</td><td class="fielddoc"><p >éteint </p>
+</td></tr>
+<tr><td class="fieldname"><a id="gga7efb5b4fdfd9b79f63e0fe22d4fcc064a4b369759f07823866313fa8795e99740" name="gga7efb5b4fdfd9b79f63e0fe22d4fcc064a4b369759f07823866313fa8795e99740"></a>LUMPIZ_LUMINOSITY_ON&#160;</td><td class="fielddoc"><p >allumé </p>
+</td></tr>
+</table>
+
+</div>
+</div>
+<h2 class="groupheader">Documentation des fonctions</h2>
+<a id="ga59297a331d8e5cb740eed5818a14a1dc" name="ga59297a331d8e5cb740eed5818a14a1dc"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ga59297a331d8e5cb740eed5818a14a1dc">&#9670;&nbsp;</a></span>lumpiz_luminosity_get()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int lumpiz_luminosity_get </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Donne la valeur du capteur de luminosité. </p>
+<p >La valeur d'un capteur de luminosité se situe dans l'interval [0, 1300].</p>
+<dl class="section return"><dt>Renvoie</dt><dd>la valeur du capteur, -1 en cas d'erreur (cf. <a class="el" href="error_8h_source.html">error.h</a>) </dd></dl>
+
+</div>
+</div>
+<a id="ga6a1b2c758a793ab074f937721406a04c" name="ga6a1b2c758a793ab074f937721406a04c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ga6a1b2c758a793ab074f937721406a04c">&#9670;&nbsp;</a></span>lumpiz_luminosity_init()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int lumpiz_luminosity_init </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Initialise le capteur de luminosité. </p>
+<dl class="section return"><dt>Renvoie</dt><dd>0 en cas de succès, -1 en cas d'erreur (cf. <a class="el" href="error_8h_source.html">error.h</a>) </dd></dl>
+
+</div>
+</div>
+<a id="ga3a0e1b82ee0ec4b368fa841c31f9b433" name="ga3a0e1b82ee0ec4b368fa841c31f9b433"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ga3a0e1b82ee0ec4b368fa841c31f9b433">&#9670;&nbsp;</a></span>lumpiz_luminosity_light_get()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="group__lumpiz__luminosity.html#ga7efb5b4fdfd9b79f63e0fe22d4fcc064">lumpiz_luminosity_state_t</a> lumpiz_luminosity_light_get </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Donne l'état d'allumage du capteur de luminosité. </p>
+<dl class="section return"><dt>Renvoie</dt><dd>l'état d'allumage, -1 en cas d'erreur (cf. <a class="el" href="error_8h_source.html">error.h</a>) </dd></dl>
+
+</div>
+</div>
+<a id="ga23c2ad9393700337bddb50f498c4ce9b" name="ga23c2ad9393700337bddb50f498c4ce9b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ga23c2ad9393700337bddb50f498c4ce9b">&#9670;&nbsp;</a></span>lumpiz_luminosity_light_set()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int lumpiz_luminosity_light_set </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="group__lumpiz__luminosity.html#ga7efb5b4fdfd9b79f63e0fe22d4fcc064">lumpiz_luminosity_state_t</a>&#160;</td>
+          <td class="paramname"><em>state</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Fixe l'allumage du capteur de luminosité. </p>
+<dl class="params"><dt>Paramètres</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">state</td><td>état d'allumage du capteur de luminosité.</td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Renvoie</dt><dd>0 en cas de succès, -1 en cas d'erreur (cf. <a class="el" href="error_8h_source.html">error.h</a>) </dd></dl>
+
+</div>
+</div>
+</div><!-- contents -->
+<!-- start footer part -->
+<hr class="footer"/><address class="footer"><small>
+Généré par&#160;<a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.9.4
+</small></address>
+</body>
+</html>

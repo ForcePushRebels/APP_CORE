@@ -27,7 +27,7 @@
 ////////////////////////////////////////////////////////////
 typedef struct watchdog
 {
-    t_TaskCtx task_ctx;              // Contexte de tâche pour la gestion du watchdog
+    xOsTaskCtx task_ctx;              // Contexte de tâche pour la gestion du watchdog
     void *timer_id;                  // Timer POSIX (void* pour éviter les dépendances de types)
     uint32_t timeout;                // Délai d'expiration en ms
     xOsMutexCtx mutex;               // Mutex pour protéger l'accès concurrent

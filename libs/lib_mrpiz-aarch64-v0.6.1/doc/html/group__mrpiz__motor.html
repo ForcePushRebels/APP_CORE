@@ -1,0 +1,220 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "https://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/xhtml;charset=UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=11"/>
+<meta name="generator" content="Doxygen 1.9.4"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>MRPiZ lib: Manipulation des moteurs du robot.</title>
+<link href="tabs.css" rel="stylesheet" type="text/css"/>
+<script type="text/javascript" src="jquery.js"></script>
+<script type="text/javascript" src="dynsections.js"></script>
+<link href="doxygen.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+<div id="top"><!-- do not remove this div, it is closed by doxygen! -->
+<div id="titlearea">
+<table cellspacing="0" cellpadding="0">
+ <tbody>
+ <tr id="projectrow">
+  <td id="projectalign">
+   <div id="projectname">MRPiZ lib<span id="projectnumber">&#160;0.1</span>
+   </div>
+   <div id="projectbrief">API de programmation pour un robot MRPiZ</div>
+  </td>
+ </tr>
+ </tbody>
+</table>
+</div>
+<!-- end header part -->
+<!-- Généré par Doxygen 1.9.4 -->
+<script type="text/javascript" src="menudata.js"></script>
+<script type="text/javascript" src="menu.js"></script>
+<script type="text/javascript">
+/* @license magnet:?xt=urn:btih:d3d9a9a6595521f9666a5e94cc830dab83b65699&amp;dn=expat.txt MIT */
+$(function() {
+  initMenu('',false,false,'search.php','Recherche');
+});
+/* @license-end */
+</script>
+<div id="main-nav"></div>
+</div><!-- top -->
+<div class="header">
+  <div class="summary">
+<a href="#define-members">Macros</a> &#124;
+<a href="#enum-members">Énumérations</a> &#124;
+<a href="#func-members">Fonctions</a>  </div>
+  <div class="headertitle"><div class="title">Manipulation des moteurs du robot.<div class="ingroups"><a class="el" href="group__mrpiz.html">API de programmation d'un robot MRPiZ.</a></div></div></div>
+</div><!--header-->
+<div class="contents">
+
+<p>Fonctions et macros utiles pour piloter les moteurs gauche et droit du MRPiZ.  
+<a href="#details">Plus de détails...</a></p>
+<table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="define-members" name="define-members"></a>
+Macros</h2></td></tr>
+<tr class="memitem:gacd33e1055990581672ade855b7df29d4"><td class="memItemLeft" align="right" valign="top"><a id="gacd33e1055990581672ade855b7df29d4" name="gacd33e1055990581672ade855b7df29d4"></a>
+#define&#160;</td><td class="memItemRight" valign="bottom"><b>MRPIZ_ENCODE_PER_TURN</b>&#160;&#160;&#160;(390)</td></tr>
+<tr class="memdesc:gacd33e1055990581672ade855b7df29d4"><td class="mdescLeft">&#160;</td><td class="mdescRight">Nombre de pas d'encodage par tour pour les codeurs des moteurs. <br /></td></tr>
+<tr class="separator:gacd33e1055990581672ade855b7df29d4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="enum-members" name="enum-members"></a>
+Énumérations</h2></td></tr>
+<tr class="memitem:ga35b5973f7dbcece1199d9690fbdc4659"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__mrpiz__motor.html#ga35b5973f7dbcece1199d9690fbdc4659">mrpiz_motor_id</a> { <a class="el" href="group__mrpiz__motor.html#gga35b5973f7dbcece1199d9690fbdc4659a78d80f20e147a80c0970725ed5542154">MRPIZ_MOTOR_LEFT</a> = 0
+, <a class="el" href="group__mrpiz__motor.html#gga35b5973f7dbcece1199d9690fbdc4659afda3f2cfc8f8b2a079b8dbf74ad4e5bd">MRPIZ_MOTOR_RIGHT</a> = 1
+, <a class="el" href="group__mrpiz__motor.html#gga35b5973f7dbcece1199d9690fbdc4659ab73aacf49d0e7776654857f44b79ae53">MRPIZ_MOTOR_BOTH</a> = 2
+ }</td></tr>
+<tr class="memdesc:ga35b5973f7dbcece1199d9690fbdc4659"><td class="mdescLeft">&#160;</td><td class="mdescRight">Identifiants des moteurs.  <a href="group__mrpiz__motor.html#ga35b5973f7dbcece1199d9690fbdc4659">Plus de détails...</a><br /></td></tr>
+<tr class="separator:ga35b5973f7dbcece1199d9690fbdc4659"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="func-members" name="func-members"></a>
+Fonctions</h2></td></tr>
+<tr class="memitem:ga9755b57a5bbc908a05ff2a495ed52a1b"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__mrpiz__motor.html#ga9755b57a5bbc908a05ff2a495ed52a1b">mrpiz_motor_set</a> (<a class="el" href="group__mrpiz__motor.html#ga35b5973f7dbcece1199d9690fbdc4659">mrpiz_motor_id</a> id, int cmd)</td></tr>
+<tr class="memdesc:ga9755b57a5bbc908a05ff2a495ed52a1b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Envoi une consigne à un moteur pour qu'il tourne à une certaine vitesse dans un certains sens.  <a href="group__mrpiz__motor.html#ga9755b57a5bbc908a05ff2a495ed52a1b">Plus de détails...</a><br /></td></tr>
+<tr class="separator:ga9755b57a5bbc908a05ff2a495ed52a1b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:gacb5fc06307b14c88d981bf1d8ca9e823"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__mrpiz__motor.html#gacb5fc06307b14c88d981bf1d8ca9e823">mrpiz_motor_encoder_get</a> (<a class="el" href="group__mrpiz__motor.html#ga35b5973f7dbcece1199d9690fbdc4659">mrpiz_motor_id</a> id)</td></tr>
+<tr class="memdesc:gacb5fc06307b14c88d981bf1d8ca9e823"><td class="mdescLeft">&#160;</td><td class="mdescRight">Donne la valeur d'un codeur de moteur.  <a href="group__mrpiz__motor.html#gacb5fc06307b14c88d981bf1d8ca9e823">Plus de détails...</a><br /></td></tr>
+<tr class="separator:gacb5fc06307b14c88d981bf1d8ca9e823"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ga38d1cf11e8f845a73d3812cd2864d87d"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__mrpiz__motor.html#ga38d1cf11e8f845a73d3812cd2864d87d">mrpiz_motor_encoder_reset</a> (<a class="el" href="group__mrpiz__motor.html#ga35b5973f7dbcece1199d9690fbdc4659">mrpiz_motor_id</a> id)</td></tr>
+<tr class="memdesc:ga38d1cf11e8f845a73d3812cd2864d87d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Remise à zéro de la valeur d'un codeur d'un moteur.  <a href="group__mrpiz__motor.html#ga38d1cf11e8f845a73d3812cd2864d87d">Plus de détails...</a><br /></td></tr>
+<tr class="separator:ga38d1cf11e8f845a73d3812cd2864d87d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table>
+<a name="details" id="details"></a><h2 class="groupheader">Description détaillée</h2>
+<p >Fonctions et macros utiles pour piloter les moteurs gauche et droit du MRPiZ. </p>
+<h2 class="groupheader">Documentation du type de l'énumération</h2>
+<a id="ga35b5973f7dbcece1199d9690fbdc4659" name="ga35b5973f7dbcece1199d9690fbdc4659"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ga35b5973f7dbcece1199d9690fbdc4659">&#9670;&nbsp;</a></span>mrpiz_motor_id</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">enum <a class="el" href="group__mrpiz__motor.html#ga35b5973f7dbcece1199d9690fbdc4659">mrpiz_motor_id</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Identifiants des moteurs. </p>
+<table class="fieldtable">
+<tr><th colspan="2">Valeurs énumérées</th></tr><tr><td class="fieldname"><a id="gga35b5973f7dbcece1199d9690fbdc4659a78d80f20e147a80c0970725ed5542154" name="gga35b5973f7dbcece1199d9690fbdc4659a78d80f20e147a80c0970725ed5542154"></a>MRPIZ_MOTOR_LEFT&#160;</td><td class="fielddoc"><p >identifiant du moteur gauche </p>
+</td></tr>
+<tr><td class="fieldname"><a id="gga35b5973f7dbcece1199d9690fbdc4659afda3f2cfc8f8b2a079b8dbf74ad4e5bd" name="gga35b5973f7dbcece1199d9690fbdc4659afda3f2cfc8f8b2a079b8dbf74ad4e5bd"></a>MRPIZ_MOTOR_RIGHT&#160;</td><td class="fielddoc"><p >identifiant du moteur droit </p>
+</td></tr>
+<tr><td class="fieldname"><a id="gga35b5973f7dbcece1199d9690fbdc4659ab73aacf49d0e7776654857f44b79ae53" name="gga35b5973f7dbcece1199d9690fbdc4659ab73aacf49d0e7776654857f44b79ae53"></a>MRPIZ_MOTOR_BOTH&#160;</td><td class="fielddoc"><p >identifiant des deux moteurs </p>
+</td></tr>
+</table>
+
+</div>
+</div>
+<h2 class="groupheader">Documentation des fonctions</h2>
+<a id="gacb5fc06307b14c88d981bf1d8ca9e823" name="gacb5fc06307b14c88d981bf1d8ca9e823"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#gacb5fc06307b14c88d981bf1d8ca9e823">&#9670;&nbsp;</a></span>mrpiz_motor_encoder_get()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int mrpiz_motor_encoder_get </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="group__mrpiz__motor.html#ga35b5973f7dbcece1199d9690fbdc4659">mrpiz_motor_id</a>&#160;</td>
+          <td class="paramname"><em>id</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Donne la valeur d'un codeur de moteur. </p>
+<p >La valeur d'un codeur se situe dans l'intervalle [-2147483648, 2147483647]. La gestion d'erreur se fait avec errno (cf. <a class="el" href="error_8h.html">error.h</a>).</p>
+<dl class="params"><dt>Paramètres</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">id</td><td>l'identifiant du moteur concerné</td></tr>
+  </table>
+  </dd>
+</dl>
+<p>Remarque : L'identifiant <a class="el" href="group__mrpiz__motor.html#gga35b5973f7dbcece1199d9690fbdc4659ab73aacf49d0e7776654857f44b79ae53">MRPIZ_MOTOR_BOTH</a> n'est pas considéré comme un identifiant valide pour cette fonction (errno = <a class="el" href="group__mrpiz__error.html#gga5fc4e62306813602b4654269d5b7a8f4af9faa38519252fd1639116ad3803374e">MRPIZ_E_MOTOR_ID</a>).</p>
+<dl class="section return"><dt>Renvoie</dt><dd>la valeur du codeur, errno est renseigné en cas d'erreur (cf. <a class="el" href="error_8h.html">error.h</a>) </dd></dl>
+
+</div>
+</div>
+<a id="ga38d1cf11e8f845a73d3812cd2864d87d" name="ga38d1cf11e8f845a73d3812cd2864d87d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ga38d1cf11e8f845a73d3812cd2864d87d">&#9670;&nbsp;</a></span>mrpiz_motor_encoder_reset()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int mrpiz_motor_encoder_reset </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="group__mrpiz__motor.html#ga35b5973f7dbcece1199d9690fbdc4659">mrpiz_motor_id</a>&#160;</td>
+          <td class="paramname"><em>id</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Remise à zéro de la valeur d'un codeur d'un moteur. </p>
+<dl class="params"><dt>Paramètres</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">id</td><td>l'identifiant du moteur concerné</td></tr>
+  </table>
+  </dd>
+</dl>
+<p>Remarque : L'identifiant <a class="el" href="group__mrpiz__motor.html#gga35b5973f7dbcece1199d9690fbdc4659ab73aacf49d0e7776654857f44b79ae53">MRPIZ_MOTOR_BOTH</a> permet de remettre à zéro les codeurs des deux moteurs.</p>
+<dl class="section return"><dt>Renvoie</dt><dd>0 en cas de success, -1 en cas d'erreur (cf. <a class="el" href="error_8h.html">error.h</a>) </dd></dl>
+
+</div>
+</div>
+<a id="ga9755b57a5bbc908a05ff2a495ed52a1b" name="ga9755b57a5bbc908a05ff2a495ed52a1b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ga9755b57a5bbc908a05ff2a495ed52a1b">&#9670;&nbsp;</a></span>mrpiz_motor_set()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int mrpiz_motor_set </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="group__mrpiz__motor.html#ga35b5973f7dbcece1199d9690fbdc4659">mrpiz_motor_id</a>&#160;</td>
+          <td class="paramname"><em>id</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int&#160;</td>
+          <td class="paramname"><em>cmd</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Envoi une consigne à un moteur pour qu'il tourne à une certaine vitesse dans un certains sens. </p>
+<p >Fixe la consigne de rotation d'un moteur en pourcentage : </p><ul>
+<li>
+une consigne négative fait tourner le moteur vers l'arrière ; </li>
+<li>
+une consigne positive fait tourner le moteur vers l'avant ; </li>
+<li>
+une consigne nulle arrête le moteur. </li>
+</ul>
+<p >Remarque : L'identifiant <a class="el" href="group__mrpiz__motor.html#gga35b5973f7dbcece1199d9690fbdc4659ab73aacf49d0e7776654857f44b79ae53">MRPIZ_MOTOR_BOTH</a> permet de commander les deux moteurs.</p>
+<dl class="params"><dt>Paramètres</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">id</td><td>l'identifiant du moteur </td></tr>
+    <tr><td class="paramname">cmd</td><td>la consigne en pourcentage à appliquer au moteur</td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Renvoie</dt><dd>0 en cas de success, -1 en cas d'erreur (cf. <a class="el" href="error_8h.html">error.h</a>) </dd></dl>
+
+</div>
+</div>
+</div><!-- contents -->
+<!-- start footer part -->
+<hr class="footer"/><address class="footer"><small>
+Généré par&#160;<a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.9.4
+</small></address>
+</body>
+</html>

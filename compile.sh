@@ -32,6 +32,25 @@ print_section() {
     echo -e "${CYAN}${BOLD}$(printf '=%.0s' $(seq 1 ${#1}))${NC}"
 }
 
+# Function to check if a command exists
+command_exists() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+# Check if Ninja is available
+print_section "CHECKING PREREQUISITES"
+if ! command_exists ninja; then
+    print_error "Ninja build system is required but not found!"
+    print_error "Please install Ninja using your system's package manager:"
+    print_error "  Ubuntu/Debian: sudo apt-get install ninja-build"
+    print_error "  Fedora: sudo dnf install ninja-build"
+    print_error "  macOS: brew install ninja"
+    exit 1
+else
+    NINJA_VERSION=$(ninja --version)
+    print_success "Found Ninja build system version $NINJA_VERSION"
+fi
+
 # Create build directory if it doesn't exist
 print_section "PREPARING BUILD ENVIRONMENT"
 print_status "Creating build directory..."
@@ -76,7 +95,7 @@ done
 
 # Configure with CMake
 print_section "CONFIGURING BUILD"
-print_status "Running CMake..."
+print_status "Running CMake with Ninja generator..."
 cmake -DUSE_TLS=$USE_TLS -DTARGET_MRPIZ=$TARGET_MRPIZ -DDEBUG=$DEBUG .. || {
     print_error "CMake configuration failed"
     exit 1

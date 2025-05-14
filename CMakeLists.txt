@@ -7,6 +7,11 @@ set(CMAKE_GENERATOR "Ninja" CACHE INTERNAL "" FORCE)
 # CMake presets configuration
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# Find zlib package
+find_package(ZLIB REQUIRED)
+include_directories(${ZLIB_INCLUDE_DIRS})
+message(STATUS "Found zlib: ${ZLIB_LIBRARIES}")
+
 # Detect architecture
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
     set(TARGET_ARCH "aarch64")
@@ -62,7 +67,8 @@ else()
     # Link with Intox simulator libraries
     set(MRPIZ_LIB "intoxmrpiz;intox")
     set(LUMPIZ_LIB "intoxlumpiz")
-    set(EXTRA_LIBS "")
+    # Always include zlib in extra libs
+    set(EXTRA_LIBS "${ZLIB_LIBRARIES}")
 endif()
 
 # Set C standard and flags
@@ -108,10 +114,10 @@ else()
 endif()
 
 # Add libraries based on target architecture
-set(MRPIZ_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs/lib_mrpiz-${TARGET_ARCH}-v0.6/lib")
-set(MRPIZ_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs/lib_mrpiz-${TARGET_ARCH}-v0.6/include/mrpiz")
-set(LUMPIZ_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs/lib_lumpiz-${TARGET_ARCH}-v0.1/lib")
-set(LUMPIZ_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs/lib_lumpiz-${TARGET_ARCH}-v0.1/include/lumpiz")
+set(MRPIZ_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs/lib_mrpiz-${TARGET_ARCH}-v0.6.1/lib")
+set(MRPIZ_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs/lib_mrpiz-${TARGET_ARCH}-v0.6.1/include/mrpiz")
+set(LUMPIZ_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs/lib_lumpiz-${TARGET_ARCH}-v0.1.1/lib")
+set(LUMPIZ_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs/lib_lumpiz-${TARGET_ARCH}-v0.1.1/include/lumpiz")
 
 include_directories(${MRPIZ_INCLUDE_DIR})
 include_directories(${LUMPIZ_INCLUDE_DIR})
@@ -188,6 +194,9 @@ foreach(LIB ${LUMPIZ_LIB})
     target_link_libraries(explo "${LUMPIZ_LIB_DIR}/lib${LIB}.a")
 endforeach()
 
+# Link zlib directly
+target_link_libraries(explo ${ZLIB_LIBRARIES})
+
 if(EXTRA_LIBS)
     target_link_libraries(explo ${EXTRA_LIBS})
 endif()
@@ -225,6 +234,9 @@ foreach(LIB ${LUMPIZ_LIB})
     target_link_libraries(inter "${LUMPIZ_LIB_DIR}/lib${LIB}.a")
 endforeach()
 
+# Link zlib directly
+target_link_libraries(inter ${ZLIB_LIBRARIES})
+
 if(EXTRA_LIBS)
     target_link_libraries(inter ${EXTRA_LIBS})
 endif()
@@ -250,6 +262,7 @@ else()
 endif()
 message(STATUS "  TLS Support: ${USE_TLS}")
 message(STATUS "  Debug Build: ${DEBUG}")
+message(STATUS "  ZLIB: ${ZLIB_LIBRARIES}")
 message(STATUS "----------------------------------------")
 message(STATUS "  Common files included: ${COMMON_SOURCES_COUNT}")
 message(STATUS "  EXPLO files included: ${EXPLO_SOURCES_COUNT}")

@@ -21,12 +21,12 @@ void xAssert(const uint8_t* p_ptkcFile, uint32_t p_ulLine, const void* p_ptMsg)
 
     if (p_ptMsg != NULL)
     {
-        X_LOG_ASSERT("Assertion failed in %s at line %u", filename, p_ulLine);
+        X_LOG_ASSERT("Assertion failed in %s:%u", filename, p_ulLine);
         X_LOG_ASSERT("%s", (const char*)p_ptMsg);
     }
     else
     {
-        X_LOG_ASSERT("Assertion failed in %s at line %u", filename, p_ulLine);
+        X_LOG_ASSERT("Assertion failed in %s:%u", filename, p_ulLine);
     }
 
 #if defined(XOS_ASSERT_MODE_EXIT)
@@ -44,7 +44,7 @@ int xAssertReturn(const uint8_t* p_ptkcFile, uint32_t p_ulLine, const void* p_pt
     // Utiliser une chaîne par défaut si le nom du fichier est NULL
     const char* filename = (p_ptkcFile != NULL) ? (const char*)p_ptkcFile : "Unknown file";
     
-    X_LOG_ASSERT("Assertion failed in %s at line %u with return value %d", filename, p_ulLine, p_iRet);
+    X_LOG_ASSERT("Assertion failed in %s:%u with return value %d", filename, p_ulLine, p_iRet);
 
     if (p_ptMsg != NULL)
     {

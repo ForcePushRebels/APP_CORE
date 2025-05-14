@@ -132,17 +132,17 @@ int xLogWrite(const char *p_ptkcFile, uint32_t p_ulLine, const char *p_ptkcForma
     if (p_ptkcFile != NULL)
     {
         l_pcFileName = p_ptkcFile;
-        const char *l_pcLastSlash = strrchr(p_ptkcFile, '/');
+    const char *l_pcLastSlash = strrchr(p_ptkcFile, '/');
+    if (l_pcLastSlash != NULL)
+    {
+        l_pcFileName = l_pcLastSlash + 1;
+    }
+    else
+    {
+        l_pcLastSlash = strrchr(p_ptkcFile, '\\');
         if (l_pcLastSlash != NULL)
         {
             l_pcFileName = l_pcLastSlash + 1;
-        }
-        else
-        {
-            l_pcLastSlash = strrchr(p_ptkcFile, '\\');
-            if (l_pcLastSlash != NULL)
-            {
-                l_pcFileName = l_pcLastSlash + 1;
             }
         }
     }

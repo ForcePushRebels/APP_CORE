@@ -41,7 +41,7 @@ void* watchdog_thread(void *arg)
    
    if (!watchdog) {
        X_LOG_TRACE("Watchdog thread started with NULL context");
-       return NULL;
+       return (void*)(intptr_t)WATCHDOG_ERROR_INVALID_PARAM;
    }
    
    X_LOG_TRACE("Watchdog thread started");
@@ -50,8 +50,9 @@ void* watchdog_thread(void *arg)
    while (!watchdog->terminate) {
        // Ping the watchdog to reset the timer
        l_iRet = watchdog_ping();
-       if (l_iRet != 0) {
-           X_LOG_TRACE("Watchdog ping failed in thread");
+       if (l_iRet != WATCHDOG_SUCCESS) {
+           X_LOG_TRACE("Watchdog ping failed in thread: %s (code: 0x%x)", 
+                     watchdog_get_error_string(l_iRet), l_iRet);
        }
        
        // Wait some time before the next ping
@@ -60,7 +61,7 @@ void* watchdog_thread(void *arg)
    }
    
    X_LOG_TRACE("Watchdog thread terminated normally");
-   return NULL;
+   return (void*)(intptr_t)WATCHDOG_SUCCESS;
 }
 
 ////////////////////////////////////////////////////////////
@@ -113,12 +114,12 @@ static void timer_handler(union sigval sv)
 ////////////////////////////////////////////////////////////
 int watchdog_init(int timeout_ms)
 {
-    unsigned long l_ulReturn ;
+    unsigned long l_ulReturn;
     // Check if already initialized
     if (g_is_initialized)
     {
         X_LOG_TRACE("Watchdog already initialized");
-        return 0;
+        return WATCHDOG_ERROR_ALREADY_INIT;
     }
 
     // Timeout configuration
@@ -135,7 +136,7 @@ int watchdog_init(int timeout_ms)
     if ((unsigned int)mutexCreate(&g_watchdog.mutex) != MUTEX_OK)
     {
         X_LOG_TRACE("Failed to create watchdog mutex");
-        return -1;
+        return WATCHDOG_ERROR_MUTEX_FAILED;
     }
 
     // Event configuration for the timer
@@ -150,7 +151,7 @@ int watchdog_init(int timeout_ms)
     {
         X_LOG_TRACE("Failed to create timer: %s", strerror(errno));
         mutexDestroy(&g_watchdog.mutex);
-        return -1;
+        return WATCHDOG_ERROR_TIMER_CREATE;
     }
     
     // Store the timer ID in the watchdog structure
@@ -163,11 +164,12 @@ int watchdog_init(int timeout_ms)
     l_ulReturn = osTaskInit(&g_watchdog.task_ctx);
     if (l_ulReturn != OS_TASK_SUCCESS) 
     {
-        X_LOG_TRACE("Failed to initialize watchdog task: %x", l_ulReturn);
+        X_LOG_TRACE("Failed to initialize watchdog task: %s (code: 0x%x)", 
+                   osTaskGetErrorString(l_ulReturn), l_ulReturn);
         timer_delete(g_timer_id);
         mutexDestroy(&g_watchdog.mutex);
         g_is_initialized = 0;  
-        return l_ulReturn;
+        return WATCHDOG_ERROR_THREAD_FAILED;
     }
     
     g_watchdog.task_ctx.t_iPriority = 1;        
@@ -178,17 +180,18 @@ int watchdog_init(int timeout_ms)
     l_ulReturn = osTaskCreate(&g_watchdog.task_ctx);
     if (l_ulReturn != OS_TASK_SUCCESS) 
     {
-        X_LOG_TRACE("Failed to create watchdog thread: %x", l_ulReturn);
+        X_LOG_TRACE("Failed to create watchdog thread: %s (code: 0x%x)", 
+                   osTaskGetErrorString(l_ulReturn), l_ulReturn);
         timer_delete(g_timer_id);
         mutexDestroy(&g_watchdog.mutex);
         g_is_initialized = 0;
-        return -1;
+        return WATCHDOG_ERROR_THREAD_CREATE;
     }
     
     g_watchdog.is_running = 1;
     
     // Activate the watchdog immediately
-    if (watchdog_ping() != 0) 
+    if (watchdog_ping() != WATCHDOG_SUCCESS) 
     {
         X_LOG_TRACE("Failed to start watchdog timer");
         g_watchdog.terminate = 1;
@@ -196,10 +199,10 @@ int watchdog_init(int timeout_ms)
         timer_delete(g_timer_id);
         mutexDestroy(&g_watchdog.mutex);
         g_is_initialized = 0;
-        return -1;
+        return WATCHDOG_ERROR_TIMER_SET;
     }
 
-    return 0;
+    return WATCHDOG_SUCCESS;
 }
 
 ////////////////////////////////////////////////////////////
@@ -274,14 +277,14 @@ int watchdog_ping(void)
     if (!g_is_initialized)
     {
         X_LOG_TRACE("Watchdog not initialized");
-        return -1;
+        return WATCHDOG_ERROR_NOT_INIT;
     }
 
     // Protect access with mutex
     if ((unsigned int)mutexLock(&g_watchdog.mutex) != MUTEX_OK)
     {
         X_LOG_TRACE("Failed to lock mutex in watchdog_ping");
-        return -1;
+        return WATCHDOG_ERROR_MUTEX_FAILED;
     }
 
     // Configure timer for single-shot (no repetition)
@@ -296,11 +299,11 @@ int watchdog_ping(void)
     {
         X_LOG_TRACE("Failed to set timer: %s", strerror(errno));
         mutexUnlock(&g_watchdog.mutex);
-        return -1;
+        return WATCHDOG_ERROR_TIMER_SET;
     }
 
     mutexUnlock(&g_watchdog.mutex);
-    return 0;
+    return WATCHDOG_SUCCESS;
 }
 
 ////////////////////////////////////////////////////////////
@@ -323,6 +326,11 @@ bool watchdog_has_expired(void)
         has_expired = g_watchdog.should_reset;
         mutexUnlock(&g_watchdog.mutex);
     }
+    else 
+    {
+        X_LOG_TRACE("Failed to lock mutex in watchdog_has_expired: %s",
+                  watchdog_get_error_string(WATCHDOG_ERROR_MUTEX_FAILED));
+    }
 
     return has_expired;
 }
@@ -341,5 +349,26 @@ void watchdog_set_expiry_handler(void (*callback)(void))
     else
     {
         g_expiry_handler = callback;
+    }
+}
+
+////////////////////////////////////////////////////////////
+/// watchdog_get_error_string
+////////////////////////////////////////////////////////////
+const char* watchdog_get_error_string(int error_code)
+{
+    switch (error_code)
+    {
+        case WATCHDOG_SUCCESS:              return "Success";
+        case WATCHDOG_ERROR_INIT_FAILED:    return "Watchdog initialization failed";
+        case WATCHDOG_ERROR_ALREADY_INIT:   return "Watchdog already initialized";
+        case WATCHDOG_ERROR_NOT_INIT:       return "Watchdog not initialized";
+        case WATCHDOG_ERROR_MUTEX_FAILED:   return "Watchdog mutex operation failed";
+        case WATCHDOG_ERROR_TIMER_CREATE:   return "Failed to create watchdog timer";
+        case WATCHDOG_ERROR_TIMER_SET:      return "Failed to set/start watchdog timer";
+        case WATCHDOG_ERROR_THREAD_CREATE:  return "Failed to create watchdog thread";
+        case WATCHDOG_ERROR_THREAD_FAILED:  return "Watchdog thread operation failed";
+        case WATCHDOG_ERROR_INVALID_PARAM:  return "Invalid parameter for watchdog";
+        default:                            return "Unknown watchdog error";
     }
 }

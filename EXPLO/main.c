@@ -28,7 +28,8 @@ static const uint8_t s_aCLogPath[] = "explo.log";
 #define PAUSE_LETTER (UNIT_TIME * 3)
 
 // Fonction pour faire clignoter la LED avec une couleur pendant une durée
-void blinkLed(mrpiz_led_rgb_color_t color, int duration_ms) {
+void blinkLed(mrpiz_led_rgb_color_t color, int duration_ms)
+{
     SetLedColor(color);
     usleep(duration_ms * 1000);
     SetLedColor(MRPIZ_LED_OFF);
@@ -36,29 +37,33 @@ void blinkLed(mrpiz_led_rgb_color_t color, int duration_ms) {
 }
 
 // Fonction pour envoyer un SOS en morse avec différentes couleurs
-void sendMorseSOS() {
-    
+void sendMorseSOS()
+{
+
     // S: ... (3 courts en rouge)
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 3; i++)
+    {
         blinkLed(MRPIZ_LED_RED, SHORT_SIGNAL);
     }
-    
+
     // Pause entre lettres
     usleep((PAUSE_LETTER - PAUSE_SIGNAL) * 100);
-    
+
     // O: --- (3 longs en vert)
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 3; i++)
+    {
         blinkLed(MRPIZ_LED_GREEN, LONG_SIGNAL);
     }
-    
+
     // Pause entre lettres
     usleep((PAUSE_LETTER - PAUSE_SIGNAL) * 100);
-    
+
     // S: ... (3 courts en bleu)
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 3; i++)
+    {
         blinkLed(MRPIZ_LED_BLUE, SHORT_SIGNAL);
     }
-    
+
     // Pause finale
     usleep(PAUSE_LETTER * 100);
 }
@@ -88,13 +93,12 @@ int main()
 
     // init watchdog
     l_iReturn = watchdog_init(300);
-    X_ASSERT(l_iReturn == 0);
+    X_ASSERT(l_iReturn == WATCHDOG_SUCCESS);
     watchdog_set_expiry_handler(l_fWatchdogExpiryHandler);
 
     while (1)
     {
         // Envoyer le signal SOS en morse
         sendMorseSOS();
-        
     }
 }

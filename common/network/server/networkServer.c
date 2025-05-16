@@ -13,7 +13,8 @@
 #include <string.h>
 
 // Allocation dynamique d'un clientThread
-static clientThread *createClientThread(serverCtx *p_pttServer, NetworkSocket *p_pSocket,
+static clientThread *createClientThread(serverCtx *p_pttServer, 
+                                        NetworkSocket *p_pSocket,
                                         NetworkAddress *p_pAddress)
 {
     clientThread *l_pClientThread = (clientThread *)malloc(sizeof(clientThread));
@@ -109,7 +110,11 @@ int serverInit(serverCtx *p_pttServer)
 /// @param p_iMaxClients Maximum number of concurrent clients
 /// @return SERVER_OK on success, error code otherwise
 ////////////////////////////////////////////////////////////
-int serverConfigure(serverCtx *p_pttServer, uint16_t p_usPort, int p_iBacklog, int p_iMaxClients, const char *p_cAddress)
+int serverConfigure(serverCtx *p_pttServer, 
+                    uint16_t p_usPort, 
+                    int p_iBacklog, 
+                    int p_iMaxClients, 
+                    const char *p_ptkcAddress)
 {
     X_ASSERT(p_pttServer != NULL);
 
@@ -133,11 +138,11 @@ int serverConfigure(serverCtx *p_pttServer, uint16_t p_usPort, int p_iBacklog, i
     }
 
     // Configuration de l'adresse
-    if (p_cAddress != NULL)
+    if (p_ptkcAddress != NULL)
     {
         // Copier l'adresse au lieu d'affecter le pointeur
-        memcpy(p_pttServer->t_tAddress.t_cAddress, p_cAddress,
-               strlen(p_cAddress) < INET_ADDRSTRLEN ? strlen(p_cAddress) : INET_ADDRSTRLEN - 1);
+        memcpy(p_pttServer->t_tAddress.t_cAddress, p_ptkcAddress,
+               strlen(p_ptkcAddress) < INET_ADDRSTRLEN ? strlen(p_ptkcAddress) : INET_ADDRSTRLEN - 1);
 
         // S'assurer que la chaîne est terminée par un caractère nul
         p_pttServer->t_tAddress.t_cAddress[INET_ADDRSTRLEN - 1] = '\0';

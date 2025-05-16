@@ -14,23 +14,23 @@
 #include "xOsMutex.h"
 
 // Server error codes
-#define SERVER_OK                       0x200B000
-#define SERVER_ERROR                    0x200B001
-#define SERVER_MAX_CLIENTS_REACHED      0x200B002
-#define SERVER_INVALID_STATE            0x200B003
-#define SERVER_THREAD_ERROR             0x200B004
-#define SERVER_CLIENT_DISCONNECTED      0x200B005
-#define SERVER_SOCKET_ERROR             0x200B006
-#define SERVER_MEMORY_ERROR             0x200B007
-#define SERVER_TIMEOUT                  0x200B008
-#define SERVER_INVALID_PARAMETER        0x200B009
-#define SERVER_NOT_RUNNING              0x200B00A
+#define SERVER_OK 0x200B000
+#define SERVER_ERROR 0x200B001
+#define SERVER_MAX_CLIENTS_REACHED 0x200B002
+#define SERVER_INVALID_STATE 0x200B003
+#define SERVER_THREAD_ERROR 0x200B004
+#define SERVER_CLIENT_DISCONNECTED 0x200B005
+#define SERVER_SOCKET_ERROR 0x200B006
+#define SERVER_MEMORY_ERROR 0x200B007
+#define SERVER_TIMEOUT 0x200B008
+#define SERVER_INVALID_PARAMETER 0x200B009
+#define SERVER_NOT_RUNNING 0x200B00A
 
 // Configuration du serveur
-#define SERVER_DEFAULT_PORT     8080
-#define SERVER_MAX_CLIENTS      5
-#define SERVER_BUFFER_SIZE      4096
-#define SERVER_SOCKET_TIMEOUT   20000 // ms
+#define SERVER_DEFAULT_PORT 8080
+#define SERVER_MAX_CLIENTS 5
+#define SERVER_BUFFER_SIZE 4096
+#define SERVER_SOCKET_TIMEOUT 20000 // ms
 
 ////////////////////////////////////////////////////////////
 /// @brief Server states
@@ -76,16 +76,16 @@ typedef struct client_thread_t
 ////////////////////////////////////////////////////////////
 struct server_ctx_t
 {
-    NetworkSocket *t_pSocket;   // Socket d'écoute principal
-    NetworkAddress t_tAddress;  // Adresse et port d'écoute
-    xOsMutexCtx t_Mutex;        // Mutex pour synchronisation
-    xOsTaskCtx t_Task;          // Contexte de tâche pour le thread serveur
-    ServerState t_eState;       // État actuel du serveur
-    serverConfig t_tConfig;     // Configuration du serveur
+    NetworkSocket *t_pSocket;  // Socket d'écoute principal
+    NetworkAddress t_tAddress; // Adresse et port d'écoute
+    xOsMutexCtx t_Mutex;       // Mutex pour synchronisation
+    xOsTaskCtx t_Task;         // Contexte de tâche pour le thread serveur
+    ServerState t_eState;      // État actuel du serveur
+    serverConfig t_tConfig;    // Configuration du serveur
 
     // Limite de clients actifs
     int t_iMaxClients;
-    int t_iActiveClients;       // Nombre actuel de clients actifs
+    int t_iActiveClients; // Nombre actuel de clients actifs
 
     // Callbacks utilisateur
     void (*t_pfOnClientConnect)(serverCtx *, clientThread *);
@@ -106,10 +106,10 @@ int serverInit(serverCtx *p_pttServer);
 /// @param p_usPort Port number (0 for default)
 /// @param p_iBacklog Max pending connections (0 for default)
 /// @param p_iMaxClients Maximum number of concurrent clients (0 for default)
-/// @param p_cAddress IP address to bind to (NULL for any)
+/// @param p_ptkcAddress IP address to bind to (NULL for any)
 /// @return SERVER_OK on success, error code otherwise
 ////////////////////////////////////////////////////////////
-int serverConfigure(serverCtx *p_pttServer, uint16_t p_usPort, int p_iBacklog, int p_iMaxClients, const char *p_cAddress);
+int serverConfigure(serverCtx *p_pttServer, uint16_t p_usPort, int p_iBacklog, int p_iMaxClients, const char *p_ptkcAddress);
 
 ////////////////////////////////////////////////////////////
 /// @brief Start server (creates socket, binds and starts listener thread)

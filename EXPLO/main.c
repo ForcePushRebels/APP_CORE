@@ -17,6 +17,7 @@
 #include "xLog.h"
 #include "xAssert.h"
 #include "watchdog.h"
+#include "networkServer.h"
 
 static const uint8_t s_aCLogPath[] = "explo.log";
 
@@ -95,6 +96,15 @@ int main()
     l_iReturn = watchdog_init(300);
     X_ASSERT(l_iReturn == WATCHDOG_SUCCESS);
     watchdog_set_expiry_handler(l_fWatchdogExpiryHandler);
+
+    // init server
+    serverCtx t_tServer;
+    l_iReturn = serverInit(&t_tServer);
+    X_ASSERT(l_iReturn == SERVER_OK);
+
+    // start server
+    l_iReturn = serverStart(&t_tServer);
+    X_ASSERT(l_iReturn == SERVER_OK);
 
     while (1)
     {

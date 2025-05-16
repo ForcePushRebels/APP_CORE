@@ -13,7 +13,7 @@
 #include <string.h>
 
 // Allocation dynamique d'un clientThread
-static clientThread *createClientThread(serverCtx *p_pttServer, 
+static clientThread *createClientThread(serverCtx *p_pttServer,
                                         NetworkSocket *p_pSocket,
                                         NetworkAddress *p_pAddress)
 {
@@ -110,10 +110,10 @@ int serverInit(serverCtx *p_pttServer)
 /// @param p_iMaxClients Maximum number of concurrent clients
 /// @return SERVER_OK on success, error code otherwise
 ////////////////////////////////////////////////////////////
-int serverConfigure(serverCtx *p_pttServer, 
-                    uint16_t p_usPort, 
-                    int p_iBacklog, 
-                    int p_iMaxClients, 
+int serverConfigure(serverCtx *p_pttServer,
+                    uint16_t p_usPort,
+                    int p_iBacklog,
+                    int p_iMaxClients,
                     const char *p_ptkcAddress)
 {
     X_ASSERT(p_pttServer != NULL);
@@ -254,20 +254,12 @@ int serverStop(serverCtx *p_pttServer)
         networkCloseSocket(l_pSocket);
     }
 
-    // Attendre la fin du thread serveur (max 5 secondes)
-    int l_iWaitCount = 0;
-    const int l_iMaxWait = 50; // 5 secondes (50 * 100ms)
-
-    while (p_pttServer->t_eState != SERVER_STATE_IDLE && l_iWaitCount < l_iMaxWait)
+    // Utiliser osTaskStop au lieu d'attendre passivement
+    int l_iResult = osTaskStop(&p_pttServer->t_Task, OS_TASK_STOP_TIMEOUT);
+    if (l_iResult != OS_TASK_SUCCESS)
     {
-        usleep(100000); // 100ms
-        l_iWaitCount++;
-    }
-
-    // Si le thread ne s'est pas terminé, forcer sa terminaison
-    if (p_pttServer->t_eState != SERVER_STATE_IDLE)
-    {
-        X_LOG_TRACE("Forcing server thread termination");
+        X_LOG_TRACE("Failed to stop server thread gracefully: %s", osTaskGetErrorString(l_iResult));
+        // En cas d'échec, forcer l'arrêt
         osTaskEnd(&p_pttServer->t_Task);
     }
 
@@ -289,7 +281,11 @@ void *serverHandle(void *p_pArg)
 
     X_LOG_TRACE("Server thread started");
 
-    while (l_pServer->t_eState == SERVER_STATE_RUNNING)
+    // Récupérer le contexte de tâche du thread actuel pour vérifier le drapeau d'arrêt
+    xOsTaskCtx *l_pTaskCtx = &l_pServer->t_Task;
+
+    while (l_pServer->t_eState == SERVER_STATE_RUNNING &&
+           atomic_load(&l_pTaskCtx->a_iStopFlag) != OS_TASK_STOP_REQUEST)
     {
         NetworkSocket *l_pSocket = NULL;
 
@@ -306,17 +302,18 @@ void *serverHandle(void *p_pArg)
         }
 
         // Attendre une connexion cliente (avec timeout pour pouvoir vérifier l'état)
-        int activity = networkWaitForActivity(l_pSocket, 1000); // Attendre 1 seconde max
+        int l_iActivity = networkWaitForActivity(l_pSocket, 1000); // Réduire le timeout à 1 seconde pour vérifier l'arrêt plus souvent
 
         // Vérifier si le serveur est toujours en cours d'exécution
-        if (l_pServer->t_eState != SERVER_STATE_RUNNING)
+        if (l_pServer->t_eState != SERVER_STATE_RUNNING ||
+            atomic_load(&l_pTaskCtx->a_iStopFlag) == OS_TASK_STOP_REQUEST)
         {
-            X_LOG_TRACE("Server state changed, stopping accept loop");
+            X_LOG_TRACE("Server state changed or stop requested, stopping accept loop");
             break;
         }
 
         // Si pas d'activité, continuer la boucle
-        if (activity <= 0)
+        if (l_iActivity <= 0)
         {
             continue;
         }
@@ -440,21 +437,25 @@ void *clientThreadFunction(void *p_pArg)
                 l_pClientThread->t_tAddress.t_cAddress,
                 l_pClientThread->t_tAddress.t_usPort);
 
+    // Récupérer le contexte de tâche du thread actuel pour vérifier le drapeau d'arrêt
+    xOsTaskCtx *l_pTaskCtx = &l_pClientThread->t_Task;
+
     // Boucle principale de traitement des données client
-    while (l_pClientThread->t_bConnected && l_bServerRunning)
+    while (l_pClientThread->t_bConnected && l_bServerRunning &&
+           atomic_load(&l_pTaskCtx->a_iStopFlag) != OS_TASK_STOP_REQUEST)
     {
         // Vérifier l'état du serveur avant chaque itération
         mutexLock(&l_pServer->t_Mutex);
         l_bServerRunning = (l_pServer->t_eState == SERVER_STATE_RUNNING);
         mutexUnlock(&l_pServer->t_Mutex);
 
-        if (!l_bServerRunning)
+        if (!l_bServerRunning || atomic_load(&l_pTaskCtx->a_iStopFlag) == OS_TASK_STOP_REQUEST)
         {
-            X_LOG_TRACE("Server is not running, stopping client thread");
+            X_LOG_TRACE("Server is not running or stop requested, stopping client thread");
             break;
         }
 
-        // Recevoir des données du client
+        // Recevoir des données du client avec un timeout plus court
         l_iReceived = networkReceive(l_pClientThread->t_pSocket, l_cBuffer, SERVER_BUFFER_SIZE - 1);
 
         if (l_iReceived > 0)
@@ -599,6 +600,7 @@ int serverDisconnectClient(clientThread *p_tClientThread)
 {
     X_ASSERT(p_tClientThread != NULL);
 
+    // Signaler au thread client de se déconnecter
     p_tClientThread->t_bConnected = false;
 
     // Fermer le socket forcera la sortie de la boucle de réception
@@ -606,6 +608,15 @@ int serverDisconnectClient(clientThread *p_tClientThread)
     {
         networkCloseSocket(p_tClientThread->t_pSocket);
         p_tClientThread->t_pSocket = NULL;
+    }
+
+    // Arrêter proprement le thread client avec un timeout
+    int l_iResult = osTaskStop(&p_tClientThread->t_Task, OS_TASK_STOP_TIMEOUT);
+    if (l_iResult != OS_TASK_SUCCESS)
+    {
+        X_LOG_TRACE("Failed to stop client thread gracefully: %s", osTaskGetErrorString(l_iResult));
+        // En cas d'échec, forcer l'arrêt
+        osTaskEnd(&p_tClientThread->t_Task);
     }
 
     return SERVER_OK;

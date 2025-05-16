@@ -13,202 +13,216 @@
 #include "xTask.h"
 #include "xOsMutex.h"
 
-// Server error codes
-#define SERVER_OK 0x200B000
-#define SERVER_ERROR 0x200B001
-#define SERVER_MAX_CLIENTS_REACHED 0x200B002
-#define SERVER_INVALID_STATE 0x200B003
-#define SERVER_THREAD_ERROR 0x200B004
-#define SERVER_CLIENT_DISCONNECTED 0x200B005
-#define SERVER_SOCKET_ERROR 0x200B006
-#define SERVER_MEMORY_ERROR 0x200B007
-#define SERVER_TIMEOUT 0x200B008
-#define SERVER_INVALID_PARAMETER 0x200B009
-#define SERVER_NOT_RUNNING 0x200B00A
+///////////////////////////////////////////
+/// Server error codes
+///////////////////////////////////////////
+#define SERVER_OK                   0x200B000
+#define SERVER_ERROR                0x200B001
+#define SERVER_MAX_CLIENTS_REACHED  0x200B002
+#define SERVER_INVALID_STATE        0x200B003
+#define SERVER_THREAD_ERROR         0x200B004
+#define SERVER_CLIENT_DISCONNECTED  0x200B005
+#define SERVER_SOCKET_ERROR         0x200B006
+#define SERVER_MEMORY_ERROR         0x200B007
+#define SERVER_TIMEOUT              0x200B008
+#define SERVER_INVALID_PARAMETER    0x200B009
+#define SERVER_NOT_RUNNING          0x200B00A
 
-// Configuration du serveur
-#define SERVER_DEFAULT_PORT 8080
-#define SERVER_MAX_CLIENTS 5
-#define SERVER_BUFFER_SIZE 4096
-#define SERVER_SOCKET_TIMEOUT 20000 // ms
+///////////////////////////////////////////
+/// Server configuration defaults
+///////////////////////////////////////////
+#define SERVER_DEFAULT_PORT         8080
+#define SERVER_MAX_CLIENTS          5
+#define SERVER_BUFFER_SIZE          4096
+#define SERVER_SOCKET_TIMEOUT       0 
 
-////////////////////////////////////////////////////////////
-/// @brief Server states
-////////////////////////////////////////////////////////////
-typedef enum
+///////////////////////////////////////////
+/// Server states
+///////////////////////////////////////////
+typedef enum 
 {
-    SERVER_STATE_IDLE,
+    SERVER_STATE_UNINITIALIZED,
+    SERVER_STATE_INITIALIZED,
     SERVER_STATE_RUNNING,
-    SERVER_STATE_ERROR,
-    SERVER_STATE_STOPPED
+    SERVER_STATE_STOPPING,
+    SERVER_STATE_ERROR
 } ServerState;
 
-////////////////////////////////////////////////////////////
-/// @brief Server configuration
-////////////////////////////////////////////////////////////
-typedef struct
-{
-    uint16_t t_usPort;     // Port d'écoute
-    int t_iBacklog;        // Nombre max de connexions en attente
-    int t_iReceiveTimeout; // Timeout de réception (ms)
-    bool t_bReuseAddr;     // Option SO_REUSEADDR
-    int t_iMaxClients;     // Nombre max de clients
-} serverConfig;
-
-// Forward declaration using the same name as the typedef
+// Forward declarations
 typedef struct server_ctx_t serverCtx;
+typedef struct client_ctx_t clientCtx;
 
-////////////////////////////////////////////////////////////
-/// @brief Client thread structure for per-client processing
-////////////////////////////////////////////////////////////
-typedef struct client_thread_t
-{
-    NetworkSocket *t_pSocket;  // Socket client
-    NetworkAddress t_tAddress; // Adresse client
-    bool t_bConnected;         // État de connexion
-    xOsTaskCtx t_Task;         // Contexte de tâche pour le thread client
-    serverCtx *t_pServer;      // Référence au serveur parent
-    void *t_pUserData;         // Données utilisateur (contexte client)
-} clientThread;
+///////////////////////////////////////////
+/// @brief Client connection event callback
+///
+/// @param server Server context
+/// @param client Client context
+///////////////////////////////////////////
+typedef void (*ServerClientConnectCallback)(serverCtx* server, clientCtx* client);
 
-////////////////////////////////////////////////////////////
-/// @brief Server structure
-////////////////////////////////////////////////////////////
-struct server_ctx_t
-{
-    NetworkSocket *t_pSocket;  // Socket d'écoute principal
-    NetworkAddress t_tAddress; // Adresse et port d'écoute
-    xOsMutexCtx t_Mutex;       // Mutex pour synchronisation
-    xOsTaskCtx t_Task;         // Contexte de tâche pour le thread serveur
-    ServerState t_eState;      // État actuel du serveur
-    serverConfig t_tConfig;    // Configuration du serveur
+///////////////////////////////////////////
+/// @brief Client disconnection event callback
+///
+/// @param server Server context
+/// @param client Client context
+///////////////////////////////////////////
+typedef void (*ServerClientDisconnectCallback)(serverCtx* server, clientCtx* client);
 
-    // Limite de clients actifs
-    int t_iMaxClients;
-    int t_iActiveClients; // Nombre actuel de clients actifs
+///////////////////////////////////////////
+/// @brief Data received event callback
+///
+/// @param server Server context
+/// @param client Client context
+/// @param data Received data
+/// @param size Data size
+///////////////////////////////////////////
+typedef void (*ServerDataReceivedCallback)(serverCtx* server, clientCtx* client, void* data, int size);
 
-    // Callbacks utilisateur
-    void (*t_pfOnClientConnect)(serverCtx *, clientThread *);
-    void (*t_pfOnClientDisconnect)(serverCtx *, clientThread *);
-    void (*t_pfOnDataReceived)(serverCtx *, clientThread *, void *, int);
-};
+///////////////////////////////////////////
+/// @brief Server configuration structure
+///////////////////////////////////////////
+typedef struct {
+    uint16_t port;             // Listening port
+    const char* bindAddress;   // Address to bind to (NULL for any)
+    int maxClients;            // Maximum number of concurrent clients
+    int backlog;               // Maximum number of pending connections
+    bool useTimeout;           // Whether to use socket timeout
+    int receiveTimeout;        // Receive timeout in milliseconds (0 = no timeout)
+    bool reuseAddr;            // Whether to reuse address
+} ServerConfig;
 
-////////////////////////////////////////////////////////////
-/// @brief Initialize server structure with default values
-/// @param p_pttServer Pointer to server structure
-/// @return SERVER_OK on success, error code otherwise
-////////////////////////////////////////////////////////////
-int serverInit(serverCtx *p_pttServer);
+///////////////////////////////////////////
+/// @brief Create a new server instance
+///
+/// @return Pointer to server context or NULL on error
+///////////////////////////////////////////
+serverCtx* serverCreate(void);
 
-////////////////////////////////////////////////////////////
-/// @brief Configure server parameters
-/// @param p_pttServer Pointer to server structure
-/// @param p_usPort Port number (0 for default)
-/// @param p_iBacklog Max pending connections (0 for default)
-/// @param p_iMaxClients Maximum number of concurrent clients (0 for default)
-/// @param p_ptkcAddress IP address to bind to (NULL for any)
-/// @return SERVER_OK on success, error code otherwise
-////////////////////////////////////////////////////////////
-int serverConfigure(serverCtx *p_pttServer, uint16_t p_usPort, int p_iBacklog, int p_iMaxClients, const char *p_ptkcAddress);
+///////////////////////////////////////////
+/// @brief Configure the server
+///
+/// @param server Server context
+/// @param config Server configuration
+/// @return SERVER_OK or error code
+///////////////////////////////////////////
+int serverConfigure(serverCtx* server, const ServerConfig* config);
 
-////////////////////////////////////////////////////////////
-/// @brief Start server (creates socket, binds and starts listener thread)
-/// @param p_pttServer Pointer to server structure
-/// @return SERVER_OK on success, error code otherwise
-////////////////////////////////////////////////////////////
-int serverStart(serverCtx *p_pttServer);
+///////////////////////////////////////////
+/// @brief Set callback for client connection events
+///
+/// @param server Server context
+/// @param callback Callback function
+/// @return SERVER_OK or error code
+///////////////////////////////////////////
+int serverSetOnClientConnect(serverCtx* server, ServerClientConnectCallback callback);
 
-////////////////////////////////////////////////////////////
-/// @brief Stop server (closes socket and stops thread)
-/// @param p_pttServer Pointer to server structure
-/// @return SERVER_OK on success, error code otherwise
-////////////////////////////////////////////////////////////
-int serverStop(serverCtx *p_pttServer);
+///////////////////////////////////////////
+/// @brief Set callback for client disconnection events
+///
+/// @param server Server context
+/// @param callback Callback function
+/// @return SERVER_OK or error code
+///////////////////////////////////////////
+int serverSetOnClientDisconnect(serverCtx* server, ServerClientDisconnectCallback callback);
 
-////////////////////////////////////////////////////////////
-/// @brief Server main thread function
-/// @param p_pttServer Pointer to server structure cast as void*
-/// @return Should never return, 0 on normal exit, error code otherwise
-////////////////////////////////////////////////////////////
-void *serverHandle(void *p_pArg);
+///////////////////////////////////////////
+/// @brief Set callback for data received events
+///
+/// @param server Server context
+/// @param callback Callback function
+/// @return SERVER_OK or error code
+///////////////////////////////////////////
+int serverSetOnDataReceived(serverCtx* server, ServerDataReceivedCallback callback);
 
-////////////////////////////////////////////////////////////
-/// @brief Client thread function - handles a single client connection
-/// @param p_tClientThread Pointer to client thread structure cast as void*
-/// @return Should terminate when client disconnects, 0 on normal exit
-////////////////////////////////////////////////////////////
-void *clientThreadFunction(void *p_tClientThread);
+///////////////////////////////////////////
+/// @brief Start the server
+///
+/// @param server Server context
+/// @return SERVER_OK or error code
+///////////////////////////////////////////
+int serverStart(serverCtx* server);
 
-////////////////////////////////////////////////////////////
-/// @brief Send data to client
-/// @param p_tClientThread Pointer to client thread
-/// @param p_pData Data buffer
-/// @param p_iSize Data size
-/// @return Bytes sent or error code
-////////////////////////////////////////////////////////////
-int serverSendToClient(clientThread *p_tClientThread, const void *p_pData, int p_iSize);
+///////////////////////////////////////////
+/// @brief Stop the server
+///
+/// @param server Server context
+/// @return SERVER_OK or error code
+///////////////////////////////////////////
+int serverStop(serverCtx* server);
 
-////////////////////////////////////////////////////////////
-/// @brief Set callback for client connection event
-/// @param p_pttServer Pointer to server structure
-/// @param p_pfCallback Callback function
-/// @return SERVER_OK on success, error code otherwise
-////////////////////////////////////////////////////////////
-int serverSetOnClientConnect(serverCtx *p_pttServer,
-                             void (*p_pfCallback)(serverCtx *, clientThread *));
+///////////////////////////////////////////
+/// @brief Destroy the server and free all associated resources
+///
+/// @param server Server context
+///////////////////////////////////////////
+void serverDestroy(serverCtx* server);
 
-////////////////////////////////////////////////////////////
-/// @brief Set callback for client disconnection event
-/// @param p_pttServer Pointer to server structure
-/// @param p_pfCallback Callback function
-/// @return SERVER_OK on success, error code otherwise
-////////////////////////////////////////////////////////////
-int serverSetOnClientDisconnect(serverCtx *p_pttServer,
-                                void (*p_pfCallback)(serverCtx *, clientThread *));
+///////////////////////////////////////////
+/// @brief Send data to a client
+///
+/// @param client Client context
+/// @param data Data to send
+/// @param size Data size
+/// @return Number of bytes sent or error code
+///////////////////////////////////////////
+int serverSendToClient(clientCtx* client, const void* data, int size);
 
-////////////////////////////////////////////////////////////
-/// @brief Set callback for data received event
-/// @param p_pttServer Pointer to server structure
-/// @param p_pfCallback Callback function
-/// @return SERVER_OK on success, error code otherwise
-////////////////////////////////////////////////////////////
-int serverSetOnDataReceived(serverCtx *p_pttServer,
-                            void (*p_pfCallback)(serverCtx *, clientThread *, void *, int));
+///////////////////////////////////////////
+/// @brief Disconnect a client
+///
+/// @param client Client context
+/// @return SERVER_OK or error code
+///////////////////////////////////////////
+int serverDisconnectClient(clientCtx* client);
 
-////////////////////////////////////////////////////////////
-/// @brief Disconnect and cleanup client thread
-/// @param p_tClientThread Pointer to client thread
-/// @return SERVER_OK on success, error code otherwise
-////////////////////////////////////////////////////////////
-int serverDisconnectClient(clientThread *p_tClientThread);
+///////////////////////////////////////////
+/// @brief Set user data associated with a client
+///
+/// @param client Client context
+/// @param userData User data pointer
+/// @return SERVER_OK or error code
+///////////////////////////////////////////
+int serverSetClientUserData(clientCtx* client, void* userData);
 
-////////////////////////////////////////////////////////////
-/// @brief Set user data for client thread (context)
-/// @param p_tClientThread Pointer to client thread
-/// @param p_pUserData Pointer to user data
-/// @return SERVER_OK on success, error code otherwise
-////////////////////////////////////////////////////////////
-int serverSetClientUserData(clientThread *p_tClientThread, void *p_pUserData);
+///////////////////////////////////////////
+/// @brief Get user data associated with a client
+///
+/// @param client Client context
+/// @return User data pointer or NULL if not set
+///////////////////////////////////////////
+void* serverGetClientUserData(clientCtx* client);
 
-////////////////////////////////////////////////////////////
-/// @brief Get user data from client thread
-/// @param p_tClientThread Pointer to client thread
-/// @return Pointer to user data or NULL if not set
-////////////////////////////////////////////////////////////
-void *serverGetClientUserData(clientThread *p_tClientThread);
+///////////////////////////////////////////
+/// @brief Get client address
+///
+/// @param client Client context
+/// @param address Output buffer for address string
+/// @param size Buffer size
+/// @return SERVER_OK or error code
+///////////////////////////////////////////
+int serverGetClientAddress(clientCtx* client, char* address, int size);
 
-////////////////////////////////////////////////////////////
+///////////////////////////////////////////
+/// @brief Get client port
+///
+/// @param client Client context
+/// @return Client port or 0 on error
+///////////////////////////////////////////
+uint16_t serverGetClientPort(clientCtx* client);
+
+///////////////////////////////////////////
 /// @brief Get error string for server error code
-/// @param p_iError Server error code
-/// @return Error description string
-////////////////////////////////////////////////////////////
-const char *serverGetErrorString(int p_iError);
+///
+/// @param errorCode Server error code
+/// @return Error string
+///////////////////////////////////////////
+const char* serverGetErrorString(int errorCode);
 
-////////////////////////////////////////////////////////////
-/// @brief Destroy server and free all resources
-/// @param p_pttServer Pointer to server structure
-/// @return none
-////////////////////////////////////////////////////////////
-void destroyServer(serverCtx *p_pttServer);
+///////////////////////////////////////////
+/// @brief Create default server configuration
+///
+/// @return Default server configuration
+///////////////////////////////////////////
+ServerConfig serverCreateDefaultConfig(void);
 
 #endif // SERVER_H

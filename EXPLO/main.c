@@ -98,12 +98,22 @@ int main()
     watchdog_set_expiry_handler(l_fWatchdogExpiryHandler);
 
     // init server
-    serverCtx t_tServer;
-    l_iReturn = serverInit(&t_tServer);
+    serverCtx* t_tServer = serverCreate();
+    X_ASSERT(t_tServer != NULL);
+
+    ServerConfig t_tServerConfig;
+    t_tServerConfig.port = 8080;
+    t_tServerConfig.bindAddress = "127.0.0.1";
+    t_tServerConfig.maxClients = 10;
+    t_tServerConfig.backlog = 5;
+    t_tServerConfig.useTimeout = false;
+    t_tServerConfig.receiveTimeout = 0;
+
+    l_iReturn = serverConfigure(t_tServer, &t_tServerConfig);
     X_ASSERT(l_iReturn == SERVER_OK);
 
     // start server
-    l_iReturn = serverStart(&t_tServer);
+    l_iReturn = serverStart(t_tServer);
     X_ASSERT(l_iReturn == SERVER_OK);
 
     while (1)

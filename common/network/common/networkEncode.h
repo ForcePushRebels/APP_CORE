@@ -18,7 +18,7 @@
 typedef struct network_message_t
 {
     uint32_t t_iPayloadSize;
-    uint8_t t_iHeader[4];
+    uint8_t t_iHeader[1];
     uint8_t* t_ptucPayload;
     uint32_t t_ulCrc;
 } network_message_t;

@@ -1,553 +1,553 @@
 ////////////////////////////////////////////////////////////
-//  server source file
-//  implements server functions
+//  Network Server Implementation
+//  Provides a streamlined API for bidirectional Java-C communication
 //
-// general discloser: copy or share the file is forbidden
+// general disclosure: copy or share the file is forbidden
 // Written : 18/04/2025
 ////////////////////////////////////////////////////////////
 
 #include "networkServer.h"
-#include "networkEncode.h"
 #include "xLog.h"
 #include <stdlib.h>
 #include <string.h>
-#include <stdbool.h>
+#include <arpa/inet.h>  // Pour htonl, htons, etc.
 
-///////////////////////////////////////////
-/// Internal defines
-///////////////////////////////////////////
-#define SERVER_THREAD_STACK_SIZE    (1024*1024)  // 1MB stack for server thread
-#define CLIENT_THREAD_STACK_SIZE    (64*1024)    // 64KB stack for client threads
-#define SERVER_ACCEPT_TIMEOUT       500          // 500ms timeout for accept operations
+//-----------------------------------------------------------------------------
+// Constants & Defines
+//-----------------------------------------------------------------------------
 
-///////////////////////////////////////////
-/// Client context structure
-///////////////////////////////////////////
-struct client_ctx_t {
-    NetworkSocket*  socket;         // Client socket
-    NetworkAddress  address;        // Client address
-    bool            connected;      // Connection status
-    xOsTaskCtx      task;           // Client thread task context
-    serverCtx*      server;         // Reference to parent server
-    void*           userData;       // User data associated with client
-    struct client_ctx_t* next;      // Next client in linked list (for cleanup)
-    struct client_ctx_t* prev;      // Previous client in linked list (for cleanup)
+#define SERVER_THREAD_STACK_SIZE    (1024*1024)  // 1MB stack pour le thread serveur
+#define CLIENT_THREAD_STACK_SIZE    (64*1024)    // 64KB stack pour les threads clients
+#define SERVER_ACCEPT_TIMEOUT       500          // 500ms timeout pour accept
+#define SERVER_MAX_BUFFER_SIZE      4096         // Taille max buffer
+
+//-----------------------------------------------------------------------------
+// Client Structure
+//-----------------------------------------------------------------------------
+
+struct client_ctx_t 
+{
+    NetworkSocket*  t_ptSocket;        // Socket client
+    NetworkAddress  t_tAddress;        // Adresse client
+    bool            t_bConnected;      // Status de connexion
+    xOsTaskCtx      t_tTask;           // Contexte de tâche thread client
+    void*           t_ptUserData;      // Données utilisateur
+    serverCtx*      t_ptServer;        // Référence vers le serveur
 };
 
-///////////////////////////////////////////
-/// Server context structure
-///////////////////////////////////////////
-struct server_ctx_t {
-    NetworkSocket*  socket;         // Server socket
-    NetworkAddress  address;        // Server address
-    xOsMutexCtx     mutex;          // Synchronization mutex
-    xOsTaskCtx      task;           // Server thread context
-    ServerState     state;          // Current server state
-    ServerConfig    config;         // Server configuration
-    int             activeClients;  // Number of active clients
-    
-    // Client management
-    clientCtx*      clientList;     // Linked list of clients for cleanup
+//-----------------------------------------------------------------------------
+// Server Structure
+//-----------------------------------------------------------------------------
 
-    // Callback functions
-    ServerClientConnectCallback    onClientConnect;
-    ServerClientDisconnectCallback onClientDisconnect;
-    ServerDataReceivedCallback     onDataReceived;
+struct server_ctx_t 
+{
+    NetworkSocket*  t_ptSocket;        // Socket serveur
+    NetworkAddress  t_tAddress;        // Adresse serveur
+    xOsMutexCtx     t_tMutex;          // Mutex de synchronisation
+    xOsTaskCtx      t_tTask;           // Thread serveur
+    bool            t_bRunning;        // État de fonctionnement du serveur
+    ServerConfig    t_sConfig;         // Configuration
+    clientCtx*      t_ptClient;        // Client connecté (un seul supporté)
+    MessageHandler  t_pfHandler;       // Fonction de gestion des messages
 };
 
-///////////////////////////////////////////
-/// Thread function prototypes
-///////////////////////////////////////////
-static void* serverThreadFunction(void* arg);
-static void* clientThreadFunction(void* arg);
+//-----------------------------------------------------------------------------
+// Thread Function Prototypes
+//-----------------------------------------------------------------------------
 
-///////////////////////////////////////////
-/// Helper function prototypes
-///////////////////////////////////////////
-static void addClientToList(serverCtx* server, clientCtx* client);
-static void removeClientFromList(serverCtx* server, clientCtx* client);
-static void cleanupClientResources(clientCtx* client);
+static void* serverThreadFunc(void* p_ptArg);
+static void* clientThreadFunc(void* p_ptArg);
 
-///////////////////////////////////////////
-/// serverCreate
-///////////////////////////////////////////
-serverCtx* serverCreate(void) {
-    serverCtx* server = (serverCtx*)malloc(sizeof(serverCtx));
-    if (server == NULL) {
-        X_LOG_TRACE("Failed to allocate memory for server context");
+//-----------------------------------------------------------------------------
+// Helper Function Prototypes
+//-----------------------------------------------------------------------------
+
+static void cleanupClientResources(clientCtx* p_ptClient);
+static bool parseMessageHeader(const uint8_t* p_ptucData, 
+                               int p_iSize, 
+                               uint32_t* p_ptulPayloadSize, 
+                               uint8_t* p_ptucMsgType);
+
+//-----------------------------------------------------------------------------
+// Server Management Functions
+//-----------------------------------------------------------------------------
+
+serverCtx* serverCreate(void) 
+{
+    serverCtx* p_ptServer = (serverCtx*)malloc(sizeof(serverCtx));
+    if (p_ptServer == NULL) 
+    {
+        X_LOG_TRACE("Failed to allocate server memory");
         return NULL;
     }
+
+    // Initialiser le serveur
+    memset(p_ptServer, 0, sizeof(serverCtx));
     
-    // Initialize server context
-    memset(server, 0, sizeof(serverCtx));
-    
-    // Create mutex for synchronization
-    if (mutexCreate(&server->mutex) != MUTEX_OK) 
+    // Créer le mutex
+    if (mutexCreate(&p_ptServer->t_tMutex) != MUTEX_OK) 
     {
         X_LOG_TRACE("Failed to create server mutex");
-        free(server);
+        free(p_ptServer);
         return NULL;
     }
     
-    // Set initial state
-    server->state = SERVER_STATE_UNINITIALIZED;
+    // Définir la configuration par défaut
+    p_ptServer->t_sConfig = serverCreateDefaultConfig();
+    p_ptServer->t_ptClient = NULL;
     
-    // Set default configuration
-    ServerConfig defaultConfig = serverCreateDefaultConfig();
-    memcpy(&server->config, &defaultConfig, sizeof(ServerConfig));
-    
-    X_LOG_TRACE("Server context created");
-    return server;
+    X_LOG_TRACE("Server created");
+    return p_ptServer;
 }
 
-///////////////////////////////////////////
-/// serverConfigure
-///////////////////////////////////////////
-int serverConfigure(serverCtx* server, const ServerConfig* config) {
-    if (server == NULL || config == NULL) {
-        return SERVER_INVALID_PARAMETER;
+int serverConfigure(serverCtx* p_ptServer, const ServerConfig* p_ptConfig) 
+{
+    if (p_ptServer == NULL || p_ptConfig == NULL) 
+    {
+        return SERVER_INVALID_PARAM;
     }
     
-    // Check server state
-    if (server->state != SERVER_STATE_UNINITIALIZED && server->state != SERVER_STATE_INITIALIZED) {
-        X_LOG_TRACE("Cannot configure server in current state");
+    // Vérifier si le serveur est déjà en cours d'exécution
+    if (p_ptServer->t_bRunning) 
+    {
+        X_LOG_TRACE("Cannot configure server while running");
         return SERVER_INVALID_STATE;
     }
     
-    // Copy configuration
-    memcpy(&server->config, config, sizeof(ServerConfig));
+    // Copier la configuration
+    memcpy(&p_ptServer->t_sConfig, p_ptConfig, sizeof(ServerConfig));
     
-    // Create server address
-    server->address = networkMakeAddress(
-        config->bindAddress ? config->bindAddress : "0.0.0.0",
-        config->port
+    // Configurer l'adresse du serveur
+    p_ptServer->t_tAddress = networkMakeAddress
+    (
+        p_ptConfig->t_pcBindAddress ? p_ptConfig->t_pcBindAddress : "0.0.0.0",
+        p_ptConfig->t_usPort
     );
     
-    // Create server socket
-    server->socket = networkCreateSocket(NETWORK_SOCK_TCP);
-    if (server->socket == NULL) {
-        X_LOG_TRACE("Failed to create server socket");
-        return SERVER_SOCKET_ERROR;
-    }
+    // Configurer la tâche du serveur
+    p_ptServer->t_tTask.t_ptTask = serverThreadFunc;
+    p_ptServer->t_tTask.t_ptTaskArg = p_ptServer;
+    p_ptServer->t_tTask.t_iPriority = 1;
+    p_ptServer->t_tTask.t_ulStackSize = SERVER_THREAD_STACK_SIZE;
     
-    // Configure server task
-    server->task.t_ptTask = serverThreadFunction;
-    server->task.t_ptTaskArg = server;
-    server->task.t_iPriority = 1;
-    server->task.t_ulStackSize = SERVER_THREAD_STACK_SIZE;
-    
-    // Update server state
-    server->state = SERVER_STATE_INITIALIZED;
-    
-    X_LOG_TRACE("Server configured on port %d", config->port);
+    X_LOG_TRACE("Server configured on port %d", p_ptConfig->t_usPort);
     return SERVER_OK;
 }
 
-///////////////////////////////////////////
-/// serverSetOnClientConnect
-///////////////////////////////////////////
-int serverSetOnClientConnect(serverCtx* server, ServerClientConnectCallback callback) {
-    if (server == NULL) {
-        return SERVER_INVALID_PARAMETER;
+void serverSetMessageHandler(serverCtx* p_ptServer, MessageHandler p_pfHandler) 
+{
+    if (p_ptServer != NULL) 
+    {
+        p_ptServer->t_pfHandler = p_pfHandler;
     }
-    
-    server->onClientConnect = callback;
-    return SERVER_OK;
 }
 
-///////////////////////////////////////////
-/// serverSetOnClientDisconnect
-///////////////////////////////////////////
-int serverSetOnClientDisconnect(serverCtx* server, ServerClientDisconnectCallback callback) {
-    if (server == NULL) {
-        return SERVER_INVALID_PARAMETER;
+int serverStart(serverCtx* p_ptServer) 
+{
+    if (p_ptServer == NULL) 
+    {
+        return SERVER_INVALID_PARAM;
     }
     
-    server->onClientDisconnect = callback;
-    return SERVER_OK;
-}
-
-///////////////////////////////////////////
-/// serverSetOnDataReceived
-///////////////////////////////////////////
-int serverSetOnDataReceived(serverCtx* server, ServerDataReceivedCallback callback) {
-    if (server == NULL) {
-        return SERVER_INVALID_PARAMETER;
-    }
-    
-    server->onDataReceived = callback;
-    return SERVER_OK;
-}
-
-///////////////////////////////////////////
-/// serverStart
-///////////////////////////////////////////
-int serverStart(serverCtx* server) {
-    if (server == NULL) {
-        return SERVER_INVALID_PARAMETER;
-    }
-    
-    // Check if server is already running
-    if (server->state == SERVER_STATE_RUNNING) {
+    // Vérifier si le serveur est déjà en cours d'exécution
+    if (p_ptServer->t_bRunning) 
+    {
         X_LOG_TRACE("Server is already running");
         return SERVER_OK;
     }
     
-    // Check if server is initialized
-    if (server->state != SERVER_STATE_INITIALIZED) {
-        X_LOG_TRACE("Server is not initialized");
-        return SERVER_INVALID_STATE;
-    }
-    
-    // Bind server socket
-    int result = networkBind(server->socket, &server->address);
-    if (result != NETWORK_OK) {
-        X_LOG_TRACE("Failed to bind server socket: %s", networkGetErrorString(result));
+    // Créer le socket serveur
+    p_ptServer->t_ptSocket = networkCreateSocket(NETWORK_SOCK_TCP);
+    if (p_ptServer->t_ptSocket == NULL) 
+    {
+        X_LOG_TRACE("Failed to create server socket");
         return SERVER_SOCKET_ERROR;
     }
     
-    // Start listening
-    result = networkListen(server->socket, server->config.backlog);
-    if (result != NETWORK_OK) {
-        X_LOG_TRACE("Failed to listen on server socket: %s", networkGetErrorString(result));
+    // Lier le socket serveur
+    int l_iResult = networkBind(p_ptServer->t_ptSocket, &p_ptServer->t_tAddress);
+    if (l_iResult != NETWORK_OK) 
+    {
+        X_LOG_TRACE("Failed to bind server socket: %s", networkGetErrorString(l_iResult));
+        networkCloseSocket(p_ptServer->t_ptSocket);
+        p_ptServer->t_ptSocket = NULL;
         return SERVER_SOCKET_ERROR;
     }
     
-    // Update server state
-    server->state = SERVER_STATE_RUNNING;
+    // Commencer à écouter
+    l_iResult = networkListen(p_ptServer->t_ptSocket, p_ptServer->t_sConfig.t_iBacklog);
+    if (l_iResult != NETWORK_OK) 
+    {
+        X_LOG_TRACE("Failed to listen on server socket: %s", networkGetErrorString(l_iResult));
+        networkCloseSocket(p_ptServer->t_ptSocket);
+        p_ptServer->t_ptSocket = NULL;
+        return SERVER_SOCKET_ERROR;
+    }
     
-    // Create server thread
-    int taskResult = osTaskCreate(&server->task);
-    if (taskResult != OS_TASK_SUCCESS) {
-        X_LOG_TRACE("Failed to create server thread: %s", osTaskGetErrorString(taskResult));
-        server->state = SERVER_STATE_ERROR;
+    // Marquer le serveur comme en cours d'exécution
+    p_ptServer->t_bRunning = true;
+    
+    // Créer le thread serveur
+    int l_iTaskResult = osTaskCreate(&p_ptServer->t_tTask);
+    if (l_iTaskResult != OS_TASK_SUCCESS) 
+    {
+        X_LOG_TRACE("Failed to create server thread: %s", osTaskGetErrorString(l_iTaskResult));
+        p_ptServer->t_bRunning = false;
+        networkCloseSocket(p_ptServer->t_ptSocket);
+        p_ptServer->t_ptSocket = NULL;
         return SERVER_THREAD_ERROR;
     }
     
-    X_LOG_TRACE("Server started and listening on port %d", server->config.port);
+    X_LOG_TRACE("Server started on port %d", p_ptServer->t_sConfig.t_usPort);
     return SERVER_OK;
 }
 
-///////////////////////////////////////////
-/// serverStop
-///////////////////////////////////////////
-int serverStop(serverCtx* server) {
-    if (server == NULL) {
-        return SERVER_INVALID_PARAMETER;
+int serverStop(serverCtx* p_ptServer) 
+{
+    if (p_ptServer == NULL) 
+    {
+        return SERVER_INVALID_PARAM;
     }
     
-    // Check if server is running
-    if (server->state != SERVER_STATE_RUNNING) {
+    // Vérifier si le serveur est en cours d'exécution
+    if (!p_ptServer->t_bRunning) 
+    {
         X_LOG_TRACE("Server is not running");
         return SERVER_NOT_RUNNING;
     }
     
     X_LOG_TRACE("Stopping server...");
     
-    // Lock server mutex
-    mutexLock(&server->mutex);
+    // Marquer le serveur comme arrêté
+    p_ptServer->t_bRunning = false;
     
-    // Change server state
-    server->state = SERVER_STATE_STOPPING;
-    
-    // Save socket reference
-    NetworkSocket* serverSocket = server->socket;
-    server->socket = NULL;
-    
-    mutexUnlock(&server->mutex);
-    
-    // Close server socket to unblock accept() call in server thread
-    if (serverSocket != NULL) {
-        networkCloseSocket(serverSocket);
+    // Fermer le socket serveur pour débloquer accept() dans le thread serveur
+    if (p_ptServer->t_ptSocket != NULL) 
+    {
+        networkCloseSocket(p_ptServer->t_ptSocket);
+        p_ptServer->t_ptSocket = NULL;
     }
     
-    // Stop server thread
-    int result = osTaskStop(&server->task, OS_TASK_STOP_TIMEOUT);
-    if (result != OS_TASK_SUCCESS) {
-        X_LOG_TRACE("Failed to stop server thread gracefully: %s", osTaskGetErrorString(result));
-        osTaskEnd(&server->task);
+    // Arrêter le thread serveur
+    int l_iResult = osTaskStop(&p_ptServer->t_tTask, OS_TASK_STOP_TIMEOUT);
+    if (l_iResult != OS_TASK_SUCCESS) 
+    {
+        X_LOG_TRACE("Failed to stop server thread gracefully: %s", osTaskGetErrorString(l_iResult));
+        osTaskEnd(&p_ptServer->t_tTask);
     }
     
-    // Wait for server thread to terminate
-    osTaskWait(&server->task, NULL);
+    // Attendre que le thread serveur se termine
+    osTaskWait(&p_ptServer->t_tTask, NULL);
     
-    // Now stop all client threads
-    mutexLock(&server->mutex);
+    // Déconnecter le client s'il existe
+    mutexLock(&p_ptServer->t_tMutex);
     
-    // Disconnect all clients
-    clientCtx* client = server->clientList;
-    while (client != NULL) {
-        clientCtx* nextClient = client->next;
-        serverDisconnectClient(client);
-        client = nextClient;
+    clientCtx* p_ptClient = p_ptServer->t_ptClient;
+    if (p_ptClient != NULL) 
+    {
+        // Déconnecter le client en dehors du verrou pour éviter un blocage
+        mutexUnlock(&p_ptServer->t_tMutex);
+        serverDisconnectClient(p_ptServer, p_ptClient);
+        mutexLock(&p_ptServer->t_tMutex);
+        p_ptServer->t_ptClient = NULL;
     }
     
-    server->state = SERVER_STATE_INITIALIZED;
-    mutexUnlock(&server->mutex);
+    mutexUnlock(&p_ptServer->t_tMutex);
     
     X_LOG_TRACE("Server stopped");
     return SERVER_OK;
 }
 
-///////////////////////////////////////////
-/// serverDestroy
-///////////////////////////////////////////
-void serverDestroy(serverCtx* server) {
-    if (server == NULL) {
+void serverDestroy(serverCtx* p_ptServer) 
+{
+    if (p_ptServer == NULL) 
+    {
         return;
     }
     
-    // Stop server if it's running
-    if (server->state == SERVER_STATE_RUNNING) {
-        serverStop(server);
+    // Arrêter le serveur s'il est en cours d'exécution
+    if (p_ptServer->t_bRunning) 
+    {
+        serverStop(p_ptServer);
     }
     
-    // Close server socket if it's still open
-    if (server->socket != NULL) {
-        networkCloseSocket(server->socket);
-        server->socket = NULL;
-    }
+    // Détruire le mutex
+    mutexDestroy(&p_ptServer->t_tMutex);
     
-    // Destroy mutex
-    mutexDestroy(&server->mutex);
-    
-    // Free server context
-    free(server);
+    // Libérer la structure du serveur
+    free(p_ptServer);
     
     X_LOG_TRACE("Server destroyed");
 }
 
-///////////////////////////////////////////
-/// serverSendToClient
-///////////////////////////////////////////
-int serverSendToClient(clientCtx* client, const void* data, int size) {
-    if (client == NULL || data == NULL || size <= 0) {
-        return SERVER_INVALID_PARAMETER;
+//-----------------------------------------------------------------------------
+// Client Management Functions
+//-----------------------------------------------------------------------------
+
+bool serverGetClientAddress(clientCtx* p_ptClient, char* p_pcBuffer, int p_iSize) 
+{
+    if (p_ptClient == NULL || p_pcBuffer == NULL || p_iSize <= 0) 
+    {
+        return false;
     }
     
-    if (!client->connected) {
-        return SERVER_CLIENT_DISCONNECTED;
-    }
+    strncpy(p_pcBuffer, p_ptClient->t_tAddress.t_cAddress, p_iSize - 1);
+    p_pcBuffer[p_iSize - 1] = '\0';
     
-    // Send data
-    int result = networkSend(client->socket, data, size);
-    if (result < 0) {
-        // Map network error to server error
-        if (result == NETWORK_ERROR) {
-            return SERVER_SOCKET_ERROR;
-        } else if (result == NETWORK_TIMEOUT) {
-            return SERVER_TIMEOUT;
-        } else if (result == NETWORK_INVALID_PARAM) {
-            return SERVER_INVALID_PARAMETER;
-        }
-        return result; // Return specific network error
-    }
-    
-    return result; // Return number of bytes sent
+    return true;
 }
 
-///////////////////////////////////////////
-/// serverDisconnectClient
-///////////////////////////////////////////
-int serverDisconnectClient(clientCtx* client) {
-    if (client == NULL) {
-        return SERVER_INVALID_PARAMETER;
-    }
-    
-    // Signal client thread to disconnect
-    client->connected = false;
-    
-    // Close socket to unblock client thread
-    if (client->socket != NULL) {
-        networkCloseSocket(client->socket);
-        client->socket = NULL;
-    }
-    
-    // Stop client thread
-    int result = osTaskStop(&client->task, OS_TASK_STOP_TIMEOUT);
-    if (result != OS_TASK_SUCCESS) {
-        X_LOG_TRACE("Failed to stop client thread gracefully: %s", osTaskGetErrorString(result));
-        osTaskEnd(&client->task);
-    }
-    
-    // Wait for client thread to terminate
-    osTaskWait(&client->task, NULL);
-    
-    // Clean up client resources
-    cleanupClientResources(client);
-    
-    return SERVER_OK;
-}
-
-///////////////////////////////////////////
-/// serverSetClientUserData
-///////////////////////////////////////////
-int serverSetClientUserData(clientCtx* client, void* userData) {
-    if (client == NULL) {
-        return SERVER_INVALID_PARAMETER;
-    }
-    
-    client->userData = userData;
-    return SERVER_OK;
-}
-
-///////////////////////////////////////////
-/// serverGetClientUserData
-///////////////////////////////////////////
-void* serverGetClientUserData(clientCtx* client) {
-    if (client == NULL) {
-        return NULL;
-    }
-    
-    return client->userData;
-}
-
-///////////////////////////////////////////
-/// serverGetClientAddress
-///////////////////////////////////////////
-int serverGetClientAddress(clientCtx* client, char* address, int size) {
-    if (client == NULL || address == NULL || size <= 0) {
-        return SERVER_INVALID_PARAMETER;
-    }
-    
-    strncpy(address, client->address.t_cAddress, size - 1);
-    address[size - 1] = '\0';
-    
-    return SERVER_OK;
-}
-
-///////////////////////////////////////////
-/// serverGetClientPort
-///////////////////////////////////////////
-uint16_t serverGetClientPort(clientCtx* client) {
-    if (client == NULL) {
+uint16_t serverGetClientPort(clientCtx* p_ptClient) 
+{
+    if (p_ptClient == NULL) 
+    {
         return 0;
     }
     
-    return client->address.t_usPort;
+    return p_ptClient->t_tAddress.t_usPort;
 }
 
-///////////////////////////////////////////
-/// serverGetErrorString
-///////////////////////////////////////////
-const char* serverGetErrorString(int errorCode) {
-    switch (errorCode) {
+int serverDisconnectClient(serverCtx* p_ptServer, clientCtx* p_ptClient) 
+{
+    if (p_ptServer == NULL || p_ptClient == NULL) 
+    {
+        return SERVER_INVALID_PARAM;
+    }
+    
+    // Marquer le client comme déconnecté
+    p_ptClient->t_bConnected = false;
+    
+    // Fermer le socket pour débloquer le thread client
+    if (p_ptClient->t_ptSocket != NULL) 
+    {
+        networkCloseSocket(p_ptClient->t_ptSocket);
+        p_ptClient->t_ptSocket = NULL;
+    }
+    
+    // Arrêter le thread client
+    int l_iResult = osTaskStop(&p_ptClient->t_tTask, OS_TASK_STOP_TIMEOUT);
+    if (l_iResult != OS_TASK_SUCCESS) 
+    {
+        X_LOG_TRACE("Failed to stop client thread gracefully: %s", osTaskGetErrorString(l_iResult));
+        osTaskEnd(&p_ptClient->t_tTask);
+    }
+    
+    // Attendre que le thread client se termine
+    osTaskWait(&p_ptClient->t_tTask, NULL);
+    
+    // Verrouiller le mutex du serveur
+    mutexLock(&p_ptServer->t_tMutex);
+    
+    // Réinitialiser le pointeur client du serveur
+    p_ptServer->t_ptClient = NULL;
+    
+    mutexUnlock(&p_ptServer->t_tMutex);
+    
+    // Nettoyer les ressources du client
+    cleanupClientResources(p_ptClient);
+    
+    return SERVER_OK;
+}
+
+void serverSetClientUserData(clientCtx* p_ptClient, void* p_pvUserData) 
+{
+    if (p_ptClient != NULL) 
+    {
+        p_ptClient->t_ptUserData = p_pvUserData;
+    }
+}
+
+void* serverGetClientUserData(clientCtx* p_ptClient) 
+{
+    if (p_ptClient == NULL) 
+    {
+        return NULL;
+    }
+    
+    return p_ptClient->t_ptUserData;
+}
+
+int serverSendToClient(clientCtx* p_ptClient, const void* p_pvData, int p_iSize) 
+{
+    if (p_ptClient == NULL || p_pvData == NULL || p_iSize <= 0) 
+    {
+        return SERVER_INVALID_PARAM;
+    }
+    
+    if (!p_ptClient->t_bConnected || p_ptClient->t_ptSocket == NULL) 
+    {
+        return SERVER_CLIENT_DISCONNECTED;
+    }
+    
+    return networkSend(p_ptClient->t_ptSocket, p_pvData, p_iSize);
+}
+
+//-----------------------------------------------------------------------------
+// Message Functions
+//-----------------------------------------------------------------------------
+
+int serverSendMessage(serverCtx* p_ptServer, 
+                      clientCtx* p_ptClient, 
+                      uint8_t p_ucMsgType, 
+                      const void* p_ptPayload, 
+                      uint32_t p_ulPayloadSize) 
+{
+    if (p_ptServer == NULL || p_ptClient == NULL) 
+    {
+        return SERVER_INVALID_PARAM;
+    }
+    
+    if (!p_ptClient->t_bConnected || p_ptClient->t_ptSocket == NULL) 
+    {
+        return SERVER_CLIENT_DISCONNECTED;
+    }
+    
+    // Calculer la taille totale du message
+    uint32_t l_ulTotalSize = 5 + p_ulPayloadSize; // 4 octets pour taille + 1 octet pour type + payload
+    
+    // Allouer un buffer pour le message
+    uint8_t* l_pucBuffer = (uint8_t*)malloc(l_ulTotalSize);
+    if (l_pucBuffer == NULL) 
+    {
+        X_LOG_TRACE("Failed to allocate message buffer");
+        return SERVER_MEMORY_ERROR;
+    }
+    
+    // Écrire la taille du payload (en ordre réseau)
+    uint32_t l_ulNetworkPayloadSize = htonl(p_ulPayloadSize);
+    memcpy(l_pucBuffer, &l_ulNetworkPayloadSize, 4);
+    
+    // Écrire le type de message
+    l_pucBuffer[4] = p_ucMsgType;
+    
+    // Écrire le payload
+    if (p_ulPayloadSize > 0 && p_ptPayload != NULL) 
+    {
+        memcpy(l_pucBuffer + 5, p_ptPayload, p_ulPayloadSize);
+    }
+    
+    // Envoyer le message
+    int l_iResult = networkSend(p_ptClient->t_ptSocket, l_pucBuffer, l_ulTotalSize);
+    free(l_pucBuffer);
+    
+    if (l_iResult < 0) 
+    {
+        X_LOG_TRACE("Failed to send message to client: %s", networkGetErrorString(l_iResult));
+        return SERVER_SOCKET_ERROR;
+    }
+    
+    X_LOG_TRACE("Sent message type 0x%02X to client (%d bytes)", p_ucMsgType, l_iResult);
+    return SERVER_OK;
+}
+
+const char* serverGetErrorString(int p_iError) 
+{
+    switch (p_iError) 
+    {
         case SERVER_OK:
             return "Success";
-        case SERVER_ERROR:
-            return "General server error";
-        case SERVER_MAX_CLIENTS_REACHED:
-            return "Maximum number of clients reached";
-        case SERVER_INVALID_STATE:
-            return "Invalid server state";
-        case SERVER_THREAD_ERROR:
-            return "Thread creation or management error";
-        case SERVER_CLIENT_DISCONNECTED:
-            return "Client is disconnected";
-        case SERVER_SOCKET_ERROR:
-            return "Socket operation error";
+        case SERVER_INVALID_PARAM:
+            return "Invalid parameter";
         case SERVER_MEMORY_ERROR:
             return "Memory allocation error";
+        case SERVER_SOCKET_ERROR:
+            return "Socket error";
+        case SERVER_INVALID_STATE:
+            return "Invalid state";
+        case SERVER_THREAD_ERROR:
+            return "Thread creation error";
+        case SERVER_MAX_CLIENTS_REACHED:
+            return "Maximum clients reached";
+        case SERVER_NOT_RUNNING:
+            return "Server not running";
+        case SERVER_CLIENT_DISCONNECTED:
+            return "Client disconnected";
         case SERVER_TIMEOUT:
             return "Operation timed out";
-        case SERVER_INVALID_PARAMETER:
-            return "Invalid parameter";
-        case SERVER_NOT_RUNNING:
-            return "Server is not running";
+        case SERVER_ERROR:
         default:
-            // Check if it's a network error
-            if (errorCode >= 0x17A2B40 && errorCode <= 0x17A2B4F) {
-                return networkGetErrorString(errorCode);
-            }
             return "Unknown error";
     }
 }
 
-///////////////////////////////////////////
-/// serverCreateDefaultConfig
-///////////////////////////////////////////
-ServerConfig serverCreateDefaultConfig(void) {
-    ServerConfig config;
-    memset(&config, 0, sizeof(ServerConfig));
+ServerConfig serverCreateDefaultConfig(void) 
+{
+    ServerConfig l_tConfig;
     
-    config.port = SERVER_DEFAULT_PORT;
-    config.bindAddress = NULL;
-    config.maxClients = SERVER_MAX_CLIENTS;
-    config.backlog = SERVER_MAX_CLIENTS;
-    config.useTimeout = false;
-    config.receiveTimeout = SERVER_SOCKET_TIMEOUT;
-    config.reuseAddr = true;
+    l_tConfig.t_usPort = DEFAULT_SERVER_PORT;
+    l_tConfig.t_pcBindAddress = NULL;
+    l_tConfig.t_iMaxClients = DEFAULT_MAX_CLIENTS;
+    l_tConfig.t_iBacklog = DEFAULT_BACKLOG;
+    l_tConfig.t_bUseTimeout = false;
+    l_tConfig.t_iReceiveTimeout = DEFAULT_RECV_TIMEOUT;
     
-    return config;
+    return l_tConfig;
 }
 
-///////////////////////////////////////////
-/// serverThreadFunction
-///////////////////////////////////////////
-static void* serverThreadFunction(void* arg) {
-    serverCtx* server = (serverCtx*)arg;
-    if (server == NULL) {
+//-----------------------------------------------------------------------------
+// Thread Functions
+//-----------------------------------------------------------------------------
+
+static void* serverThreadFunc(void* p_pvArg) 
+{
+    serverCtx* p_ptServer = (serverCtx*)p_pvArg;
+    if (p_ptServer == NULL) 
+    {
         X_LOG_TRACE("Invalid server context in server thread");
         return NULL;
     }
     
     X_LOG_TRACE("Server thread started");
     
-    // Get task context to check stop flag
-    xOsTaskCtx* taskCtx = &server->task;
+    // Obtenir le contexte de tâche pour vérifier le drapeau d'arrêt
+    xOsTaskCtx* p_ptTaskCtx = &p_ptServer->t_tTask;
     
-    // Main server loop
-    while (server->state == SERVER_STATE_RUNNING &&
-           atomic_load(&taskCtx->a_iStopFlag) != OS_TASK_STOP_REQUEST) {
+    // Boucle principale du serveur
+    while (p_ptServer->t_bRunning && 
+           atomic_load(&p_ptTaskCtx->a_iStopFlag) != OS_TASK_STOP_REQUEST) 
+    {
         
-        // Lock mutex to access shared server data
-        mutexLock(&server->mutex);
+        // Verrouiller le mutex du serveur
+        mutexLock(&p_ptServer->t_tMutex);
         
-        // Get server socket
-        NetworkSocket* serverSocket = server->socket;
+        // Vérifier si un client est déjà connecté
+        bool l_bClientConnected = (p_ptServer->t_ptClient != NULL);
         
-        // Check active clients count
-        int activeClients = server->activeClients;
-        int maxClients = server->config.maxClients;
+        mutexUnlock(&p_ptServer->t_tMutex);
         
-        mutexUnlock(&server->mutex);
-        
-        // Check if server socket is valid
-        if (serverSocket == NULL) {
-            X_LOG_TRACE("Server socket is NULL, stopping server thread");
-            break;
-        }
-        
-        // Check if maximum clients reached
-        if (activeClients >= maxClients) {
-            // Sleep briefly to avoid busy waiting
-            usleep(100);
+        // Si un client est déjà connecté, attendre
+        if (l_bClientConnected) 
+        {
+            // Dormir brièvement pour éviter d'occuper le CPU
+            usleep(100000); // 100ms
             continue;
         }
         
-        // Wait for client connection with timeout
-        int activity = networkWaitForActivity(serverSocket, SERVER_ACCEPT_TIMEOUT);
+        // Attendre une connexion client avec timeout
+        int l_iActivity = networkWaitForActivity(p_ptServer->t_ptSocket, SERVER_ACCEPT_TIMEOUT);
         
-        // Check server state again
-        if (server->state != SERVER_STATE_RUNNING ||
-            atomic_load(&taskCtx->a_iStopFlag) == OS_TASK_STOP_REQUEST) {
-            X_LOG_TRACE("Server stopping, exiting accept loop");
+        // Vérifier si le serveur doit s'arrêter
+        if (!p_ptServer->t_bRunning || 
+            atomic_load(&p_ptTaskCtx->a_iStopFlag) == OS_TASK_STOP_REQUEST) 
+        {
             break;
         }
         
-        // If no activity, continue waiting
-        if (activity <= 0) {
+        // Si pas d'activité, continuer à attendre
+        if (l_iActivity <= 0) 
+        {
             continue;
         }
         
-        // Accept new client connection
-        NetworkAddress clientAddress;
-        NetworkSocket* clientSocket = networkAccept(serverSocket, &clientAddress);
+        // Accepter la nouvelle connexion client
+        NetworkAddress l_tClientAddress;
+        NetworkSocket* l_ptClientSocket = networkAccept(p_ptServer->t_ptSocket, &l_tClientAddress);
         
-        if (clientSocket == NULL) {
-            // If server is stopping, this is normal
-            if (server->state != SERVER_STATE_RUNNING) {
-                X_LOG_TRACE("Server stopping, accept returned NULL");
+        if (l_ptClientSocket == NULL) 
+        {
+            // Si le serveur s'arrête, c'est normal
+            if (!p_ptServer->t_bRunning) 
+            {
                 break;
             }
             
@@ -556,227 +556,198 @@ static void* serverThreadFunction(void* arg) {
         }
         
         X_LOG_TRACE("New client connection from %s:%d",
-                   clientAddress.t_cAddress, clientAddress.t_usPort);
+                  l_tClientAddress.t_cAddress, l_tClientAddress.t_usPort);
         
-        // Create client context
-        clientCtx* client = (clientCtx*)malloc(sizeof(clientCtx));
-        if (client == NULL) {
-            X_LOG_TRACE("Failed to allocate memory for client context");
-            networkCloseSocket(clientSocket);
+        // Créer le contexte client
+        clientCtx* l_ptClient = (clientCtx*)malloc(sizeof(clientCtx));
+        if (l_ptClient == NULL) 
+        {
+            X_LOG_TRACE("Failed to allocate memory for client");
+            networkCloseSocket(l_ptClientSocket);
             continue;
         }
         
-        // Initialize client context
-        memset(client, 0, sizeof(clientCtx));
-        client->socket = clientSocket;
-        client->address = clientAddress;
-        client->connected = true;
-        client->server = server;
-        client->userData = NULL;
+        // Initialiser le client
+        memset(l_ptClient, 0, sizeof(clientCtx));
+        l_ptClient->t_ptSocket = l_ptClientSocket;
+        l_ptClient->t_tAddress = l_tClientAddress;
+        l_ptClient->t_bConnected = true;
+        l_ptClient->t_ptServer = p_ptServer;
         
-        // Configure client task
-        client->task.t_ptTask = clientThreadFunction;
-        client->task.t_ptTaskArg = client;
-        client->task.t_iPriority = 1;
-        client->task.t_ulStackSize = CLIENT_THREAD_STACK_SIZE;
+        // Configurer la tâche client
+        l_ptClient->t_tTask.t_ptTask = clientThreadFunc;
+        l_ptClient->t_tTask.t_ptTaskArg = l_ptClient;
+        l_ptClient->t_tTask.t_iPriority = 1;
+        l_ptClient->t_tTask.t_ulStackSize = CLIENT_THREAD_STACK_SIZE;
         
-        // Configure socket timeout if needed
-        if (server->config.useTimeout && server->config.receiveTimeout > 0) {
-            networkSetTimeout(clientSocket, server->config.receiveTimeout, false);
+        // Configurer le timeout du socket si nécessaire
+        if (p_ptServer->t_sConfig.t_bUseTimeout && p_ptServer->t_sConfig.t_iReceiveTimeout > 0) 
+        {
+            networkSetTimeout(l_ptClientSocket, p_ptServer->t_sConfig.t_iReceiveTimeout, false);
         }
         
-        // Lock server mutex to update client count
-        mutexLock(&server->mutex);
+        // Affecter le client au serveur
+        mutexLock(&p_ptServer->t_tMutex);
+        p_ptServer->t_ptClient = l_ptClient;
+        mutexUnlock(&p_ptServer->t_tMutex);
         
-        // Check max clients again (race condition check)
-        if (server->activeClients >= server->config.maxClients) {
-            mutexUnlock(&server->mutex);
-            X_LOG_TRACE("Maximum clients reached, rejecting connection");
-            free(client);
-            networkCloseSocket(clientSocket);
-            continue;
-        }
-        
-        // Increment client count and add client to list
-        server->activeClients++;
-        addClientToList(server, client);
-        
-        mutexUnlock(&server->mutex);
-        
-        // Create client thread
-        int taskResult = osTaskCreate(&client->task);
-        if (taskResult != OS_TASK_SUCCESS) {
+        // Créer le thread client
+        int l_iTaskResult = osTaskCreate(&l_ptClient->t_tTask);
+        if (l_iTaskResult != OS_TASK_SUCCESS) 
+        {
             X_LOG_TRACE("Failed to create client thread: %s",
-                       osTaskGetErrorString(taskResult));
+                      osTaskGetErrorString(l_iTaskResult));
             
-            // Decrease client count and remove from list
-            mutexLock(&server->mutex);
-            server->activeClients--;
-            removeClientFromList(server, client);
-            mutexUnlock(&server->mutex);
+            // Retirer le client du serveur
+            mutexLock(&p_ptServer->t_tMutex);
+            p_ptServer->t_ptClient = NULL;
+            mutexUnlock(&p_ptServer->t_tMutex);
             
-            // Clean up client resources
-            networkCloseSocket(clientSocket);
-            free(client);
+            // Nettoyer
+            networkCloseSocket(l_ptClientSocket);
+            free(l_ptClient);
             continue;
-        }
-        
-        // Call client connect callback if defined
-        if (server->onClientConnect != NULL) {
-            server->onClientConnect(server, client);
         }
     }
     
-    // Server thread is exiting
     X_LOG_TRACE("Server thread terminated");
     return NULL;
 }
 
-///////////////////////////////////////////
-/// clientThreadFunction
-///////////////////////////////////////////
-static void* clientThreadFunction(void* arg) {
-    clientCtx* client = (clientCtx*)arg;
-    if (client == NULL || client->server == NULL || client->socket == NULL) {
+static void* clientThreadFunc(void* p_pvArg) 
+{
+    clientCtx* p_ptClient = (clientCtx*)p_pvArg;
+    if (p_ptClient == NULL || p_ptClient->t_ptServer == NULL || p_ptClient->t_ptSocket == NULL) 
+    {
         X_LOG_TRACE("Invalid client context in client thread");
         return NULL;
     }
     
-    serverCtx* server = client->server;
-    char buffer[SERVER_BUFFER_SIZE];
-    int received;
-    bool serverRunning = true;
+    serverCtx* p_ptServer = p_ptClient->t_ptServer;
+    uint8_t p_aucBuffer[SERVER_MAX_BUFFER_SIZE];
+    int p_iReceived;
     
     X_LOG_TRACE("Client thread started for %s:%d",
-               client->address.t_cAddress, client->address.t_usPort);
+              p_ptClient->t_tAddress.t_cAddress, p_ptClient->t_tAddress.t_usPort);
     
-    // Get task context to check stop flag
-    xOsTaskCtx* taskCtx = &client->task;
-    
-    // Main client loop
-    while (client->connected && serverRunning &&
-           atomic_load(&taskCtx->a_iStopFlag) != OS_TASK_STOP_REQUEST) {
+    // Boucle principale du client
+    while (p_ptClient->t_bConnected && p_ptServer->t_bRunning &&
+           atomic_load(&p_ptClient->t_tTask.a_iStopFlag) != OS_TASK_STOP_REQUEST) 
+    {
         
-        // Check server state
-        mutexLock(&server->mutex);
-        serverRunning = (server->state == SERVER_STATE_RUNNING);
-        mutexUnlock(&server->mutex);
+        // Recevoir des données
+        p_iReceived = networkReceive(p_ptClient->t_ptSocket, p_aucBuffer, SERVER_MAX_BUFFER_SIZE);
         
-        if (!serverRunning ||
-            atomic_load(&taskCtx->a_iStopFlag) == OS_TASK_STOP_REQUEST) {
-            X_LOG_TRACE("Server not running or stop requested, ending client thread");
-            break;
-        }
-        
-        // Receive data from client
-        received = networkReceive(client->socket, buffer, SERVER_BUFFER_SIZE - 1);
-        
-        if (received > 0) {
-            // Ensure null termination for text data
-            buffer[received] = '\0';
+        if (p_iReceived > 0) 
+        {
+            // Traiter les données reçues
+            uint32_t l_ulPayloadSize;
+            uint8_t l_ucMsgType;
             
-            X_LOG_TRACE("Received %d bytes from client", received);
-            
-            // Call data received callback if defined
-            if (server->onDataReceived != NULL) {
-                server->onDataReceived(server, client, buffer, received);
+            // Analyser l'en-tête du message (extraire la taille et le type)
+            if (parseMessageHeader(p_aucBuffer, p_iReceived, &l_ulPayloadSize, &l_ucMsgType)) 
+            {
+                // Valider la taille du payload
+                if (5 + (int)l_ulPayloadSize <= p_iReceived) 
+                {
+                    // Appeler le gestionnaire de messages s'il est défini
+                    if (p_ptServer->t_pfHandler != NULL) 
+                    {
+                        network_message_t l_sMessage;
+                        l_sMessage.t_iPayloadSize = l_ulPayloadSize;
+                        l_sMessage.t_iHeader[0] = l_ucMsgType;
+                        l_sMessage.t_ptucPayload = p_aucBuffer + 5;
+                        l_sMessage.t_ulCrc = 0;
+                        p_ptServer->t_pfHandler(p_ptServer, p_ptClient, &l_sMessage);
+                    } 
+                    else 
+                    {
+                        X_LOG_TRACE("No message handler defined for message type 0x%02X", l_ucMsgType);
+                    }
+                } 
+                else 
+                {
+                    X_LOG_TRACE("Incomplete message: expected %u bytes, got %d", 5 + l_ulPayloadSize, p_iReceived);
+                }
+            } 
+            else 
+            {
+                X_LOG_TRACE("Failed to parse message header");
             }
         }
-        else if (received == NETWORK_TIMEOUT) {
-            // Timeout is normal when timeout is enabled
+        else if (p_iReceived == NETWORK_TIMEOUT) 
+        {
+            // Le timeout est normal quand il est activé
             continue;
         }
-        else {
-            // Error or disconnection
+        else 
+        {
+            // Erreur ou déconnexion
             X_LOG_TRACE("Client disconnected or error: %s",
-                       networkGetErrorString(received));
-            client->connected = false;
+                      networkGetErrorString(p_iReceived));
+            p_ptClient->t_bConnected = false;
         }
     }
     
-    // Call client disconnect callback if defined
-    if (server->onClientDisconnect != NULL) {
-        server->onClientDisconnect(server, client);
+    // Le client se déconnecte
+    X_LOG_TRACE("Client disconnecting: %s:%d",
+              p_ptClient->t_tAddress.t_cAddress, p_ptClient->t_tAddress.t_usPort);
+    
+    // Retirer le client du serveur
+    mutexLock(&p_ptServer->t_tMutex);
+    p_ptServer->t_ptClient = NULL;
+    mutexUnlock(&p_ptServer->t_tMutex);
+    
+    // Fermer le socket
+    if (p_ptClient->t_ptSocket != NULL) 
+    {
+        networkCloseSocket(p_ptClient->t_ptSocket);
+        p_ptClient->t_ptSocket = NULL;
     }
     
-    // Update client count
-    mutexLock(&server->mutex);
-    if (server->activeClients > 0) {
-        server->activeClients--;
-    }
-    removeClientFromList(server, client);
-    mutexUnlock(&server->mutex);
-    
-    // Clean up socket
-    if (client->socket != NULL) {
-        networkCloseSocket(client->socket);
-        client->socket = NULL;
-    }
+    // Libérer le contexte client
+    free(p_ptClient);
     
     X_LOG_TRACE("Client thread terminated");
-    
-    // Free client context only if server is not in STOPPING state
-    // Otherwise serverStop will handle cleanup
-    if (server->state != SERVER_STATE_STOPPING) {
-        free(client);
-    }
-    
     return NULL;
 }
 
-///////////////////////////////////////////
-/// addClientToList
-///////////////////////////////////////////
-static void addClientToList(serverCtx* server, clientCtx* client) {
-    // Caller must hold server mutex
-    
-    // Insert at head of list
-    if (server->clientList != NULL) {
-        server->clientList->prev = client;
-    }
-    
-    client->next = server->clientList;
-    client->prev = NULL;
-    server->clientList = client;
-}
+//-----------------------------------------------------------------------------
+// Helper Functions
+//-----------------------------------------------------------------------------
 
-///////////////////////////////////////////
-/// removeClientFromList
-///////////////////////////////////////////
-static void removeClientFromList(serverCtx* server, clientCtx* client) {
-    // Caller must hold server mutex
-    
-    if (client->prev != NULL) {
-        client->prev->next = client->next;
-    } else {
-        // This is the head
-        server->clientList = client->next;
-    }
-    
-    if (client->next != NULL) {
-        client->next->prev = client->prev;
-    }
-    
-    // Clear links
-    client->next = NULL;
-    client->prev = NULL;
-}
-
-///////////////////////////////////////////
-/// cleanupClientResources
-///////////////////////////////////////////
-static void cleanupClientResources(clientCtx* client) 
+static void cleanupClientResources(clientCtx* p_ptClient) 
 {
-    if (client == NULL) {
+    if (p_ptClient == NULL) 
+    {
         return;
     }
     
-    // Close socket if still open
-    if (client->socket != NULL) {
-        networkCloseSocket(client->socket);
-        client->socket = NULL;
+    // Fermer le socket s'il est encore ouvert
+    if (p_ptClient->t_ptSocket != NULL) 
+    {
+        networkCloseSocket(p_ptClient->t_ptSocket);
+        p_ptClient->t_ptSocket = NULL;
+    }
+}
+
+static bool parseMessageHeader(const uint8_t* p_ptucData, 
+                               int p_iSize, 
+                               uint32_t* p_ptulPayloadSize, 
+                               uint8_t* p_ptucMsgType) 
+{
+    if (p_ptucData == NULL || p_iSize < 5 || p_ptulPayloadSize == NULL || p_ptucMsgType == NULL) 
+    {
+        return false;
     }
     
-    // Free client context
-    free(client);
-}
+    // Extraire la taille du payload (ordre réseau)
+    uint32_t l_ulNetSize;
+    memcpy(&l_ulNetSize, p_ptucData, 4);
+    *p_ptulPayloadSize = ntohl(l_ulNetSize);
+    
+    // Extraire le type de message
+    *p_ptucMsgType = p_ptucData[4];
+    
+    return true;
+} 

@@ -14,7 +14,7 @@
 #include <stdlib.h>
 
 ///////////////////////////////////////////
-/// Structure interne pour stocker les handlers de messages
+/// messageHandlerEntry_t
 ///////////////////////////////////////////
 typedef struct message_handler_entry_t
 {
@@ -22,29 +22,20 @@ typedef struct message_handler_entry_t
     message_handler_t t_ptHandler;   // Fonction de traitement
 } messageHandlerEntry_t;
 
-///////////////////////////////////////////
-/// Variables globales pour stocker les handlers
-///////////////////////////////////////////
-static messageHandlerEntry_t* s_ptHandlers = NULL;       // Liste des handlers
-static size_t s_ulHandlersCount = 0;                      // Nombre de handlers enregistrés
-static size_t s_ulHandlersCapacity = 0;                   // Capacité actuelle du tableau de handlers
+static messageHandlerEntry_t* s_ptHandlers = NULL;        // list of handlers
+static size_t s_ulHandlersCount = 0;                      // number of handlers registered
+static size_t s_ulHandlersCapacity = 0;                   // current capacity of the handlers array
 
 ///////////////////////////////////////////
-/// Handler par défaut pour les messages non reconnus
-///
-/// @param server Contexte du serveur
-/// @param client Contexte du client
-/// @param message Message réseau reçu
+/// handleUnknownMessage
 ///////////////////////////////////////////
-static void handleUnknownMessage(serverCtx* server, clientCtx* client, const network_message_t* message) 
+static void handleUnknownMessage(clientCtx* p_ptClient, const network_message_t* p_ptMessage) 
 {
-    (void)server; // Éviter l'avertissement de variable non utilisée
-    (void)client; // Éviter l'avertissement de variable non utilisée
-    X_LOG_TRACE("Unhandled message type: 0x%02X", message->t_iHeader[0]);
+    X_LOG_TRACE("Unhandled message type: 0x%02X", p_ptMessage->t_iHeader[0]);
 }
 
 ///////////////////////////////////////////
-/// Initialiser le système de handlers
+/// initMessageHandlerSystem
 ///////////////////////////////////////////
 void initMessageHandlerSystem(void) 
 {
@@ -56,7 +47,7 @@ void initMessageHandlerSystem(void)
 }
 
 ///////////////////////////////////////////
-/// Nettoyer le système de handlers
+/// cleanupMessageHandlerSystem
 ///////////////////////////////////////////
 void cleanupMessageHandlerSystem(void) 
 {
@@ -71,25 +62,22 @@ void cleanupMessageHandlerSystem(void)
 }
 
 ///////////////////////////////////////////
-/// Enregistrer un handler pour un type de message
-///
-/// @param messageType Type de message à traiter
-/// @param handler Fonction de traitement à appeler
+/// registerMessageHandler
 ///////////////////////////////////////////
-void registerMessageHandler(uint8_t messageType, message_handler_t handler) 
+void registerMessageHandler(uint8_t p_ucMessageType, message_handler_t p_ptHandler) 
 {
-    X_ASSERT(s_ptHandlers != NULL); // Vérifier que le système est initialisé
+    X_ASSERT(s_ptHandlers != NULL); // check if the system is initialized
     
-    // Vérifier si un handler existe déjà pour ce type
+    // check if a handler already exists for this type
     for (size_t i = 0; i < s_ulHandlersCount; i++) {
-        if (s_ptHandlers[i].t_ucMessageType == messageType) {
-            s_ptHandlers[i].t_ptHandler = handler;
-            X_LOG_TRACE("Updated handler for message type 0x%02X", messageType);
+        if (s_ptHandlers[i].t_ucMessageType == p_ucMessageType) {
+            s_ptHandlers[i].t_ptHandler = p_ptHandler;
+            X_LOG_TRACE("Updated handler for message type 0x%02X", p_ucMessageType);
             return;
         }
     }
     
-    // Augmenter la capacité si nécessaire
+    // increase the capacity if necessary
     if (s_ulHandlersCount >= s_ulHandlersCapacity) {
         s_ulHandlersCapacity *= 2;
         s_ptHandlers = (messageHandlerEntry_t*)realloc(s_ptHandlers, 
@@ -99,45 +87,40 @@ void registerMessageHandler(uint8_t messageType, message_handler_t handler)
         X_LOG_TRACE("Expanded handler system capacity to %zu", s_ulHandlersCapacity);
     }
     
-    // Ajouter le nouveau handler
-    s_ptHandlers[s_ulHandlersCount].t_ucMessageType = messageType;
-    s_ptHandlers[s_ulHandlersCount].t_ptHandler = handler;
+    // add the new handler
+    s_ptHandlers[s_ulHandlersCount].t_ucMessageType = p_ucMessageType;
+    s_ptHandlers[s_ulHandlersCount].t_ptHandler = p_ptHandler;
     s_ulHandlersCount++;
     
-    X_LOG_TRACE("Registered handler for message type 0x%02X", messageType);
+    X_LOG_TRACE("Registered handler for message type 0x%02X", p_ucMessageType);
 }
 
 ///////////////////////////////////////////
-/// Désenregistrer un handler
-///
-/// @param messageType Type de message dont le handler doit être supprimé
+/// unregisterMessageHandler
 ///////////////////////////////////////////
-void unregisterMessageHandler(uint8_t messageType) 
+void unregisterMessageHandler(uint8_t p_ucMessageType) 
 {
     for (size_t i = 0; i < s_ulHandlersCount; i++) {
-        if (s_ptHandlers[i].t_ucMessageType == messageType) {
+        if (s_ptHandlers[i].t_ucMessageType == p_ucMessageType) {
             // Déplacer le dernier élément à la place de l'élément supprimé
             s_ptHandlers[i] = s_ptHandlers[s_ulHandlersCount - 1];
             s_ulHandlersCount--;
-            X_LOG_TRACE("Unregistered handler for message type 0x%02X", messageType);
+            X_LOG_TRACE("Unregistered handler for message type 0x%02X", p_ucMessageType);
             return;
         }
     }
     
-    X_LOG_TRACE("No handler found for message type 0x%02X", messageType);
+    X_LOG_TRACE("No handler found for message type 0x%02X", p_ucMessageType);
 }
 
 ///////////////////////////////////////////
-/// Trouver un handler pour un type de message
-///
-/// @param messageType Type de message à rechercher
-/// @return Fonction de traitement associée ou handler par défaut
+/// findMessageHandler
 ///////////////////////////////////////////
-static message_handler_t findMessageHandler(uint8_t messageType) 
+static message_handler_t findMessageHandler(uint8_t p_ucMessageType) 
 {
     for (size_t i = 0; i < s_ulHandlersCount; i++) 
     {
-        if (s_ptHandlers[i].t_ucMessageType == messageType) 
+        if (s_ptHandlers[i].t_ucMessageType == p_ucMessageType) 
         {
             return s_ptHandlers[i].t_ptHandler;
         }
@@ -146,31 +129,25 @@ static message_handler_t findMessageHandler(uint8_t messageType)
 }
 
 ///////////////////////////////////////////
-/// Gestionnaire de messages réseau principal
-///
-/// @param server Contexte du serveur
-/// @param client Contexte du client
-/// @param message Message réseau à traiter
+/// handleNetworkMessage
 ///////////////////////////////////////////
-void handleNetworkMessage(serverCtx* p_ptServer, 
-                          clientCtx* p_ptClient, 
+void handleNetworkMessage(clientCtx* p_ptClient, 
                           const network_message_t* p_ptMessage) 
 {
-    X_ASSERT(p_ptServer != NULL);
     X_ASSERT(p_ptClient != NULL);
     X_ASSERT(p_ptMessage != NULL);
 
     char clientAddress[64];
-    serverGetClientAddress(p_ptClient, clientAddress, sizeof(clientAddress));
+    networkServerGetClientAddress(networkServerGetClientID(p_ptClient), clientAddress, sizeof(clientAddress));
     
     X_LOG_TRACE("Received message from %s: type=0x%02X, size=%u bytes", 
               clientAddress, p_ptMessage->t_iHeader[0], p_ptMessage->t_iPayloadSize);
     
     uint8_t l_ucMsgType = p_ptMessage->t_iHeader[0];
     
-    // Trouver le handler pour ce type de message
+    // find the handler for this type of message
     message_handler_t l_ptHandler = findMessageHandler(l_ucMsgType);
     
-    // Appeler le handler
-    l_ptHandler(p_ptServer, p_ptClient, p_ptMessage);
+    // call the handler
+    l_ptHandler(p_ptClient, p_ptMessage);
 }

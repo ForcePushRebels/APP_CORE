@@ -21,16 +21,16 @@ typedef struct server_ctx_t serverCtx;
 typedef struct client_ctx_t clientCtx;
 
 // Message handler function type
-typedef void (*MessageHandler)(serverCtx* p_pttServer, clientCtx* p_pttClient, const network_message_t* p_pttMessage);
+typedef void (*MessageHandler)(clientCtx* p_pttClient, const network_message_t* p_pttMessage);
 
 // Server configuration 
 typedef struct {
     uint16_t t_usPort;             // Server port
     const char* t_pcBindAddress;   // Address to bind to (NULL for any)
-    int t_iMaxClients;            // Maximum number of clients
-    int t_iBacklog;               // Backlog for listen
-    bool t_bUseTimeout;           // Use timeout for receive
-    int t_iReceiveTimeout;        // Timeout in ms (0 for no timeout)
+    int t_iMaxClients;             // Maximum number of clients
+    int t_iBacklog;                // Backlog for listen
+    bool t_bUseTimeout;            // Use timeout for receive
+    int t_iReceiveTimeout;         // Timeout in ms (0 for no timeout)
 } ServerConfig;
 
 // Default configuration values
@@ -38,6 +38,10 @@ typedef struct {
 #define DEFAULT_MAX_CLIENTS     5
 #define DEFAULT_BACKLOG         5
 #define DEFAULT_RECV_TIMEOUT    0
+
+// Client ID type
+typedef uint32_t ClientID;
+#define INVALID_CLIENT_ID       0
 
 // Error codes
 #define SERVER_OK                   0x200B000
@@ -51,102 +55,98 @@ typedef struct {
 #define SERVER_TIMEOUT              0x200B008
 #define SERVER_INVALID_PARAM        0x200B009
 #define SERVER_NOT_RUNNING          0x200B00A
+#define SERVER_CLIENT_NOT_FOUND     0x200B00B
 
 //-----------------------------------------------------------------------------
-// Server Management Functions
+// Server Management Functions (Singleton)
 //-----------------------------------------------------------------------------
 
 ///////////////////////////////////////////
-/// @brief Create a new server instance with default configuration
-/// @return A new server instance or NULL on failure
+/// @brief Initialize the network server system
+/// @return SERVER_OK or error code
 ///////////////////////////////////////////
-serverCtx* serverCreate(void);
+int networkServerInit(void);
 
 ///////////////////////////////////////////
-/// @brief Configure the server with custom settings
-/// @param server The server instance
+/// @brief Configure the server with custom parameters
 /// @param config Configuration parameters
 /// @return SERVER_OK or error code
 ///////////////////////////////////////////
-int serverConfigure(serverCtx* p_pttServer, const ServerConfig* p_pttConfig);
+int networkServerConfigure(const ServerConfig* p_pttConfig);
 
 ///////////////////////////////////////////
-/// @brief Set message handler function for processing incoming messages
-/// @param server The server instance
+/// @brief Set the message handler function to process incoming messages
 /// @param handler The message handler function
 ///////////////////////////////////////////
-void serverSetMessageHandler(serverCtx* p_pttServer, MessageHandler p_pttHandler);
+void networkServerSetMessageHandler(MessageHandler p_pttHandler);
 
 ///////////////////////////////////////////
 /// @brief Start the server
-/// @param server The server instance
 /// @return SERVER_OK or error code
 ///////////////////////////////////////////
-int serverStart(serverCtx* p_pttServer);
+int networkServerStart(void);
 
 ///////////////////////////////////////////
 /// @brief Stop the server
-/// @param server The server instance
 /// @return SERVER_OK or error code
 ///////////////////////////////////////////
-int serverStop(serverCtx* p_pttServer);
+int networkServerStop(void);
 
 ///////////////////////////////////////////
-/// @brief Destroy the server and free all resources
-/// @param server The server instance
+/// @brief Clean up the network server system and release all resources
 ///////////////////////////////////////////
-void serverDestroy(serverCtx* p_pttServer);
+void networkServerCleanup(void);
 
 //-----------------------------------------------------------------------------
 // Client Management Functions
 //-----------------------------------------------------------------------------
 
 ///////////////////////////////////////////
-/// @brief Get client IP address as string
-/// @param client The client instance
-/// @param buffer Buffer to store address
+/// @brief Get the client address as a string
+/// @param clientId Client ID
+/// @param buffer Buffer to store the address
 /// @param size Buffer size
 /// @return true on success
 ///////////////////////////////////////////
-bool serverGetClientAddress(clientCtx* p_pttClient, char* p_pcBuffer, int p_iSize);
+bool networkServerGetClientAddress(ClientID p_tClientId, char* p_pcBuffer, int p_iSize);
 
 ///////////////////////////////////////////
-/// @brief Get client port
-/// @param client The client instance
+/// @brief Get the client port
+/// @param clientId Client ID
 /// @return Port number or 0 on error
 ///////////////////////////////////////////
-uint16_t serverGetClientPort(clientCtx* p_pttClient);
+uint16_t networkServerGetClientPort(ClientID p_tClientId);
 
 ///////////////////////////////////////////
 /// @brief Disconnect a client
-/// @param server The server instance
-/// @param client The client instance
+/// @param clientId Client ID
 /// @return SERVER_OK or error code
 ///////////////////////////////////////////
-int serverDisconnectClient(serverCtx* p_pttServer, clientCtx* p_pttClient);
+int networkServerDisconnectClient(ClientID p_tClientId);
 
 ///////////////////////////////////////////
 /// @brief Set custom data for a client
-/// @param client The client instance
-/// @param userData User data pointer
+/// @param clientId Client ID
+/// @param userData Pointer to the user data
+/// @return SERVER_OK or error code
 ///////////////////////////////////////////
-void serverSetClientUserData(clientCtx* p_pttClient, void* p_pvUserData);
+int networkServerSetClientUserData(ClientID p_tClientId, void* p_pvUserData);
 
 ///////////////////////////////////////////
 /// @brief Get custom data for a client
-/// @param client The client instance
-/// @return User data pointer
+/// @param clientId Client ID
+/// @return Pointer to the user data or NULL on error
 ///////////////////////////////////////////
-void* serverGetClientUserData(clientCtx* p_pttClient);
+void* networkServerGetClientUserData(ClientID p_tClientId);
 
 ///////////////////////////////////////////
 /// @brief Send data to a client
-/// @param client The client to send data to
-/// @param data The data to send
-/// @param size The size of the data in bytes
+/// @param clientId Client ID
+/// @param data Data to send
+/// @param size Data size in bytes
 /// @return Number of bytes sent or negative error code
 ///////////////////////////////////////////
-int serverSendToClient(clientCtx* p_pttClient, const void* p_pvData, int p_iSize);
+int networkServerSendToClient(ClientID p_tClientId, const void* p_pvData, int p_iSize);
 
 //-----------------------------------------------------------------------------
 // Message Functions
@@ -154,27 +154,42 @@ int serverSendToClient(clientCtx* p_pttClient, const void* p_pvData, int p_iSize
 
 ///////////////////////////////////////////
 /// @brief Send a message to a client
-/// @param server The server instance
-/// @param client The client instance
-/// @param msgType Message type from network_message_type_t
-/// @param payload Message data (can be NULL if size is 0)
-/// @param payloadSize Size of payload in bytes
+/// @param clientId Client ID
+/// @param msgType Type of message from network_message_type_t
+/// @param payload Data of the message (can be NULL if size is 0)
+/// @param payloadSize Size of the payload in bytes
 /// @return SERVER_OK or error code
 ///////////////////////////////////////////
-int serverSendMessage(serverCtx* p_pttServer, clientCtx* p_pttClient, 
-                    uint8_t p_ucMsgType, const void* p_pvPayload, uint32_t p_ulPayloadSize);
+int networkServerSendMessage(ClientID p_tClientId, 
+                          uint8_t p_ucMsgType, 
+                          const void* p_pvPayload, 
+                          uint32_t p_ulPayloadSize);
 
 ///////////////////////////////////////////
-/// @brief Get string representation of error code
-/// @param error The error code
+/// @brief Get the error string representation
+/// @param error Error code
 /// @return Error string
 ///////////////////////////////////////////
-const char* serverGetErrorString(int p_iError); 
+const char* networkServerGetErrorString(int p_iError); 
 
 ///////////////////////////////////////////
-/// @brief Create default server configuration
+/// @brief Create a default server configuration
 /// @return Default configuration
 ///////////////////////////////////////////
-ServerConfig serverCreateDefaultConfig(void);
+ServerConfig networkServerCreateDefaultConfig(void);
+
+///////////////////////////////////////////
+/// @brief Get the client ID from the client context
+/// @param client The client context
+/// @return Client ID or INVALID_CLIENT_ID on error
+///////////////////////////////////////////
+ClientID networkServerGetClientID(clientCtx* p_ptClient);
+
+///////////////////////////////////////////
+/// @brief Get the client context from the client ID
+/// @param clientId Client ID
+/// @return Client context or NULL on error
+///////////////////////////////////////////
+clientCtx* networkServerGetClientCtx(ClientID p_tClientId);
 
 #endif // NETWORK_SERVER_H 

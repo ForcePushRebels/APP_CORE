@@ -106,28 +106,28 @@ int main()
     idCardNetworkInit();
 
     // init server
-    serverCtx* t_ptServer = serverCreate();
-    X_ASSERT(t_ptServer != NULL);
+    l_iReturn = networkServerInit();
+    X_ASSERT(l_iReturn == SERVER_OK);
 
-    ServerConfig t_sServerConfig = serverCreateDefaultConfig();
-    t_sServerConfig.t_usPort = 8080;
-    t_sServerConfig.t_pcBindAddress = "127.0.0.1";
-    t_sServerConfig.t_iMaxClients = 10;
-    t_sServerConfig.t_iBacklog = 5;
-    t_sServerConfig.t_bUseTimeout = false;
-    t_sServerConfig.t_iReceiveTimeout = 0;
+    ServerConfig l_tServerConfig = networkServerCreateDefaultConfig();
+    l_tServerConfig.t_usPort = 8080;
+    l_tServerConfig.t_pcBindAddress = "127.0.0.1";
+    l_tServerConfig.t_iMaxClients = 10;
+    l_tServerConfig.t_iBacklog = 5;
+    l_tServerConfig.t_bUseTimeout = false;
+    l_tServerConfig.t_iReceiveTimeout = 0;
 
-    l_iReturn = serverConfigure(t_ptServer, &t_sServerConfig);
+    l_iReturn = networkServerConfigure(&l_tServerConfig);
     X_ASSERT(l_iReturn == SERVER_OK);
 
     // Définir le gestionnaire de messages
-    serverSetMessageHandler(t_ptServer, handleNetworkMessage);
+    networkServerSetMessageHandler(handleNetworkMessage);
 
     // start server
-    l_iReturn = serverStart(t_ptServer);
+    l_iReturn = networkServerStart();
     X_ASSERT(l_iReturn == SERVER_OK);
 
-    X_LOG_TRACE("Server started on port %d", t_sServerConfig.t_usPort);
+    X_LOG_TRACE("Server started on port %d", l_tServerConfig.t_usPort);
 
     // Boucle principale
     while (1)
@@ -142,8 +142,8 @@ int main()
     // Ce code ne sera jamais atteint, mais pour être complet:
     cleanupMessageHandlerSystem();
     idCardNetworkCleanup();
-    serverStop(t_ptServer);
-    serverDestroy(t_ptServer);
+    networkServerStop();
+    networkServerCleanup();
     
     return 0;
 }

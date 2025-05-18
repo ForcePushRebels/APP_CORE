@@ -15,7 +15,7 @@
 ///////////////////////////////////////////
 /// @brief Définition du type pour les fonctions de traitement des messages
 ///////////////////////////////////////////
-typedef void (*message_handler_t)(serverCtx* p_ptServer, clientCtx* p_ptClient, const network_message_t* p_ptMessage);
+typedef void (*message_handler_t)(clientCtx* p_ptClient, const network_message_t* p_ptMessage);
 
 ///////////////////////////////////////////
 /// @brief Enregistre un handler pour un type de message spécifique
@@ -35,12 +35,10 @@ void unregisterMessageHandler(uint8_t p_ucMessageType);
 ///////////////////////////////////////////
 /// @brief Fonction principale de traitement des messages réseau
 ///
-/// @param server Contexte du serveur
 /// @param client Contexte du client
 /// @param message Message réseau à traiter
 ///////////////////////////////////////////
-void handleNetworkMessage(serverCtx* p_ptServer, 
-                          clientCtx* p_ptClient, 
+void handleNetworkMessage(clientCtx* p_ptClient, 
                           const network_message_t* p_ptMessage);
 
 ///////////////////////////////////////////

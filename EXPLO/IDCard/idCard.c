@@ -16,8 +16,11 @@
 static char s_pcRobotName [] = "Robot_zebi_putin_de_merde";
 static char s_pcIpAddr [16] = {0};
 static int s_iRole = 0;
-static bool s_bUseLoopback = true; // Booléen pour activer/désactiver l'utilisation de loopback
+static bool s_bUseLoopback = true; // boolean to enable/disable the use of loopback
 
+///////////////////////////////////////////
+/// findIpAddress
+///////////////////////////////////////////
 static void findIpAddress(void)
 {
     struct ifaddrs *ifaddr, *ifa;
@@ -30,7 +33,7 @@ static void findIpAddress(void)
         return;
     }
 
-    // Si on utilise loopback, on cherche d'abord cette interface
+    // if loopback is used, search first the loopback interface
     if (s_bUseLoopback) {
         for (ifa = ifaddr; ifa != NULL && !found; ifa = ifa->ifa_next) {
             if (ifa->ifa_addr == NULL)
@@ -39,11 +42,11 @@ static void findIpAddress(void)
             family = ifa->ifa_addr->sa_family;
 
             if (family == AF_INET) { // IPv4
-                // Chercher spécifiquement l'interface loopback
+                // search specifically the loopback interface
                 if (strcmp(ifa->ifa_name, "lo") == 0) {
                     void* addr_ptr = &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;
                     inet_ntop(AF_INET, addr_ptr, host, 16);
-                    // Copier l'adresse IP dans la variable statique
+                    // copy the IP address to the static variable
                     strncpy(s_pcIpAddr, host, sizeof(s_pcIpAddr) - 1);
                     s_pcIpAddr[sizeof(s_pcIpAddr) - 1] = '\0';
                     found = true;
@@ -53,7 +56,7 @@ static void findIpAddress(void)
         }
     }
 
-    // Si on n'utilise pas loopback ou si on n'a pas trouvé d'interface loopback
+    // if loopback is not used or if no loopback interface is found
     if (!s_bUseLoopback || !found) {
         for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
             if (ifa->ifa_addr == NULL)
@@ -62,21 +65,21 @@ static void findIpAddress(void)
             family = ifa->ifa_addr->sa_family;
 
             if (family == AF_INET) { // IPv4
-                // Ignorer l'interface loopback
+                // ignore the loopback interface
                 if (strcmp(ifa->ifa_name, "lo") != 0) {
                     void* addr_ptr = &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;
                     inet_ntop(AF_INET, addr_ptr, host, 16);
-                    // Copier l'adresse IP dans la variable statique
+                    // copy the IP address to the static variable
                     strncpy(s_pcIpAddr, host, sizeof(s_pcIpAddr) - 1);
                     s_pcIpAddr[sizeof(s_pcIpAddr) - 1] = '\0';
                     found = true;
-                    break; // On prend la première adresse IPv4 non loopback
+                    break; // take the first IPv4 non loopback address
                 }
             }
         }
     }
 
-    // Si aucune adresse n'a été trouvée, on utilise 127.0.0.1 par défaut
+    // if no address is found, use 127.0.0.1 by default
     if (!found) {
         strcpy(s_pcIpAddr, "127.0.0.1");
     }
@@ -86,6 +89,9 @@ static void findIpAddress(void)
     X_LOG_TRACE("IP address found: %s", s_pcIpAddr);
 }
 
+///////////////////////////////////////////
+/// createManifest
+///////////////////////////////////////////
 int createManifest(manifest_t* p_ptManifest)
 {
     X_ASSERT(p_ptManifest != NULL);
@@ -101,28 +107,33 @@ int createManifest(manifest_t* p_ptManifest)
 }
 
 
-// Définition du gestionnaire pour le message ID_IS_ANY_ROBOT_HERE (0x30)
-static void handleIsAnyRobotHere(serverCtx* p_ptServer, clientCtx* p_ptClient, const network_message_t* p_ptMessage)
+///////////////////////////////////////////
+/// handleIsAnyRobotHere
+///////////////////////////////////////////
+static void handleIsAnyRobotHere(clientCtx* p_ptClient, const network_message_t* p_ptMessage)
 {
-    // Log la réception du message
+    // log the reception of the message
     X_LOG_TRACE("Received ID_IS_ANY_ROBOT_HERE message");
     
-    // Créer un nouveau manifest pour répondre
+    // create a new manifest to answer
     manifest_t t_sManifest;
     int t_iResult = createManifest(&t_sManifest);
     
     if (t_iResult == 0)
     {
-        // Envoyer le manifest au client
-        t_iResult = serverSendMessage(p_ptServer, 
-                                      p_ptClient, 
-                                      ID_MANIFEST, // Utiliser 0x31 (ID_MANIFEST)
+        // get client id
+        ClientID l_tClientId = networkServerGetClientID(p_ptClient);
+        
+        // send manifest to client
+        t_iResult = networkServerSendMessage(
+                                      l_tClientId, 
+                                      ID_MANIFEST, // use 0x31 (ID_MANIFEST)
                                       &t_sManifest, 
                                       sizeof(manifest_t));
         
         if (t_iResult != SERVER_OK)
         {
-            X_LOG_TRACE("Failed to send manifest: %s", serverGetErrorString(t_iResult));
+            X_LOG_TRACE("Failed to send manifest: %s", networkServerGetErrorString(t_iResult));
         }
         else
         {
@@ -135,22 +146,20 @@ static void handleIsAnyRobotHere(serverCtx* p_ptServer, clientCtx* p_ptClient, c
     }
 }
 
-// Initialisation du module de réseau de l'IDCard
+///////////////////////////////////////////
+/// idCardNetworkInit
+///////////////////////////////////////////
 void idCardNetworkInit(void)
 {
-    // Vérifier que le système de handlers est initialisé
-    // Note: Cette fonction devrait être appelée après initMessageHandlerSystem()
-    
-    // Enregistrer le handler pour le message ID_IS_ANY_ROBOT_HERE (0x30)
     registerMessageHandler(ID_IS_ANY_ROBOT_HERE, handleIsAnyRobotHere);
-    
-    X_LOG_TRACE("IDCard network handlers registered");
 }
 
-// Nettoyage du module de réseau de l'IDCard
+///////////////////////////////////////////
+/// idCardNetworkCleanup
+///////////////////////////////////////////
 void idCardNetworkCleanup(void)
 {
-    // Désenregistrer le handler
+
     unregisterMessageHandler(ID_IS_ANY_ROBOT_HERE);
     
     X_LOG_TRACE("IDCard network handlers unregistered");

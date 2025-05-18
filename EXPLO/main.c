@@ -19,6 +19,8 @@
 #include "watchdog.h"
 #include "networkServer.h"
 #include "handleNetworkMessage.h"
+#include "idCard.h"
+
 
 static const uint8_t s_aCLogPath[] = "explo.log";
 
@@ -97,6 +99,12 @@ int main()
     X_ASSERT(l_iReturn == WATCHDOG_SUCCESS);
     watchdog_set_expiry_handler(l_fWatchdogExpiryHandler);
 
+    // Initialisation du système de handlers de messages
+    initMessageHandlerSystem();
+    
+    // Initialisation des handlers de messages pour l'IDCard
+    idCardNetworkInit();
+
     // init server
     serverCtx* t_ptServer = serverCreate();
     X_ASSERT(t_ptServer != NULL);
@@ -132,6 +140,8 @@ int main()
     }
     
     // Ce code ne sera jamais atteint, mais pour être complet:
+    cleanupMessageHandlerSystem();
+    idCardNetworkCleanup();
     serverStop(t_ptServer);
     serverDestroy(t_ptServer);
     

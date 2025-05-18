@@ -404,7 +404,7 @@ int serverSendMessage(serverCtx* p_ptServer,
     
     // Calculer la taille totale du message
     uint32_t l_ulTotalSize = 5 + p_ulPayloadSize; // 4 octets pour taille + 1 octet pour type + payload
-    
+
     // Allouer un buffer pour le message
     uint8_t* l_pucBuffer = (uint8_t*)malloc(l_ulTotalSize);
     if (l_pucBuffer == NULL) 
@@ -412,21 +412,22 @@ int serverSendMessage(serverCtx* p_ptServer,
         X_LOG_TRACE("Failed to allocate message buffer");
         return SERVER_MEMORY_ERROR;
     }
-    
-    // Écrire la taille du payload (en ordre réseau)
+
+    // IMPORTANT: Java utilise big-endian (network byte order)
+    // La taille envoyée est celle du payload, PAS la taille totale
     uint32_t l_ulNetworkPayloadSize = htonl(p_ulPayloadSize);
     memcpy(l_pucBuffer, &l_ulNetworkPayloadSize, 4);
-    
+
     // Écrire le type de message
     l_pucBuffer[4] = p_ucMsgType;
-    
+
     // Écrire le payload
     if (p_ulPayloadSize > 0 && p_ptPayload != NULL) 
     {
         memcpy(l_pucBuffer + 5, p_ptPayload, p_ulPayloadSize);
     }
     
-    // Envoyer le message
+    // Envoyer le message complet
     int l_iResult = networkSend(p_ptClient->t_ptSocket, l_pucBuffer, l_ulTotalSize);
     free(l_pucBuffer);
     
@@ -436,7 +437,8 @@ int serverSendMessage(serverCtx* p_ptServer,
         return SERVER_SOCKET_ERROR;
     }
     
-    X_LOG_TRACE("Sent message type 0x%02X to client (%d bytes)", p_ucMsgType, l_iResult);
+    X_LOG_TRACE("Sent message type 0x%02X to client (%d bytes total, %d bytes payload)", 
+               p_ucMsgType, l_iResult, p_ulPayloadSize);
     return SERVER_OK;
 }
 
@@ -657,7 +659,6 @@ static void* clientThreadFunc(void* p_pvArg)
                         l_sMessage.t_iPayloadSize = l_ulPayloadSize;
                         l_sMessage.t_iHeader[0] = l_ucMsgType;
                         l_sMessage.t_ptucPayload = p_aucBuffer + 5;
-                        l_sMessage.t_ulCrc = 0;
                         p_ptServer->t_pfHandler(p_ptServer, p_ptClient, &l_sMessage);
                     } 
                     else 
@@ -748,6 +749,13 @@ static bool parseMessageHeader(const uint8_t* p_ptucData,
     
     // Extraire le type de message
     *p_ptucMsgType = p_ptucData[4];
+    
+    // Validation supplémentaire pour éviter les erreurs de décodage
+    if (*p_ptulPayloadSize > SERVER_MAX_BUFFER_SIZE - 5) 
+    {
+        X_LOG_TRACE("Invalid payload size in message header: %u bytes", *p_ptulPayloadSize);
+        return false;
+    }
     
     return true;
 } 

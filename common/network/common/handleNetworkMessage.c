@@ -16,15 +16,16 @@
 ///////////////////////////////////////////
 /// Structure interne pour stocker les handlers de messages
 ///////////////////////////////////////////
-typedef struct {
+typedef struct message_handler_entry_t
+{
     uint8_t t_ucMessageType;         // Type de message
     message_handler_t t_ptHandler;   // Fonction de traitement
-} t_sMessageHandlerEntry;
+} messageHandlerEntry_t;
 
 ///////////////////////////////////////////
 /// Variables globales pour stocker les handlers
 ///////////////////////////////////////////
-static t_sMessageHandlerEntry* s_ptHandlers = NULL;       // Liste des handlers
+static messageHandlerEntry_t* s_ptHandlers = NULL;       // Liste des handlers
 static size_t s_ulHandlersCount = 0;                      // Nombre de handlers enregistrés
 static size_t s_ulHandlersCapacity = 0;                   // Capacité actuelle du tableau de handlers
 
@@ -48,7 +49,7 @@ static void handleUnknownMessage(serverCtx* server, clientCtx* client, const net
 void initMessageHandlerSystem(void) 
 {
     s_ulHandlersCapacity = 10; // Taille initiale
-    s_ptHandlers = (t_sMessageHandlerEntry*)malloc(s_ulHandlersCapacity * sizeof(t_sMessageHandlerEntry));
+    s_ptHandlers = (messageHandlerEntry_t*)malloc(s_ulHandlersCapacity * sizeof(messageHandlerEntry_t));
     s_ulHandlersCount = 0;
     
     X_LOG_TRACE("Message handler system initialized with capacity %zu", s_ulHandlersCapacity);
@@ -91,8 +92,8 @@ void registerMessageHandler(uint8_t messageType, message_handler_t handler)
     // Augmenter la capacité si nécessaire
     if (s_ulHandlersCount >= s_ulHandlersCapacity) {
         s_ulHandlersCapacity *= 2;
-        s_ptHandlers = (t_sMessageHandlerEntry*)realloc(s_ptHandlers, 
-                       s_ulHandlersCapacity * sizeof(t_sMessageHandlerEntry));
+        s_ptHandlers = (messageHandlerEntry_t*)realloc(s_ptHandlers, 
+                       s_ulHandlersCapacity * sizeof(messageHandlerEntry_t));
         X_ASSERT(s_ptHandlers != NULL);
         
         X_LOG_TRACE("Expanded handler system capacity to %zu", s_ulHandlersCapacity);

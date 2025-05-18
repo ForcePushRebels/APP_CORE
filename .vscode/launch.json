@@ -4,8 +4,12 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-        
-
-
+        {
+            "type": "java",
+            "name": "TCPClient",
+            "request": "launch",
+            "mainClass": "TCPClient",
+            "projectName": "APP_CORE_da2a8cd"
+        }
     ]
 }

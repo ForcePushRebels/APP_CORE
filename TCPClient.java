@@ -432,6 +432,88 @@ public class TCPClient extends JFrame {
         }
     }
     
+    /**
+     * Classe pour représenter la structure idCard_t du C
+     * #pragma pack(push, 1)
+     * typedef struct idCard_t
+     * {
+     *     char t_pcRobotName[32];
+     *     char t_pcIpAddr[16];
+     *     int t_iRole;
+     * } manifest_t;
+     * #pragma pack(pop)
+     */
+    private static class IdCard {
+        private static final int ROBOT_NAME_LENGTH = 32;
+        private static final int IP_ADDR_LENGTH = 16;
+        
+        private String robotName;
+        private String ipAddr;
+        private int role;
+        
+        public IdCard(String robotName, String ipAddr, int role) {
+            this.robotName = robotName;
+            this.ipAddr = ipAddr;
+            this.role = role;
+        }
+        
+        public String getRobotName() {
+            return robotName;
+        }
+        
+        public String getIpAddr() {
+            return ipAddr;
+        }
+        
+        public int getRole() {
+            return role;
+        }
+        
+        /**
+         * Décode un tableau de bytes au format big endian en un objet IdCard
+         */
+        public static IdCard fromBytes(byte[] data) {
+            if (data == null || data.length < ROBOT_NAME_LENGTH + IP_ADDR_LENGTH + 4) {
+                return null;
+            }
+            
+            ByteBuffer buffer = ByteBuffer.wrap(data);
+            buffer.order(ByteOrder.BIG_ENDIAN); // Format réseau (big endian)
+            
+            // Extraire le nom du robot
+            byte[] nameBytes = new byte[ROBOT_NAME_LENGTH];
+            buffer.get(nameBytes);
+            String robotName = extractNullTerminatedString(nameBytes);
+            
+            // Extraire l'adresse IP
+            byte[] ipBytes = new byte[IP_ADDR_LENGTH];
+            buffer.get(ipBytes);
+            String ipAddr = extractNullTerminatedString(ipBytes);
+            
+            // Extraire le rôle (int)
+            int role = buffer.getInt();
+            
+            return new IdCard(robotName, ipAddr, role);
+        }
+        
+        private static String extractNullTerminatedString(byte[] data) {
+            int nullPos = 0;
+            while (nullPos < data.length && data[nullPos] != 0) {
+                nullPos++;
+            }
+            return new String(data, 0, nullPos);
+        }
+        
+        @Override
+        public String toString() {
+            return "IdCard{" +
+                   "robotName='" + robotName + "', " +
+                   "ipAddress='" + ipAddr + "', " +
+                   "role=" + role +
+                   "}";
+        }
+    }
+    
     // Network message decoder class to handle the C API format
     private static class NetworkMessageDecoder {
         // Décode un message à partir d'un tableau d'octets
@@ -602,69 +684,52 @@ public class TCPClient extends JFrame {
                         break;
                         
                     case ID_MANIFEST:
-                        // Analyser le manifest selon sa structure
-                        StringBuilder manifestBuilder = new StringBuilder("Analyse détaillée du MANIFEST:\n");
+                        // Décoder le manifest selon la nouvelle structure idCard_t
+                        // Structure: char t_pcRobotName[32], char t_pcIpAddr[16], int t_iRole
+                        IdCard idCard = IdCard.fromBytes(payload);
                         
-                        // Structure du manifest semble être:
-                        // - Nom du robot (100 bytes)
-                        // - Adresse IP (20 bytes)
-                        // - Possiblement d'autres champs
-                        
-                        if (payload.length >= 100) {
-                            // Extraire le nom du robot (avec terminateur null)
-                            String robotName = extractNullTerminatedString(payload, 0, 100);
-                            manifestBuilder.append(String.format("Nom du robot: %s\n", robotName));
-                        }
-                        
-                        if (payload.length >= 120) {
-                            // Extraire l'adresse IP (avec terminateur null)
-                            String ipAddress = extractNullTerminatedString(payload, 100, 20);
-                            manifestBuilder.append(String.format("Adresse IP: %s\n", ipAddress));
-                        }
-                        
-                        // Afficher les champs bruts pour aider au débogage
-                        manifestBuilder.append("\nDécomposition des octets:\n");
-                        
-                        // Nom (0-99)
-                        manifestBuilder.append("Octets 0-99 (Nom): ");
-                        for (int i = 0; i < Math.min(100, payload.length); i++) {
-                            if (i % 20 == 0 && i > 0) {
-                                manifestBuilder.append("\n                 ");
-                            }
-                            manifestBuilder.append(String.format("%02X ", payload[i] & 0xFF));
-                        }
-                        manifestBuilder.append("\n");
-                        
-                        // IP (100-119)
-                        if (payload.length >= 120) {
-                            manifestBuilder.append("Octets 100-119 (IP): ");
-                            for (int i = 100; i < 120 && i < payload.length; i++) {
-                                manifestBuilder.append(String.format("%02X ", payload[i] & 0xFF));
-                            }
-                            manifestBuilder.append("\n");
-                        }
-                        
-                        // Champs additionnels
-                        if (payload.length > 120) {
-                            manifestBuilder.append("Octets 120+ (Autres): ");
-                            for (int i = 120; i < payload.length; i++) {
-                                if ((i-120) % 20 == 0 && i > 120) {
-                                    manifestBuilder.append("\n                   ");
+                        if (idCard != null) {
+                            StringBuilder manifestBuilder = new StringBuilder("Analyse détaillée du MANIFEST:\n");
+                            manifestBuilder.append(String.format("Nom du robot: %s\n", idCard.getRobotName()));
+                            manifestBuilder.append(String.format("Adresse IP: %s\n", idCard.getIpAddr()));
+                            manifestBuilder.append(String.format("Rôle: %d\n", idCard.getRole()));
+                            
+                            // Afficher les octets sous forme brute pour vérification
+                            manifestBuilder.append("\nDécomposition des octets:\n");
+                            
+                            // Nom du robot (32 octets)
+                            manifestBuilder.append("Octets 0-31 (Nom): ");
+                            for (int i = 0; i < Math.min(IdCard.ROBOT_NAME_LENGTH, payload.length); i++) {
+                                if (i % 16 == 0 && i > 0) {
+                                    manifestBuilder.append("\n                 ");
                                 }
                                 manifestBuilder.append(String.format("%02X ", payload[i] & 0xFF));
                             }
                             manifestBuilder.append("\n");
                             
-                            // Si plus de données sont présentes, essayer de les interpréter
-                            if (payload.length >= 124) {
-                                ByteBuffer buffer = ByteBuffer.wrap(payload, 120, 4);
-                                buffer.order(ByteOrder.BIG_ENDIAN);
-                                int value = buffer.getInt();
-                                manifestBuilder.append(String.format("Valeur entière aux octets 120-123: %d (0x%08X)\n", value, value));
+                            // Adresse IP (16 octets)
+                            int ipOffset = IdCard.ROBOT_NAME_LENGTH;
+                            if (payload.length >= ipOffset + IdCard.IP_ADDR_LENGTH) {
+                                manifestBuilder.append("Octets 32-47 (IP): ");
+                                for (int i = ipOffset; i < ipOffset + IdCard.IP_ADDR_LENGTH && i < payload.length; i++) {
+                                    manifestBuilder.append(String.format("%02X ", payload[i] & 0xFF));
+                                }
+                                manifestBuilder.append("\n");
                             }
+                            
+                            // Rôle (4 octets)
+                            int roleOffset = ipOffset + IdCard.IP_ADDR_LENGTH;
+                            if (payload.length >= roleOffset + 4) {
+                                manifestBuilder.append("Octets 48-51 (Rôle): ");
+                                for (int i = roleOffset; i < roleOffset + 4 && i < payload.length; i++) {
+                                    manifestBuilder.append(String.format("%02X ", payload[i] & 0xFF));
+                                }
+                                manifestBuilder.append("\n");
+                            }
+                            
+                            return manifestBuilder.toString();
                         }
-                        
-                        return manifestBuilder.toString();
+                        break;
                         
                     default:
                         // Pour les types non spécifiés, analyser le contenu de manière générique

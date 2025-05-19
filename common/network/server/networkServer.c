@@ -435,7 +435,7 @@ static int addClient(clientCtx* p_ptClient)
             }
             
             // store the client
-            s_ptServerInstance->t_ptClients[i] = p_ptClient;
+            s_ptServerInstance->t_ptClients[i] = p_ptClient;    
             s_ptServerInstance->t_iNumClients++;
             
             mutexUnlock(&s_ptServerInstance->t_tMutex);

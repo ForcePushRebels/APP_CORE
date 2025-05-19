@@ -9,6 +9,13 @@
             "name": "TCPClient",
             "request": "launch",
             "mainClass": "TCPClient",
+            "projectName": "APP_CORE_aa398627"
+        },
+        {
+            "type": "java",
+            "name": "TCPClient",
+            "request": "launch",
+            "mainClass": "TCPClient",
             "projectName": "APP_CORE_da2a8cd"
         }
     ]

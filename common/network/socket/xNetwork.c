@@ -414,3 +414,129 @@ bool networkIsConnected(NetworkSocket *p_ptSocket)
 
     return p_ptSocket->t_bConnected;
 }
+
+//////////////////////////////////
+/// UDP-specific API Implementation
+//////////////////////////////////
+
+//////////////////////////////////
+/// networkSendTo
+//////////////////////////////////
+int networkSendTo(NetworkSocket *p_ptSocket, const void *p_pBuffer, unsigned long p_ulSize, const NetworkAddress *p_pAddress)
+{
+    int result;
+
+    // Validate essential parameters
+    if (!p_ptSocket || !p_pBuffer || !p_pAddress)
+        return NETWORK_INVALID_PARAM;
+
+    // Check if socket is UDP type
+    if (p_ptSocket->t_iType != NETWORK_SOCK_UDP)
+    {
+        X_LOG_TRACE("networkSendTo: Not a UDP socket");
+        return NETWORK_INVALID_PARAM;
+    }
+
+    // Early return for zero size
+    if (p_ulSize == 0)
+        return 0;
+
+    // Set up destination address
+    struct sockaddr_in l_tAddr;
+    memset(&l_tAddr, 0, sizeof(l_tAddr));
+    l_tAddr.sin_family = AF_INET;
+    l_tAddr.sin_port = HOST_TO_NET_SHORT(p_pAddress->t_usPort);
+
+    if (inet_pton(AF_INET, p_pAddress->t_cAddress, &l_tAddr.sin_addr) <= 0)
+    {
+        X_LOG_TRACE("networkSendTo: Invalid address");
+        return NETWORK_INVALID_PARAM;
+    }
+
+    // Lock mutex before accessing socket
+    mutexLock(&p_ptSocket->t_Mutex);
+
+    X_LOG_TRACE("networkSendTo: Sending datagram to %s:%d, %lu bytes",
+                p_pAddress->t_cAddress, p_pAddress->t_usPort, p_ulSize);
+
+    result = sendto(p_ptSocket->t_iSocketFd, p_pBuffer, p_ulSize, 0,
+                    (struct sockaddr *)&l_tAddr, sizeof(l_tAddr));
+
+    if (result < 0)
+    {
+        X_LOG_TRACE("networkSendTo: Send failed with error code %d", errno);
+        result = NETWORK_ERROR;
+    }
+    else
+    {
+        X_LOG_TRACE("networkSendTo: Send successful, sent %d bytes", result);
+    }
+
+    // Unlock mutex after socket operation
+    mutexUnlock(&p_ptSocket->t_Mutex);
+
+    return result;
+}
+
+//////////////////////////////////
+/// networkReceiveFrom
+//////////////////////////////////
+int networkReceiveFrom(NetworkSocket *p_ptSocket, void *p_pBuffer, unsigned long p_ulSize, NetworkAddress *p_pAddress)
+{
+    int result;
+
+    // Validate essential parameters
+    if (!p_ptSocket || !p_pBuffer)
+        return NETWORK_INVALID_PARAM;
+
+    // Check if socket is UDP type
+    if (p_ptSocket->t_iType != NETWORK_SOCK_UDP)
+    {
+        X_LOG_TRACE("networkReceiveFrom: Not a UDP socket");
+        return NETWORK_INVALID_PARAM;
+    }
+
+    // Early return for zero size
+    if (p_ulSize == 0)
+        return 0;
+
+    struct sockaddr_in l_tSenderAddr;
+    socklen_t l_iAddrLen = sizeof(l_tSenderAddr);
+
+    // Lock mutex before accessing socket
+    mutexLock(&p_ptSocket->t_Mutex);
+
+    X_LOG_TRACE("networkReceiveFrom: Receiving datagram on socket %d, buffer size %lu",
+                p_ptSocket->t_iSocketFd, p_ulSize);
+
+    result = recvfrom(p_ptSocket->t_iSocketFd, p_pBuffer, p_ulSize, 0,
+                      (struct sockaddr *)&l_tSenderAddr, &l_iAddrLen);
+
+    if (result < 0)
+    {
+        X_LOG_TRACE("networkReceiveFrom: Receive failed with error code %d", errno);
+        result = NETWORK_ERROR;
+    }
+    else if (result == 0)
+    {
+        X_LOG_TRACE("networkReceiveFrom: Receive returned 0 bytes");
+    }
+    else
+    {
+        X_LOG_TRACE("networkReceiveFrom: Receive successful, received %d bytes", result);
+
+        // Store sender address if requested
+        if (p_pAddress)
+        {
+            inet_ntop(AF_INET, &l_tSenderAddr.sin_addr, p_pAddress->t_cAddress, INET_ADDRSTRLEN);
+            p_pAddress->t_usPort = NET_TO_HOST_SHORT(l_tSenderAddr.sin_port);
+            X_LOG_TRACE("networkReceiveFrom: Datagram from %s:%d",
+                        p_pAddress->t_cAddress, p_pAddress->t_usPort);
+        }
+    }
+
+    // Unlock mutex after socket operation
+    mutexUnlock(&p_ptSocket->t_Mutex);
+
+    return result;
+}

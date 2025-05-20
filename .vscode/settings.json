@@ -1,5 +1,6 @@
 {
     "files.associations": {
-        "crc32.h": "c"
+        "crc32.h": "c",
+        "xtask.h": "c"
     }
 }

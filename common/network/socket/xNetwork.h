@@ -174,4 +174,28 @@ const char *networkGetErrorString(int p_iError);
 //////////////////////////////////
 bool networkIsConnected(NetworkSocket *p_ptSocket);
 
+//////////////////////////////////
+/// UDP-specific API functions
+//////////////////////////////////
+
+//////////////////////////////////
+/// @brief Send UDP datagram to specific address
+/// @param p_ptSocket Socket handle
+/// @param p_pBuffer Data buffer
+/// @param p_ulSize Data size
+/// @param p_pAddress Destination address
+/// @return int Bytes sent or error code
+//////////////////////////////////
+int networkSendTo(NetworkSocket *p_ptSocket, const void *p_pBuffer, unsigned long p_ulSize, const NetworkAddress *p_pAddress);
+
+//////////////////////////////////
+/// @brief Receive UDP datagram and get sender address
+/// @param p_ptSocket Socket handle
+/// @param p_pBuffer Data buffer
+/// @param p_ulSize Buffer size
+/// @param p_pAddress Address to store sender info (can be NULL)
+/// @return int Bytes received or error code
+//////////////////////////////////
+int networkReceiveFrom(NetworkSocket *p_ptSocket, void *p_pBuffer, unsigned long p_ulSize, NetworkAddress *p_pAddress);
+
 #endif // NETWORK_CORE_H_

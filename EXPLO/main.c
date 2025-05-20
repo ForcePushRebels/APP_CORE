@@ -101,9 +101,6 @@ int main()
 
     // Initialisation du système de handlers de messages
     initMessageHandlerSystem();
-    
-    // Initialisation des handlers de messages pour l'IDCard
-    idCardNetworkInit();
 
     // init server
     l_iReturn = networkServerInit();
@@ -122,6 +119,9 @@ int main()
 
     // Définir le gestionnaire de messages
     networkServerSetMessageHandler(handleNetworkMessage);
+
+    // handle is any robot here
+    idCardNetworkInit();
 
     // start server
     l_iReturn = networkServerStart();

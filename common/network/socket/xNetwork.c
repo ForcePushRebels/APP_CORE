@@ -240,36 +240,42 @@ int networkConnect(NetworkSocket *p_ptSocket, const NetworkAddress *p_pAddress)
 //////////////////////////////////
 int networkSend(NetworkSocket *p_ptSocket, const void *p_pBuffer, unsigned long p_ulSize)
 {
-    int result;
+    int l_iReturn;
 
     // Validate essential parameters
     if (!p_ptSocket || !p_pBuffer)
+    {
+        X_LOG_TRACE("networkSend: Invalid parameters");
         return NETWORK_INVALID_PARAM;
+    }
 
     // Early return for zero size
     if (p_ulSize == 0)
+    {
+        X_LOG_TRACE("networkSend: Zero size");
         return 0;
+    }
 
     // Lock mutex before accessing socket
     mutexLock(&p_ptSocket->t_Mutex);
 
     X_LOG_TRACE("networkSend: Sending on socket %d, %lu bytes",
                 p_ptSocket->t_iSocketFd, p_ulSize);
-    result = send(p_ptSocket->t_iSocketFd, p_pBuffer, p_ulSize, 0);
-    if (result < 0)
+    l_iReturn = send(p_ptSocket->t_iSocketFd, p_pBuffer, p_ulSize, 0);
+    if (l_iReturn < 0)
     {
         X_LOG_TRACE("networkSend: Send failed with error code %d", errno);
-        result = NETWORK_ERROR;
+        l_iReturn = NETWORK_ERROR;
     }
     else
     {
-        X_LOG_TRACE("networkSend: Send successful, sent %d bytes", result);
+        X_LOG_TRACE("networkSend: Send successful, sent %d bytes", l_iReturn);
     }
 
     // Unlock mutex after socket operation
     mutexUnlock(&p_ptSocket->t_Mutex);
 
-    return result;
+    return l_iReturn;
 }
 
 //////////////////////////////////
@@ -277,40 +283,46 @@ int networkSend(NetworkSocket *p_ptSocket, const void *p_pBuffer, unsigned long 
 //////////////////////////////////
 int networkReceive(NetworkSocket *p_ptSocket, void *p_pBuffer, unsigned long p_ulSize)
 {
-    int result;
+    int l_iReturn;
 
     // Validate essential parameters
     if (!p_ptSocket || !p_pBuffer)
+    {
+        X_LOG_TRACE("networkReceive: Invalid parameters");
         return NETWORK_INVALID_PARAM;
+    }
 
     // Early return for zero size
     if (p_ulSize == 0)
+    {
+        X_LOG_TRACE("networkReceive: Zero size");
         return 0;
+    }
 
     // Lock mutex before accessing socket
     mutexLock(&p_ptSocket->t_Mutex);
 
     X_LOG_TRACE("networkReceive: Receiving on socket %d, buffer size %lu",
                 p_ptSocket->t_iSocketFd, p_ulSize);
-    result = recv(p_ptSocket->t_iSocketFd, p_pBuffer, p_ulSize, 0);
-    if (result < 0)
+    l_iReturn = recv(p_ptSocket->t_iSocketFd, p_pBuffer, p_ulSize, 0);
+    if (l_iReturn < 0)
     {
         X_LOG_TRACE("networkReceive: Receive failed with error code %d", errno);
-        result = NETWORK_ERROR;
+        l_iReturn = NETWORK_ERROR;
     }
-    else if (result == 0)
+    else if (l_iReturn == 0)
     {
         X_LOG_TRACE("networkReceive: Receive returned 0 bytes (connection closed)");
     }
     else
     {
-        X_LOG_TRACE("networkReceive: Receive successful, received %d bytes", result);
+        X_LOG_TRACE("networkReceive: Receive successful, received %d bytes", l_iReturn);
     }
 
     // Unlock mutex after socket operation
     mutexUnlock(&p_ptSocket->t_Mutex);
 
-    return result;
+    return l_iReturn;
 }
 
 //////////////////////////////////
@@ -319,7 +331,10 @@ int networkReceive(NetworkSocket *p_ptSocket, void *p_pBuffer, unsigned long p_u
 int networkCloseSocket(NetworkSocket *p_ptSocket)
 {
     if (!p_ptSocket)
+    {
+        X_LOG_TRACE("networkCloseSocket: Invalid socket");
         return NETWORK_INVALID_PARAM;
+    }
 
     if (p_ptSocket->t_iSocketFd >= 0)
     {
@@ -412,6 +427,8 @@ const char *networkGetErrorString(int p_iError)
         return "Operation timed out";
     case NETWORK_INVALID_PARAM:
         return "Invalid parameter";
+    case NETWORK_ZERO_SIZE:
+        return "Zero size";
     default:
         return "Unknown error";
     }
@@ -440,11 +457,14 @@ bool networkIsConnected(NetworkSocket *p_ptSocket)
 //////////////////////////////////
 int networkSendTo(NetworkSocket *p_ptSocket, const void *p_pBuffer, unsigned long p_ulSize, const NetworkAddress *p_pAddress)
 {
-    int result;
+    int l_iReturn;
 
     // Validate essential parameters
     if (!p_ptSocket || !p_pBuffer || !p_pAddress)
+    {
+        X_LOG_TRACE("networkSendTo: Invalid parameters");
         return NETWORK_INVALID_PARAM;
+    }
 
     // Check if socket is UDP type
     if (p_ptSocket->t_iType != NETWORK_SOCK_UDP)
@@ -455,7 +475,10 @@ int networkSendTo(NetworkSocket *p_ptSocket, const void *p_pBuffer, unsigned lon
 
     // Early return for zero size
     if (p_ulSize == 0)
+    {
+        X_LOG_TRACE("networkSendTo: Zero size");
         return 0;
+    }
 
     // Set up destination address
     struct sockaddr_in l_tAddr;
@@ -475,23 +498,23 @@ int networkSendTo(NetworkSocket *p_ptSocket, const void *p_pBuffer, unsigned lon
     X_LOG_TRACE("networkSendTo: Sending datagram to %s:%d, %lu bytes",
                 p_pAddress->t_cAddress, p_pAddress->t_usPort, p_ulSize);
 
-    result = sendto(p_ptSocket->t_iSocketFd, p_pBuffer, p_ulSize, 0,
+    l_iReturn = sendto(p_ptSocket->t_iSocketFd, p_pBuffer, p_ulSize, 0,
                     (struct sockaddr *)&l_tAddr, sizeof(l_tAddr));
 
-    if (result < 0)
+    if (l_iReturn < 0)
     {
         X_LOG_TRACE("networkSendTo: Send failed with error code %d", errno);
-        result = NETWORK_ERROR;
+        l_iReturn = NETWORK_ERROR;
     }
     else
     {
-        X_LOG_TRACE("networkSendTo: Send successful, sent %d bytes", result);
+        X_LOG_TRACE("networkSendTo: Send successful, sent %d bytes", l_iReturn);
     }
 
     // Unlock mutex after socket operation
     mutexUnlock(&p_ptSocket->t_Mutex);
 
-    return result;
+    return l_iReturn;
 }
 
 //////////////////////////////////
@@ -499,9 +522,8 @@ int networkSendTo(NetworkSocket *p_ptSocket, const void *p_pBuffer, unsigned lon
 //////////////////////////////////
 int networkReceiveFrom(NetworkSocket *p_ptSocket, void *p_pBuffer, unsigned long p_ulSize, NetworkAddress *p_pAddress)
 {
-    int result;
+    int l_iReturn;
 
-    // Validate essential parameters
     if (!p_ptSocket || !p_pBuffer)
         return NETWORK_INVALID_PARAM;
 
@@ -525,21 +547,21 @@ int networkReceiveFrom(NetworkSocket *p_ptSocket, void *p_pBuffer, unsigned long
     X_LOG_TRACE("networkReceiveFrom: Receiving datagram on socket %d, buffer size %lu",
                 p_ptSocket->t_iSocketFd, p_ulSize);
 
-    result = recvfrom(p_ptSocket->t_iSocketFd, p_pBuffer, p_ulSize, 0,
+    l_iReturn = recvfrom(p_ptSocket->t_iSocketFd, p_pBuffer, p_ulSize, 0,
                       (struct sockaddr *)&l_tSenderAddr, &l_iAddrLen);
 
-    if (result < 0)
+    if (l_iReturn < 0)
     {
         X_LOG_TRACE("networkReceiveFrom: Receive failed with error code %d", errno);
-        result = NETWORK_ERROR;
+        l_iReturn = NETWORK_ERROR;
     }
-    else if (result == 0)
+    else if (l_iReturn == 0)
     {
         X_LOG_TRACE("networkReceiveFrom: Receive returned 0 bytes");
     }
     else
     {
-        X_LOG_TRACE("networkReceiveFrom: Receive successful, received %d bytes", result);
+        X_LOG_TRACE("networkReceiveFrom: Receive successful, received %d bytes", l_iReturn);
 
         // Store sender address if requested
         if (p_pAddress)
@@ -554,5 +576,5 @@ int networkReceiveFrom(NetworkSocket *p_ptSocket, void *p_pBuffer, unsigned long
     // Unlock mutex after socket operation
     mutexUnlock(&p_ptSocket->t_Mutex);
 
-    return result;
+    return l_iReturn;
 }

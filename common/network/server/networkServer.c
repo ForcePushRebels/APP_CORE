@@ -640,9 +640,7 @@ int networkServerSendMessage(ClientID p_tClientId,
         return SERVER_MEMORY_ERROR;
     }
 
-    // IMPORTANT: Java uses big-endian (network byte order)
-    // The sent size is the payload size, NOT the total size
-    uint16_t l_usNetworkPayloadSize = htons((uint16_t)p_ulPayloadSize);
+    uint16_t l_usNetworkPayloadSize = HOST_TO_NET_SHORT((uint16_t)p_ulPayloadSize);
     memcpy(l_pucBuffer, &l_usNetworkPayloadSize, 2);
 
     // write the message type
@@ -986,10 +984,9 @@ static bool parseMessageHeader(const uint8_t *p_ptucData,
         return false;
     }
 
-    // extract the payload size (network order) - now 2 bytes instead of 4
     uint16_t l_usNetSize;
     memcpy(&l_usNetSize, p_ptucData, 2);
-    *p_ptulPayloadSize = ntohs(l_usNetSize);
+    *p_ptulPayloadSize = NET_TO_HOST_SHORT(l_usNetSize);
 
     // extract the message type
     *p_ptucMsgType = p_ptucData[2];

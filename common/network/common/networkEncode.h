@@ -6,7 +6,6 @@
 // Written : 13/05/2025
 ////////////////////////////////////////////////////////////
 
-
 #ifndef NETWORK_ENCODER_H_
 #define NETWORK_ENCODER_H_
 
@@ -17,24 +16,24 @@
 #pragma pack(push, 1)
 typedef struct network_message_t
 {
-    uint32_t t_iPayloadSize;
+    uint16_t t_iPayloadSize;
     uint8_t t_iHeader[1];
-    uint8_t* t_ptucPayload;
+    uint8_t *t_ptucPayload;
 } network_message_t;
-#pragma pack(pop)   
+#pragma pack(pop)
 
 enum network_message_type_t
 {
     //====== SEND BY ANDROID ======
     ID_SET_MOVEMENT = 0x01,
-    ID_START = 0x02,               
-    ID_STOP = 0x03,               
-    ID_CHOOSE_MANU_MODE = 0x04,    
-    ID_SELECTED_POINTS = 0x05,     
-    ID_GET_FINAL_METRICS = 0x06,   
-    ID_UPLOAD_MAP = 0x07,          
-    ID_ASK_STRATS_LIST = 0x08,     
-    ID_SELECT_START = 0x09,        
+    ID_START = 0x02,
+    ID_STOP = 0x03,
+    ID_CHOOSE_MANU_MODE = 0x04,
+    ID_SELECTED_POINTS = 0x05,
+    ID_GET_FINAL_METRICS = 0x06,
+    ID_UPLOAD_MAP = 0x07,
+    ID_ASK_STRATS_LIST = 0x08,
+    ID_SELECT_START = 0x09,
 
     //====== SEND BY BOT ======
     ID_INF_BATTERY = 0x10,
@@ -48,16 +47,10 @@ enum network_message_type_t
     ID_METRICS_INTER = 0x23,
     ID_STARTS_LIST = 0x24,
 
-
     //============================================================
-    //UDP:
+    // UDP:
     ID_IS_ANY_ROBOT_HERE = 0x30,
     ID_MANIFEST = 0x31,
 };
 
-
-
 #endif // NETWORK_ENCODER_H_
-
-
-

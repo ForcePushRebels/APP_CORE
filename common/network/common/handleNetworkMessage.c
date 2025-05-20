@@ -31,6 +31,7 @@ static size_t s_ulHandlersCapacity = 0;                   // current capacity of
 ///////////////////////////////////////////
 static void handleUnknownMessage(clientCtx* p_ptClient, const network_message_t* p_ptMessage) 
 {
+    (void)p_ptClient;
     X_LOG_TRACE("Unhandled message type: 0x%02X", p_ptMessage->t_iHeader[0]);
 }
 

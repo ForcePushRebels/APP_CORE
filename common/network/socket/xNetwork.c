@@ -40,6 +40,22 @@ NetworkSocket *networkCreateSocket(int p_iType)
     int l_iOption = 1;
     setsockopt(l_pSocket->t_iSocketFd, SOL_SOCKET, SO_REUSEADDR, &l_iOption, sizeof(l_iOption));
 
+    // Enable broadcast for UDP sockets
+    if (p_iType == NETWORK_SOCK_UDP)
+    {
+        int l_iBroadcastOpt = 1;
+        if (setsockopt(l_pSocket->t_iSocketFd, SOL_SOCKET, SO_BROADCAST,
+                       &l_iBroadcastOpt, sizeof(l_iBroadcastOpt)) < 0)
+        {
+            X_LOG_TRACE("networkCreateSocket: Failed to set broadcast option with errno %d", errno);
+            // Continue anyway, this is not fatal
+        }
+        else
+        {
+            X_LOG_TRACE("networkCreateSocket: Broadcast option enabled for UDP socket");
+        }
+    }
+
     // Set socket properties
     l_pSocket->t_iType = p_iType;
     l_pSocket->t_bConnected = false;

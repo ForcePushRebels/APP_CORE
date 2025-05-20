@@ -640,7 +640,7 @@ int networkServerSendMessage(ClientID p_tClientId,
         return SERVER_MEMORY_ERROR;
     }
 
-    uint16_t l_usNetworkPayloadSize = HOST_TO_NET_SHORT((uint16_t)p_ulPayloadSize);
+        uint16_t l_usNetworkPayloadSize = HOST_TO_NET_SHORT((uint16_t)p_ulPayloadSize);
     memcpy(l_pucBuffer, &l_usNetworkPayloadSize, 2);
 
     // write the message type

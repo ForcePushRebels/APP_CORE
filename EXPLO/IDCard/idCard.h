@@ -54,7 +54,7 @@ void idCardNetworkCleanup(void);
 ///////////////////////////////////////////
 /// @brief Handle the ID_IS_ANY_ROBOT_HERE message
 ///////////////////////////////////////////
-void handleIsAnyRobotHere(void);
+void* handleIsAnyRobotHere(void* p_pvArg);
 
 
 #endif // IDCARD_H_

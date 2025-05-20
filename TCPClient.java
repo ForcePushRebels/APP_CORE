@@ -403,7 +403,7 @@ public class TCPClient extends JFrame {
             if (messageType == ID_IS_ANY_ROBOT_HERE) {
                 // Utiliser l'adresse de loopback pour les tests
                 String targetIp = "127.0.0.1"; // Adresse de loopback
-                int targetPort = 4069; // Port spécifique pour le message UDP
+                int targetPort = 13769; // Port spécifique pour le message UDP
 
                 sendUdpMessage(messageType, messageText, targetIp, targetPort);
 
@@ -810,30 +810,19 @@ public class TCPClient extends JFrame {
 
         // Décode un message UDP à partir d'un tableau d'octets (16-bit size)
         public static DecodedMessage decodeUdp(byte[] data) {
-            if (data == null || data.length < 3) { // Taille minimale: 2 (size) + 1 (header)
-                return null;
-            }
-
-            ByteBuffer buffer = ByteBuffer.wrap(data);
-            buffer.order(ByteOrder.BIG_ENDIAN); // Utiliser Big Endian (ordre réseau)
-
-            // Lire la taille du payload (16 bits)
-            int payloadSize = buffer.getShort() & 0xFFFF;
-
-            // Lire le type de message (1 octet de header)
-            byte msgType = buffer.get();
-
-            // Vérifier que la taille du message est cohérente
-            if (data.length < 3 + payloadSize) {
-                return null;
-            }
-
-            // Extraire le payload
-            byte[] payload = new byte[payloadSize];
-            if (payloadSize > 0) {
-                buffer.get(payload, 0, payloadSize);
-            }
-
+            // Décodage direct (sans utiliser ByteBuffer)
+            if (data.length < 3) return null;
+            
+            // Reconstruire la taille manuellement - inverse l'ordre si nécessaire
+            int payloadSize = ((data[0] & 0xFF) << 8) | (data[1] & 0xFF);
+            // Version alternative: int payloadSize = ((data[1] & 0xFF) << 8) | (data[0] & 0xFF);
+            
+            byte msgType = data[2];
+            
+            // Vérifier la cohérence
+            if (data.length < 3 + payloadSize) return null;
+            
+            byte[] payload = Arrays.copyOfRange(data, 3, 3 + payloadSize);
             return new DecodedMessage(msgType, payload, payloadSize);
         }
     }

@@ -374,7 +374,7 @@ const char* osTaskGetErrorString(int p_iErrorCode)
 //     void* resource = malloc(1024);
 //     
 //     // Main task loop
-//     while (atomic_load(&self->a_iStopFlag) != OS_TASK_STOP_REQUEST) {
+//     while (atomic_load(&self->a_iStopFlag) == OS_TASK_SECURE_FLAG) {
 //         // Normal processing
 //         
 //         // Periodically check stop flag

@@ -120,16 +120,16 @@ int main()
     // Définir le gestionnaire de messages
     networkServerSetMessageHandler(handleNetworkMessage);
 
-    // handle is any robot here
+    // Configurer et initialiser la découverte UDP
     idCardNetworkInit();
-
+    
     // start server
     l_iReturn = networkServerStart();
     X_ASSERT(l_iReturn == SERVER_OK);
 
     X_LOG_TRACE("Server started on port %d", l_tServerConfig.t_usPort);
-
-    // Boucle principale
+    
+    // main loop
     while (1)
     {
         // Envoyer le signal SOS en morse

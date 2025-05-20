@@ -23,6 +23,7 @@ static int s_iRole = 0;
 static bool s_bUseLoopback = true; // boolean to enable/disable the use of loopback
 static xOsTaskCtx s_xTaskHandle = {0};
 
+
 ///////////////////////////////////////////
 /// findIpAddress
 ///////////////////////////////////////////
@@ -127,39 +128,63 @@ int createManifest(manifest_t *p_ptManifest)
 void idCardNetworkInit(void)
 {
     int l_iReturn = 0;
+    
+    // Initialiser la gestion des tâches
     l_iReturn = osTaskInit(&s_xTaskHandle);
-    X_ASSERT(l_iReturn == OS_TASK_SUCCESS);
-
+    if (l_iReturn != OS_TASK_SUCCESS)
+    {
+        X_LOG_TRACE("ERROR: Failed to initialize task: %s", osTaskGetErrorString(l_iReturn));
+        return;
+    }
+    
+    // Configurer le handler comme fonction de tâche
     s_xTaskHandle.t_ptTask = handleIsAnyRobotHere;
-
+    s_xTaskHandle.t_ptTaskArg = NULL;
+    
+    // Ensure the stop flag is correctly reset before creating the task
+    atomic_store(&s_xTaskHandle.a_iStopFlag, OS_TASK_SECURE_FLAG);
+    
+    // Créer la tâche
     l_iReturn = osTaskCreate(&s_xTaskHandle);
-    X_ASSERT(l_iReturn == OS_TASK_SUCCESS);
+    if (l_iReturn != OS_TASK_SUCCESS)
+    {
+        X_LOG_TRACE("ERROR: Failed to create UDP discovery task: %s", osTaskGetErrorString(l_iReturn));
+        return;
+    }
+    
+    X_LOG_TRACE("UDP discovery task started successfully");
 }
 
 ///////////////////////////////////////////
 /// handleIsAnyRobotHere
 ///////////////////////////////////////////
-void handleIsAnyRobotHere()
+void* handleIsAnyRobotHere(void* p_pvArg)
 {
+    (void)p_pvArg; // unused argument avoid warning
+
     int l_iReturn = 0;
     char l_pcBuffer[16];
     manifest_t l_sManifest = {0};
-    network_message_t l_tNetworkMessage = {0};
-
-    // La taille de network_message_t a changé (uint16_t au lieu de uint32_t)
-    // Calculer la taille correcte du buffer
-    uint8_t l_ucSendBuffer[sizeof(network_message_t) + sizeof(manifest_t)];
+    uint8_t l_ucSendBuffer[3 + sizeof(manifest_t)];
+    
+    // ensure the buffer is clean
+    memset(l_ucSendBuffer, 0, sizeof(l_ucSendBuffer));
 
     // create the UDP socket
     NetworkSocket *l_ptSocket = networkCreateSocket(NETWORK_SOCK_UDP);
     X_ASSERT(l_ptSocket != NULL);
+    X_LOG_TRACE("UDP socket created successfully");
 
-    // create and bind the address
-    NetworkAddress l_tAddress = networkMakeAddress(s_pcIpAddr, 4069);
+    // use 0.0.0.0 to listen on all interfaces
+    NetworkAddress l_tAddress = networkMakeAddress("127.0.0.1", 13769);
     NetworkAddress l_tSenderAddr;
 
     l_iReturn = networkBind(l_ptSocket, &l_tAddress);
-    X_ASSERT(l_iReturn == NETWORK_OK);
+    if (l_iReturn != NETWORK_OK)
+    {
+        X_LOG_TRACE("Failed to bind socket: %s", networkGetErrorString(l_iReturn));
+        networkCloseSocket(l_ptSocket);
+    }
 
     // define a timeout to avoid blocking
     networkSetTimeout(l_ptSocket, 10000, false); // 10 seconds timeout
@@ -167,23 +192,21 @@ void handleIsAnyRobotHere()
     // prepare the manifest
     l_iReturn = createManifest(&l_sManifest);
     X_ASSERT(l_iReturn == 0);
-
-    // prepare the network message
-    l_tNetworkMessage.t_iHeader[0] = ID_MANIFEST;
-
-    // Vérifier que la taille du payload ne dépasse pas UINT16_MAX
-    if (sizeof(manifest_t) > UINT16_MAX)
-    {
-        X_LOG_TRACE("Manifest size too large for uint16_t: %zu bytes", sizeof(manifest_t));
-        return;
-    }
-    l_tNetworkMessage.t_iPayloadSize = (uint16_t)sizeof(manifest_t);
-
-    // prepare the send buffer
-    memcpy(l_ucSendBuffer, &l_tNetworkMessage, sizeof(network_message_t));
-    memcpy(l_ucSendBuffer + sizeof(network_message_t), &l_sManifest, sizeof(manifest_t));
-
-    X_LOG_TRACE("IDCard network initialized on port 4069, waiting for discovery requests");
+    
+    uint16_t payloadSize = (uint16_t)sizeof(manifest_t);
+    
+    // build the buffer according to the network_message_t structure with pointer approach
+    uint8_t* ptr = l_ucSendBuffer;
+    
+    // write the payload size (2 bytes)
+    *ptr++ = (uint8_t)((payloadSize >> 8) & 0xFF);  // MSB (most significant byte)
+    *ptr++ = (uint8_t)(payloadSize & 0xFF);         // LSB (least significant byte)
+    
+    // write the message type (1 byte)
+    *ptr++ = ID_MANIFEST;
+    
+    // copy the manifest to the buffer
+    memcpy(ptr, &l_sManifest, sizeof(manifest_t));
 
     while (atomic_load(&s_xTaskHandle.a_iStopFlag) == OS_TASK_SECURE_FLAG)
     {
@@ -194,12 +217,12 @@ void handleIsAnyRobotHere()
         {
             if (l_pcBuffer[0] == ID_IS_ANY_ROBOT_HERE)
             {
-                X_LOG_TRACE("Received robot discovery request from %s:%d",
-                            l_tSenderAddr.t_cAddress, l_tSenderAddr.t_usPort);
+                X_LOG_TRACE("Received valid robot discovery request");
 
-                // send the manifest to the sender
+                size_t totalSize = sizeof(uint16_t) + sizeof(uint8_t) + sizeof(manifest_t);
+                
                 l_iReturn = networkSendTo(l_ptSocket, l_ucSendBuffer,
-                                          sizeof(network_message_t) + sizeof(manifest_t),
+                                          totalSize,
                                           &l_tSenderAddr);
 
                 if (l_iReturn < 0)
@@ -207,23 +230,33 @@ void handleIsAnyRobotHere()
                     X_LOG_TRACE("Failed to send manifest: %s",
                                 networkGetErrorString(l_iReturn));
                 }
+                else
+                {
+                    X_LOG_TRACE("Successfully sent manifest response (%d bytes)", l_iReturn);
+                }
             }
             else
             {
-                X_LOG_TRACE("Ignoring frame with incorrect ID: %d (expected: %d)",
-                            l_pcBuffer[0], ID_IS_ANY_ROBOT_HERE);
+                X_LOG_TRACE("Ignoring frame with incorrect ID: 0x%02X (expected: 0x%02X)",
+                            l_pcBuffer[0] & 0xFF, ID_IS_ANY_ROBOT_HERE & 0xFF);
             }
         }
         else if (l_iReturn == NETWORK_TIMEOUT)
         {
             // normal timeout, continue the loop
+            X_LOG_TRACE("Normal timeout waiting for UDP data");
+            continue;
         }
         else if (l_iReturn < 0)
         {
             X_LOG_TRACE("Error receiving data: %s", networkGetErrorString(l_iReturn));
+            continue;
         }
     }
 
     // Fermer le socket
     networkCloseSocket(l_ptSocket);
+    
+    return NULL;
 }
+

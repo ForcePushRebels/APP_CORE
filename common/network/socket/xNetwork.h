@@ -36,11 +36,11 @@
 #define NETWORK_DEFAULT_TIMEOUT 30000 // Default timeout in milliseconds (30 seconds)
 
 // Network error codes
-#define NETWORK_OK 0x17A2B40
-#define NETWORK_ERROR 0x17A2B41
-#define NETWORK_TIMEOUT 0x17A2B42
-#define NETWORK_INVALID_PARAM 0x17A2B43
-
+#define NETWORK_OK              0x17A2B40
+#define NETWORK_ERROR           0x17A2B41
+#define NETWORK_TIMEOUT         0x17A2B42
+#define NETWORK_INVALID_PARAM   0x17A2B43
+#define NETWORK_ZERO_SIZE       0x17A2B44
 // Byte order conversion macros
 #define HOST_TO_NET_LONG(p_uiValue) htonl(p_uiValue)
 #define HOST_TO_NET_SHORT(p_usValue) htons(p_usValue)
@@ -173,5 +173,29 @@ const char *networkGetErrorString(int p_iError);
 /// @return bool True if connected
 //////////////////////////////////
 bool networkIsConnected(NetworkSocket *p_ptSocket);
+
+//////////////////////////////////
+/// UDP-specific API functions
+//////////////////////////////////
+
+//////////////////////////////////
+/// @brief Send UDP datagram to specific address
+/// @param p_ptSocket Socket handle
+/// @param p_pBuffer Data buffer
+/// @param p_ulSize Data size
+/// @param p_pAddress Destination address
+/// @return int Bytes sent or error code
+//////////////////////////////////
+int networkSendTo(NetworkSocket *p_ptSocket, const void *p_pBuffer, unsigned long p_ulSize, const NetworkAddress *p_pAddress);
+
+//////////////////////////////////
+/// @brief Receive UDP datagram and get sender address
+/// @param p_ptSocket Socket handle
+/// @param p_pBuffer Data buffer
+/// @param p_ulSize Buffer size
+/// @param p_pAddress Address to store sender info (can be NULL)
+/// @return int Bytes received or error code
+//////////////////////////////////
+int networkReceiveFrom(NetworkSocket *p_ptSocket, void *p_pBuffer, unsigned long p_ulSize, NetworkAddress *p_pAddress);
 
 #endif // NETWORK_CORE_H_

@@ -1,193 +1,196 @@
 ////////////////////////////////////////////////////////////
-//  server header file
-//  declare server functions
+//  Network Server Header
+//  Provides a streamlined API for bidirectional Java-C communication
 //
-// general discloser: copy or share the file is forbidden
+// general disclosure: copy or share the file is forbidden
 // Written : 18/04/2025
 ////////////////////////////////////////////////////////////
 
-#ifndef SERVER_H
-#define SERVER_H
+#ifndef NETWORK_SERVER_H
+#define NETWORK_SERVER_H
 
 #include "xNetwork.h"
 #include "xTask.h"
 #include "xOsMutex.h"
+#include "networkEncode.h"
+#include <stdbool.h>
+#include <stdint.h>
 
-// Configuration du serveur
-#define SERVER_DEFAULT_PORT 8080
-#define SERVER_MAX_CLIENTS 5
-#define SERVER_BUFFER_SIZE 4096
-#define SERVER_SOCKET_TIMEOUT 20000 // ms
+// Forward declarations
+typedef struct server_ctx_t serverCtx;
+typedef struct client_ctx_t clientCtx;
 
-////////////////////////////////////////////////////////////
-/// @brief Server states
-////////////////////////////////////////////////////////////
-typedef enum {
-    SERVER_STATE_IDLE,
-    SERVER_STATE_RUNNING,
-    SERVER_STATE_ERROR,
-    SERVER_STATE_STOPPED
-} ServerState;
+// Message handler function type
+typedef void (*MessageHandler)(clientCtx *p_pttClient, const network_message_t *p_pttMessage);
 
-////////////////////////////////////////////////////////////
-/// @brief Server configuration
-////////////////////////////////////////////////////////////
-typedef struct {
-    uint16_t t_usPort;         // Port d'écoute
-    int t_iBacklog;            // Nombre max de connexions en attente
-    int t_iReceiveTimeout;     // Timeout de réception (ms)
-    bool t_bReuseAddr;         // Option SO_REUSEADDR
-    int t_iMaxClients;         // Nombre max de clients
+// Server configuration
+typedef struct
+{
+    uint16_t t_usPort;           // Server port
+    const char *t_pcBindAddress; // Address to bind to (NULL for any)
+    int t_iMaxClients;           // Maximum number of clients
+    int t_iBacklog;              // Backlog for listen
+    bool t_bUseTimeout;          // Use timeout for receive
+    int t_iReceiveTimeout;       // Timeout in ms (0 for no timeout)
 } ServerConfig;
 
-// Forward declaration for circular references
-struct Server;
+// Default configuration values
+#define DEFAULT_SERVER_PORT 8080
+#define DEFAULT_MAX_CLIENTS 5
+#define DEFAULT_BACKLOG 5
+#define DEFAULT_RECV_TIMEOUT 0
 
-////////////////////////////////////////////////////////////
-/// @brief Client thread structure for per-client processing
-////////////////////////////////////////////////////////////
-typedef struct {
-    NetworkSocket *t_pSocket;   // Socket client
-    NetworkAddress t_tAddress;  // Adresse client
-    bool t_bConnected;          // État de connexion
-    xOsTaskCtx t_Task;           // Contexte de tâche pour le thread client
-    struct Server *t_pServer;   // Référence au serveur parent
-    void *t_pUserData;          // Données utilisateur (contexte client)
-} ClientThread;
+// Client ID type
+typedef uint32_t ClientID;
+#define INVALID_CLIENT_ID 0
 
-////////////////////////////////////////////////////////////
-/// @brief Server structure
-////////////////////////////////////////////////////////////
-typedef struct Server {
-    NetworkSocket *t_pSocket;   // Socket d'écoute principal
-    NetworkAddress t_tAddress;  // Adresse et port d'écoute
-    #ifdef NETWORK_TLS_ENABLED
-        NetworkTlsConfig t_tTlsConfig;  // Configuration TLS
-    #endif
-    xOsMutexCtx t_Mutex;         // Mutex pour synchronisation
-    xOsTaskCtx t_Task;           // Contexte de tâche pour le thread serveur
-    ServerState t_eState;        // État actuel du serveur
-    ServerConfig t_tConfig;      // Configuration du serveur
-    
-    // Limite de clients actifs
-    int t_iMaxClients;
-    int t_iActiveClients;       // Nombre actuel de clients actifs
-    
-    // Callbacks utilisateur
-    void (*t_pfOnClientConnect)(struct Server*, ClientThread*);
-    void (*t_pfOnClientDisconnect)(struct Server*, ClientThread*);
-    void (*t_pfOnDataReceived)(struct Server*, ClientThread*, void*, int);
-} Server;
+// Error codes
+#define SERVER_OK 0x200B000
+#define SERVER_ERROR 0x200B001
+#define SERVER_MAX_CLIENTS_REACHED 0x200B002
+#define SERVER_INVALID_STATE 0x200B003
+#define SERVER_THREAD_ERROR 0x200B004
+#define SERVER_CLIENT_DISCONNECTED 0x200B005
+#define SERVER_SOCKET_ERROR 0x200B006
+#define SERVER_MEMORY_ERROR 0x200B007
+#define SERVER_TIMEOUT 0x200B008
+#define SERVER_INVALID_PARAM 0x200B009
+#define SERVER_NOT_RUNNING 0x200B00A
+#define SERVER_CLIENT_NOT_FOUND 0x200B00B
 
-////////////////////////////////////////////////////////////
-/// @brief Initialize server structure with default values
-/// @param p_tServer Pointer to server structure
-/// @return NETWORK_OK on success, error code otherwise
-////////////////////////////////////////////////////////////
-int serverInit(Server *p_tServer);
+//-----------------------------------------------------------------------------
+// Server Management Functions (Singleton)
+//-----------------------------------------------------------------------------
 
-////////////////////////////////////////////////////////////
-/// @brief Configure server parameters
-/// @param p_tServer Pointer to server structure
-/// @param p_usPort Port number (0 for default)
-/// @param p_iBacklog Max pending connections (0 for default)
-/// @param p_iMaxClients Maximum number of concurrent clients (0 for default)
-/// @param p_cAddress IP address to bind to (NULL for any)
-/// @return NETWORK_OK on success, error code otherwise
-////////////////////////////////////////////////////////////
-int serverConfigure(Server *p_tServer, uint16_t p_usPort, int p_iBacklog, int p_iMaxClients, const char *p_cAddress);
+///////////////////////////////////////////
+/// @brief Initialize the network server system
+/// @return SERVER_OK or error code
+///////////////////////////////////////////
+int networkServerInit(void);
 
-////////////////////////////////////////////////////////////
-/// @brief Start server (creates socket, binds and starts listener thread)
-/// @param p_tServer Pointer to server structure
-/// @return NETWORK_OK on success, error code otherwise
-////////////////////////////////////////////////////////////
-int serverStart(Server *p_tServer);
+///////////////////////////////////////////
+/// @brief Configure the server with custom parameters
+/// @param config Configuration parameters
+/// @return SERVER_OK or error code
+///////////////////////////////////////////
+int networkServerConfigure(const ServerConfig *p_pttConfig);
 
-////////////////////////////////////////////////////////////
-/// @brief Stop server (closes socket and stops thread)
-/// @param p_tServer Pointer to server structure
-/// @return NETWORK_OK on success, error code otherwise
-////////////////////////////////////////////////////////////
-int serverStop(Server *p_tServer);
+///////////////////////////////////////////
+/// @brief Set the message handler function to process incoming messages
+/// @param handler The message handler function
+///////////////////////////////////////////
+void networkServerSetMessageHandler(MessageHandler p_pttHandler);
 
-////////////////////////////////////////////////////////////
-/// @brief Server main thread function
-/// @param p_tServer Pointer to server structure cast as void*
-/// @return Should never return, 0 on normal exit, error code otherwise
-////////////////////////////////////////////////////////////
-void* serverThreadFunction(void *p_pArg);
+///////////////////////////////////////////
+/// @brief Start the server
+/// @return SERVER_OK or error code
+///////////////////////////////////////////
+int networkServerStart(void);
 
-////////////////////////////////////////////////////////////
-/// @brief Client thread function - handles a single client connection
-/// @param p_tClientThread Pointer to client thread structure cast as void*
-/// @return Should terminate when client disconnects, 0 on normal exit
-////////////////////////////////////////////////////////////
-void* clientThreadFunction(void *p_tClientThread);
+///////////////////////////////////////////
+/// @brief Stop the server
+/// @return SERVER_OK or error code
+///////////////////////////////////////////
+int networkServerStop(void);
 
-////////////////////////////////////////////////////////////
-/// @brief Send data to client
-/// @param p_tClientThread Pointer to client thread
-/// @param p_pData Data buffer
-/// @param p_iSize Data size
-/// @return Bytes sent or error code
-////////////////////////////////////////////////////////////
-int serverSendToClient(ClientThread *p_tClientThread, const void *p_pData, int p_iSize);
+///////////////////////////////////////////
+/// @brief Clean up the network server system and release all resources
+///////////////////////////////////////////
+void networkServerCleanup(void);
 
-////////////////////////////////////////////////////////////
-/// @brief Set callback for client connection event
-/// @param p_tServer Pointer to server structure
-/// @param p_pfCallback Callback function
-/// @return NETWORK_OK on success, error code otherwise
-////////////////////////////////////////////////////////////
-int serverSetOnClientConnect(Server *p_tServer, 
-                            void (*p_pfCallback)(Server*, ClientThread*));
+//-----------------------------------------------------------------------------
+// Client Management Functions
+//-----------------------------------------------------------------------------
 
-////////////////////////////////////////////////////////////
-/// @brief Set callback for client disconnection event
-/// @param p_tServer Pointer to server structure
-/// @param p_pfCallback Callback function
-/// @return NETWORK_OK on success, error code otherwise
-////////////////////////////////////////////////////////////
-int serverSetOnClientDisconnect(Server *p_tServer, 
-                               void (*p_pfCallback)(Server*, ClientThread*));
+///////////////////////////////////////////
+/// @brief Get the client address as a string
+/// @param clientId Client ID
+/// @param buffer Buffer to store the address
+/// @param size Buffer size
+/// @return true on success
+///////////////////////////////////////////
+bool networkServerGetClientAddress(ClientID p_tClientId, char *p_pcBuffer, int p_iSize);
 
-////////////////////////////////////////////////////////////
-/// @brief Set callback for data received event
-/// @param p_tServer Pointer to server structure
-/// @param p_pfCallback Callback function
-/// @return NETWORK_OK on success, error code otherwise
-////////////////////////////////////////////////////////////
-int serverSetOnDataReceived(Server *p_tServer, 
-                           void (*p_pfCallback)(Server*, ClientThread*, void*, int));
+///////////////////////////////////////////
+/// @brief Get the client port
+/// @param clientId Client ID
+/// @return Port number or 0 on error
+///////////////////////////////////////////
+uint16_t networkServerGetClientPort(ClientID p_tClientId);
 
-////////////////////////////////////////////////////////////
-/// @brief Disconnect and cleanup client thread
-/// @param p_tClientThread Pointer to client thread
-/// @return NETWORK_OK on success, error code otherwise
-////////////////////////////////////////////////////////////
-int serverDisconnectClient(ClientThread *p_tClientThread);
+///////////////////////////////////////////
+/// @brief Disconnect a client
+/// @param clientId Client ID
+/// @return SERVER_OK or error code
+///////////////////////////////////////////
+int networkServerDisconnectClient(ClientID p_tClientId);
 
-////////////////////////////////////////////////////////////
-/// @brief Set user data for client thread (context)
-/// @param p_tClientThread Pointer to client thread
-/// @param p_pUserData Pointer to user data
-/// @return NETWORK_OK on success, error code otherwise
-////////////////////////////////////////////////////////////
-int serverSetClientUserData(ClientThread *p_tClientThread, void *p_pUserData);
+///////////////////////////////////////////
+/// @brief Set custom data for a client
+/// @param clientId Client ID
+/// @param userData Pointer to the user data
+/// @return SERVER_OK or error code
+///////////////////////////////////////////
+int networkServerSetClientUserData(ClientID p_tClientId, void *p_pvUserData);
 
-////////////////////////////////////////////////////////////
-/// @brief Get user data from client thread
-/// @param p_tClientThread Pointer to client thread
-/// @return Pointer to user data or NULL if not set
-////////////////////////////////////////////////////////////
-void* serverGetClientUserData(ClientThread *p_tClientThread);
+///////////////////////////////////////////
+/// @brief Get custom data for a client
+/// @param clientId Client ID
+/// @return Pointer to the user data or NULL on error
+///////////////////////////////////////////
+void *networkServerGetClientUserData(ClientID p_tClientId);
 
-////////////////////////////////////////////////////////////
-/// @brief Destroy server and free all resources
-/// @param p_tServer Pointer to server structure
-/// @return none
-////////////////////////////////////////////////////////////
-void destroyServer(Server *p_tServer);
+///////////////////////////////////////////
+/// @brief Send data to a client
+/// @param clientId Client ID
+/// @param data Data to send
+/// @param size Data size in bytes
+/// @return Number of bytes sent or negative error code
+///////////////////////////////////////////
+int networkServerSendToClient(ClientID p_tClientId, const void *p_pvData, int p_iSize);
 
-#endif // SERVER_H
+//-----------------------------------------------------------------------------
+// Message Functions
+//-----------------------------------------------------------------------------
+
+///////////////////////////////////////////
+/// @brief Send a message to a client
+/// @param clientId Client ID
+/// @param msgType Type of message from network_message_type_t
+/// @param payload Data of the message (can be NULL if size is 0)
+/// @param payloadSize Size of the payload in bytes (must be <= UINT16_MAX)
+/// @return SERVER_OK or error code
+///////////////////////////////////////////
+int networkServerSendMessage(ClientID p_tClientId,
+                             uint8_t p_ucMsgType,
+                             const void *p_pvPayload,
+                             uint32_t p_ulPayloadSize);
+
+///////////////////////////////////////////
+/// @brief Get the error string representation
+/// @param error Error code
+/// @return Error string
+///////////////////////////////////////////
+const char *networkServerGetErrorString(int p_iError);
+
+///////////////////////////////////////////
+/// @brief Create a default server configuration
+/// @return Default configuration
+///////////////////////////////////////////
+ServerConfig networkServerCreateDefaultConfig(void);
+
+///////////////////////////////////////////
+/// @brief Get the client ID from the client context
+/// @param client The client context
+/// @return Client ID or INVALID_CLIENT_ID on error
+///////////////////////////////////////////
+ClientID networkServerGetClientID(clientCtx *p_ptClient);
+
+///////////////////////////////////////////
+/// @brief Get the client context from the client ID
+/// @param clientId Client ID
+/// @return Client context or NULL on error
+///////////////////////////////////////////
+clientCtx *networkServerGetClientCtx(ClientID p_tClientId);
+
+#endif // NETWORK_SERVER_H

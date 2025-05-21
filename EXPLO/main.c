@@ -20,6 +20,7 @@
 #include "networkServer.h"
 #include "handleNetworkMessage.h"
 #include "idCard.h"
+#include "sensorManager.h"
 
 
 static const uint8_t s_aCLogPath[] = "explo.log";
@@ -122,7 +123,16 @@ int main()
 
     // Configurer et initialiser la découverte UDP
     idCardNetworkInit();
-    
+
+
+    // init sensor manager
+    l_iReturn = sensorManagerInit();
+    X_ASSERT(l_iReturn == SENSOR_MANAGER_OK);
+
+    // start monitoring
+    l_iReturn = startMonitoring();
+    X_ASSERT(l_iReturn == SENSOR_MANAGER_OK);
+
     // start server
     l_iReturn = networkServerStart();
     X_ASSERT(l_iReturn == SERVER_OK);

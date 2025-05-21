@@ -3,7 +3,7 @@
 //  Provides IDCard interface
 //
 // general disclosure: copy or share the file is forbidden
-// Written : 25/04/2025
+// Written : 19/05/2025
 ////////////////////////////////////////////////////////////
 
 #include "idCard.h"
@@ -237,8 +237,7 @@ void* handleIsAnyRobotHere(void* p_pvArg)
             }
             else
             {
-                X_LOG_TRACE("Ignoring frame with incorrect ID: 0x%02X (expected: 0x%02X)",
-                            l_pcBuffer[0] & 0xFF, ID_IS_ANY_ROBOT_HERE & 0xFF);
+                // NONE
             }
         }
         else if (l_iReturn == NETWORK_TIMEOUT)

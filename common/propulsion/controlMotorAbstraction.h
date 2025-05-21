@@ -30,6 +30,23 @@
 #define MOTOR_LEFT 0         // Left motor identifier
 #define MOTOR_RIGHT 1        // Right motor identifier
 
+////////////////////////////////////////////////////////////
+/// @param motor_t
+/// @brief motor structure
+////////////////////////////////////////////////////////////
+typedef struct motor
+{
+    int idMotor;          // Motor identifier (left or right)
+    bool move;          // Flag to indicate if the motor is moving
+    bool setpointReached; // Flag to indicate if the setpoint is reached
+    regulator_t *regulator; // Pointer to the regulator structure
+    int32_t encoderValue;   // Encoder value for the motor
+    int16_t speedValueCurent;     // Speed value for the motor
+    int16_t speedValueTarget; // Target speed value for the motor
+    int16_t valueP;     // Proportional speed value for the motor
+    int16_t valueI;     // Integral speed value for the motor
+    int16_t valueD;     // Derivative speed value for the motor
+} motor_t;
 
 ////////////////////////////////////////////////////////////
 /// @brief Initialize the motor control system
@@ -42,34 +59,16 @@ int8_t initMotorControl();
 ////////////////////////////////////////////////////////////
 /// @brief Set the speed of the left motor
 /// @param speed Desired speed for the left motor
-/// @return 0 if success, -1 if error
+/// @return 0 if success, -1 if error mrpiz, -2 if speed out of range
 ////////////////////////////////////////////////////////////
 int8_t setLeftMotorSpeed(int16_t speed);
 
 ////////////////////////////////////////////////////////////
 /// @brief Set the speed of the right motor
 /// @param speed Desired speed for the right motor
-/// @return 0 if success, -1 if error
+/// @return 0 if success, -1 if error mrpiz, -2 if speed out of range
 ////////////////////////////////////////////////////////////
 int8_t setRightMotorSpeed(int16_t speed);
-
-////////////////////////////////////////////////////////////
-/// @brief Get the encoder value of the left motor
-/// @return Encoder value of the left motor
-////////////////////////////////////////////////////////////
-int16_t getLeftMotorEncoder();
-
-////////////////////////////////////////////////////////////
-/// @brief Get the encoder value of the right motor
-/// @return Encoder value of the right motor
-////////////////////////////////////////////////////////////
-int16_t getRightMotorEncoder();
-
-////////////////////////////////////////////////////////////
-/// @brief Reset the encoder values of both motors
-/// @return 0 if success, -1 if error
-////////////////////////////////////////////////////////////
-int8_t resetMotorEncoders();
 
 ////////////////////////////////////////////////////////////
 /// @brief Stops the motor operation immediately

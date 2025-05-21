@@ -6,7 +6,6 @@
 // Written : 14/11/2024
 ////////////////////////////////////////////////////////////
 
-#pragma once
 #ifndef OS_TASK_H_
 #define OS_TASK_H_
 

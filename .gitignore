@@ -402,3 +402,5 @@ FodyWeavers.xsd
 
 # Build folder
 build/
+
+!test/PATO_JMeter/bin/

@@ -10,6 +10,8 @@
 #include "xOsMutex.h"
 #include "xAssert.h"
 #include <string.h>
+#include <errno.h>
+#include <time.h>
 
 ////////////////////////////////////////////////////////////
 /// mutexCreate
@@ -85,7 +87,7 @@ int mutexLockTimeout(xOsMutexCtx *p_ptMutex, unsigned long p_ulTimeout)
     X_ASSERT(p_ptMutex != NULL);
 
     struct timespec l_tTimeout;
-    clock_gettime(CLOCK_REALTIME, &l_tTimeout);
+    clock_gettime(CLOCK_MONOTONIC, &l_tTimeout);
     l_tTimeout.tv_sec += p_ulTimeout / 1000;
     l_tTimeout.tv_nsec += (p_ulTimeout % 1000) * 1000000;
 

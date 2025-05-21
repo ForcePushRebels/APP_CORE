@@ -17,6 +17,11 @@
 #include "xLog.h"
 #include "xAssert.h"
 #include "watchdog.h"
+#include "networkServer.h"
+#include "handleNetworkMessage.h"
+#include "idCard.h"
+#include "sensorManager.h"
+
 
 static const uint8_t s_aCLogPath[] = "explo.log";
 
@@ -28,10 +33,10 @@ static const uint8_t s_aCLogPath[] = "explo.log";
 #define PAUSE_LETTER (UNIT_TIME * 3)
 
 // Fonction pour faire clignoter la LED avec une couleur pendant une durée
-void blinkLed(mrpiz_led_rgb_color_t color, int duration_ms)
+void blinkLed(mrpiz_led_rgb_color_t t_eColor, int t_iDurationMs)
 {
-    SetLedColor(color);
-    usleep(duration_ms * 1000);
+    SetLedColor(t_eColor);
+    usleep(t_iDurationMs * 1000);
     SetLedColor(MRPIZ_LED_OFF);
     usleep(PAUSE_SIGNAL * 1000);
 }
@@ -39,7 +44,6 @@ void blinkLed(mrpiz_led_rgb_color_t color, int duration_ms)
 // Fonction pour envoyer un SOS en morse avec différentes couleurs
 void sendMorseSOS()
 {
-
     // S: ... (3 courts en rouge)
     for (int i = 0; i < 3; i++)
     {
@@ -96,9 +100,60 @@ int main()
     X_ASSERT(l_iReturn == WATCHDOG_SUCCESS);
     watchdog_set_expiry_handler(l_fWatchdogExpiryHandler);
 
+    // Initialisation du système de handlers de messages
+    initMessageHandlerSystem();
+
+    // init server
+    l_iReturn = networkServerInit();
+    X_ASSERT(l_iReturn == SERVER_OK);
+
+    ServerConfig l_tServerConfig = networkServerCreateDefaultConfig();
+    l_tServerConfig.t_usPort = 8080;
+    l_tServerConfig.t_pcBindAddress = "127.0.0.1";
+    l_tServerConfig.t_iMaxClients = 10;
+    l_tServerConfig.t_iBacklog = 5;
+    l_tServerConfig.t_bUseTimeout = false;
+    l_tServerConfig.t_iReceiveTimeout = 0;
+
+    l_iReturn = networkServerConfigure(&l_tServerConfig);
+    X_ASSERT(l_iReturn == SERVER_OK);
+
+    // Définir le gestionnaire de messages
+    networkServerSetMessageHandler(handleNetworkMessage);
+
+    // Configurer et initialiser la découverte UDP
+    idCardNetworkInit();
+
+
+    // init sensor manager
+    l_iReturn = sensorManagerInit();
+    X_ASSERT(l_iReturn == SENSOR_MANAGER_OK);
+
+    // start monitoring
+    l_iReturn = startMonitoring();
+    X_ASSERT(l_iReturn == SENSOR_MANAGER_OK);
+
+    // start server
+    l_iReturn = networkServerStart();
+    X_ASSERT(l_iReturn == SERVER_OK);
+
+    X_LOG_TRACE("Server started on port %d", l_tServerConfig.t_usPort);
+    
+    // main loop
     while (1)
     {
         // Envoyer le signal SOS en morse
         sendMorseSOS();
+        
+        // Pour envoyer des mises à jour périodiques, on devra attendre d'avoir un client connecté
+        // et utiliser serverSendMessage à ce moment-là.
     }
+    
+    // Ce code ne sera jamais atteint, mais pour être complet:
+    cleanupMessageHandlerSystem();
+    idCardNetworkCleanup();
+    networkServerStop();
+    networkServerCleanup();
+    
+    return 0;
 }

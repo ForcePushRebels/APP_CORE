@@ -46,11 +46,11 @@ int sensorManagerInit(void);
 
 
 ///////////////////////////////////////////
-/// @brief Check if the move is possible
+/// @brief Check forward
 ///
-/// @return true if the move is possible, false otherwise
+/// @return true if there is something, false otherwise
 ///////////////////////////////////////////
-bool checkMovePossible(void);
+bool checkForward(void);
 
 
 ///////////////////////////////////////////

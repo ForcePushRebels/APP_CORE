@@ -10,11 +10,13 @@
 
 static sensorManager_t s_tSensorManager;
 
-#define SENSOR_MANAGER_TASK_PERIOD 100
+#define SENSOR_MANAGER_TASK_PERIOD 1000
+#define SENSOR_OBSTACLE_THRESHOLD 150
 
 // prototypes
 static void *sensorManagerTask(void *p_pvParam);
 static void updateSensorData(void *p_pvParam);
+bool checkMovePossible(void);
 
 ///////////////////////////////////////////
 /// sensorManagerInit
@@ -49,6 +51,33 @@ int sensorManagerInit(void)
     s_tSensorManager.t_tTaskHandler.a_iStopFlag = OS_TASK_SECURE_FLAG;
 
     return SENSOR_MANAGER_OK;
+}
+
+///////////////////////////////////////////
+/// checkForward
+///////////////////////////////////////////
+bool checkForward(void)
+{
+    return checkMovePossible();
+}
+
+///////////////////////////////////////////
+/// checkMovePossible
+///////////////////////////////////////////
+bool checkMovePossible(void)
+{
+    // On suppose que les valeurs sont à jour dans s_tSensorManager.t_tISensors
+    for (int i = 0; i < SENSOR_MANAGER_SENSORS_COUNT-2; i++)
+    {
+        if (s_tSensorManager.t_tISensors[i] < SENSOR_OBSTACLE_THRESHOLD)
+        {
+            // Un capteur détecte un obstacle : mouvement impossible
+            X_LOG_TRACE("Obstacle détecté");
+            return false;
+        }
+    }
+    // Aucun obstacle détecté
+    return true;
 }
 
 ///////////////////////////////////////////

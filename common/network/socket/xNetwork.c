@@ -550,6 +550,10 @@ int networkReceiveFrom(NetworkSocket *p_ptSocket, void *p_pBuffer, unsigned long
     l_iReturn = recvfrom(p_ptSocket->t_iSocketFd, p_pBuffer, p_ulSize, 0,
                       (struct sockaddr *)&l_tSenderAddr, &l_iAddrLen);
 
+    //get last errno error
+    int l_iErrnoReturn = errno;
+    X_LOG_TRACE("networkReceiveFrom: Last errno error: %d", l_iErrnoReturn);
+
     if (l_iReturn < 0 && errno != EAGAIN)
     {
         X_LOG_TRACE("networkReceiveFrom: Receive failed with error code %d", errno);

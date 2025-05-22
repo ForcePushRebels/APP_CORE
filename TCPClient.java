@@ -339,7 +339,7 @@ public class TCPClient extends JFrame {
 
     private void sendMessage() {
         String messageText;
-
+    
         if (!useCustomPayloadCheckbox.isSelected()) {
             // Use predefined payload
             int selectedIndex = testPayloadComboBox.getSelectedIndex();
@@ -370,18 +370,18 @@ public class TCPClient extends JFrame {
             // Use custom payload
             messageText = messageField.getText().trim();
         }
-
+    
         if (messageText.isEmpty() && testPayloadComboBox.getSelectedIndex() != 0) {
             // If text is empty but not intentionally selected as empty payload
             responseArea.append("Erreur: Payload vide\n");
             return;
         }
-
+    
         try {
             // Get message type based on selection
             int selectedIndex = messageTypeComboBox.getSelectedIndex();
             byte messageType;
-
+            
             if (selectedIndex >= 0 && selectedIndex <= 8) {
                 // Android messages
                 messageType = (byte) selectedIndex;
@@ -397,27 +397,33 @@ public class TCPClient extends JFrame {
             } else {
                 messageType = ID_START;
             }
-
+    
             // Si c'est un message UDP (ID_IS_ANY_ROBOT_HERE), l'envoyer via UDP
             // même si nous ne sommes pas connectés en TCP
             if (messageType == ID_IS_ANY_ROBOT_HERE) {
                 // Utiliser l'adresse de loopback pour les tests
                 String targetIp = "127.0.0.1"; // Adresse de loopback
                 int targetPort = 13769; // Port spécifique pour le message UDP
-
+    
                 sendUdpMessage(messageType, messageText, targetIp, targetPort);
-
+    
             } else if (connected && outputStream != null) {
                 // Pour les autres messages, vérifier que nous sommes connectés en TCP
                 NetworkMessage networkMsg = new NetworkMessage(messageType, messageText.getBytes());
-                byte[] encodedMessage = networkMsg.encode();
-
-                outputStream.write(encodedMessage);
+                
+                // 1. Envoyer d'abord la taille (2 octets)
+                byte[] sizeBytes = networkMsg.encodeSize();
+                outputStream.write(sizeBytes);
+                
+                // 2. Envoyer ensuite le message (type + payload)
+                byte[] messageBytes = networkMsg.encodeMessage();
+                outputStream.write(messageBytes);
                 outputStream.flush();
-
-                responseArea.append("Message TCP envoyé: Type=0x" +
-                        String.format("%02X", messageType) +
-                        ", Payload=\"" + messageText + "\"\n");
+    
+                responseArea.append("Message TCP envoyé en deux parties:\n");
+                responseArea.append("1. Taille (2 octets): " + bytesToHex(sizeBytes) + "\n");
+                responseArea.append("2. Message (Type=0x" + String.format("%02X", messageType) + 
+                                   ", Payload=\"" + messageText + "\"): " + bytesToHex(messageBytes) + "\n");
                 messageField.setText("");
             } else {
                 // Si ce n'est pas un message UDP et que nous ne sommes pas connectés
@@ -430,7 +436,7 @@ public class TCPClient extends JFrame {
                 disconnect();
         }
     }
-
+    
     private void sendUdpMessage(byte messageType, String messageText, String targetIp, int targetPort) {
         try {
             if (udpSocket == null || udpSocket.isClosed()) {
@@ -632,36 +638,43 @@ public class TCPClient extends JFrame {
     }
 
     // Network message class to handle the C API format (TCP - 32-bit size)
-    private static class NetworkMessage {
-        private byte messageType;
-        private byte[] payload;
-        private int payloadSize;
+    // Network message class to handle the C API format (TCP - 16-bit size)
+private static class NetworkMessage {
+    private byte messageType;
+    private byte[] payload;
+    private int payloadSize;
 
-        public NetworkMessage(byte messageType, byte[] msgPayload) {
-            this.messageType = messageType;
-            this.payload = msgPayload;
-            this.payloadSize = (msgPayload != null) ? msgPayload.length : 0;
-        }
-
-        public byte[] encode() {
-            int totalSize = 4 + 1 + payloadSize; // payloadSize + messageType + payload
-            ByteBuffer buffer = ByteBuffer.allocate(totalSize);
-            buffer.order(ByteOrder.BIG_ENDIAN); // Utiliser Big Endian (ordre réseau)
-
-            // Écrire la taille du payload (uint32_t)
-            buffer.putInt(payloadSize);
-
-            // Écrire le type de message (1 octet)
-            buffer.put(messageType);
-
-            // Écrire le payload
-            if (payload != null && payloadSize > 0) {
-                buffer.put(payload);
-            }
-
-            return buffer.array();
-        }
+    public NetworkMessage(byte messageType, byte[] msgPayload) {
+        this.messageType = messageType;
+        this.payload = msgPayload;
+        this.payloadSize = (msgPayload != null) ? msgPayload.length : 0;
     }
+
+    // Méthode pour obtenir la taille du payload sur 2 octets
+    public byte[] encodeSize() {
+        ByteBuffer buffer = ByteBuffer.allocate(2);
+        buffer.order(ByteOrder.BIG_ENDIAN); // Utiliser Big Endian (ordre réseau)
+        buffer.putShort((short) payloadSize);
+        return buffer.array();
+    }
+
+    // Méthode pour obtenir le message (type + payload)
+    public byte[] encodeMessage() {
+        int messageSize = 1 + payloadSize; // messageType + payload
+        ByteBuffer buffer = ByteBuffer.allocate(messageSize);
+        
+        // Écrire le type de message (1 octet)
+        buffer.put(messageType);
+        
+        // Écrire le payload
+        if (payload != null && payloadSize > 0) {
+            buffer.put(payload);
+        }
+        
+        return buffer.array();
+    }
+}
+
 
     // Network message class for UDP with 16-bit size
     private static class NetworkMessageUdp {

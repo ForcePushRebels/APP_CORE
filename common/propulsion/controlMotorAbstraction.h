@@ -8,8 +8,6 @@
 #ifndef CONTROL_MOTOR_ABSTRACTION_H
 #define CONTROL_MOTOR_ABSTRACTION_H
 
-// Include necessary headers
-#include <iostream>
 
 // system includes
 #include <stdint.h>
@@ -33,6 +31,8 @@
 
 #define HYSTERESIS 5 // Hysteresis value for speed regulation
 #define REGULATOR_TASK_DELAY 100 // Delay for regulator task in milliseconds
+
+#define ALAMBIX_BARTENDER_MQ "/pato_prop_mq"
 
 ////////////////////////////////////////////////////////////
 /// @param motor_t

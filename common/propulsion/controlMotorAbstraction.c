@@ -197,9 +197,6 @@ int8_t initMotorControl()
     
 }
 
-
-
-
 int8_t setLeftMotorSpeed(int16_t speed) 
 {
     //TODO: Set the speed of the left motor
@@ -227,6 +224,8 @@ int8_t setRightMotorSpeed(int16_t speed)
         X_LOG_TRACE("Invalid speed value for right motor: %d. Must be between %d and %d.", speed, MOTOR_SPEED_MIN, MOTOR_SPEED_MAX);
         return -2;       
     }
+
+
     //X_ASSERT(speed >= (-1*MOTOR_SPEED_MAX) && speed <= MOTOR_SPEED_MAX);
     int8_t speedValue = speed * 100 / MOTOR_SPEED_MAX; // Scale speed to 0-100 range
     
@@ -240,42 +239,10 @@ void stopMotor()
     mrpiz_motor_set(MRPIZ_MOTOR_BOTH, (int)MOTOR_SPEED_STOP);
 }
 
-////////////////////////////////////////////////////////////
-/// regulator_thread
-////////////////////////////////////////////////////////////
-void* regulator_thread(void *arg)
-{
-
-   
-   if (!regulator) {
-       X_LOG_TRACE("regulator thread started with NULL context");
-       return (void*)(intptr_t)regulator_ERROR_INVALID_PARAM;
-   }
-   
-   X_LOG_TRACE("regulator thread started");
-   
-   // Main thread loop
-   while (!regulator->terminate) {
-       // Ping the regulator to reset the timer
-       l_iRet = regulator_ping();
-       if (l_iRet != regulator_SUCCESS) {
-           X_LOG_TRACE("regulator ping failed in thread: %s (code: 0x%x)", 
-                     regulator_get_error_string(l_iRet), l_iRet);
-       }
-       
-       // Wait some time before the next ping
-       // Use about 1/3 of the timeout to ensure multiple pings before expiration
-       usleep((regulator->timeout / 3) * 1000);
-   }
-   
-   X_LOG_TRACE("regulator thread terminated normally");
-   return (void*)(intptr_t)regulator_SUCCESS;
-}
-
-
 bool checkRightMotorSetpointReached()
 {
     X_ASSERT(rightMotor != NULL);
+    //add mutex
 
     return rightMotor->setpointReached;
 }

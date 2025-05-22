@@ -23,6 +23,10 @@
 #define HARDWARE_ABSTRACTION_MAX_SENSORS 5
 #define HARDWARE_ABSTRACTION_MAX_MOTORS 2
 
+#define MQ_MSG_MAX (10)
+#define MQ_MSG_SIZE (48)
+const char *ALAMBIX_BARTENDER_MQ = "/regulator_mq";
+
 ////////////////////////////////////////////////
 ///  Hardware Abstraction Layer structure
 ///

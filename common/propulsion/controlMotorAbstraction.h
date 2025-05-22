@@ -14,6 +14,7 @@
 // system includes
 #include <stdint.h>
 #include <stdbool.h>
+#include <mqueue.h>
 
 // project includes
 #include "hardwareAbstraction.h"
@@ -30,6 +31,9 @@
 #define MOTOR_LEFT 0         // Left motor identifier
 #define MOTOR_RIGHT 1        // Right motor identifier
 
+#define HYSTERESIS 5 // Hysteresis value for speed regulation
+#define REGULATOR_TASK_DELAY 100 // Delay for regulator task in milliseconds
+
 ////////////////////////////////////////////////////////////
 /// @param motor_t
 /// @brief motor structure
@@ -39,14 +43,25 @@ typedef struct motor
     int idMotor;          // Motor identifier (left or right)
     bool move;          // Flag to indicate if the motor is moving
     bool setpointReached; // Flag to indicate if the setpoint is reached
+    uint32_t timeLastReadEncoder; // Encoder value for the motor
     regulator_t *regulator; // Pointer to the regulator structure
     int32_t encoderValue;   // Encoder value for the motor
     int16_t speedValueCurent;     // Speed value for the motor
+    int16_t speedValueCmd;        // Command speed value for the motor
     int16_t speedValueTarget; // Target speed value for the motor
     int16_t valueP;     // Proportional speed value for the motor
     int16_t valueI;     // Integral speed value for the motor
     int16_t valueD;     // Derivative speed value for the motor
 } motor_t;
+
+/// @brief Regulator manager structure
+////////////////////////////////////////////////////////////
+typedef struct regulatorManager_t
+{
+    xOsTaskCtx t_tTaskHandler;
+    //xOsMutexCtx t_tMutex;
+    //xOsTimerCtx t_tTimer;
+} regulatorManager_t;
 
 ////////////////////////////////////////////////////////////
 /// @brief Initialize the motor control system
@@ -74,5 +89,17 @@ int8_t setRightMotorSpeed(int16_t speed);
 /// @brief Stops the motor operation immediately
 ////////////////////////////////////////////////////////////
 void stopMotor();
+
+////////////////////////////////////////////////////////////
+/// @brief Checks if the right motor setpoint has been reached
+/// @return true if the setpoint is reached, false otherwise
+////////////////////////////////////////////////////////////
+bool checkRightMotorSetpointReached();
+
+////////////////////////////////////////////////////////////
+/// @brief Checks if the left motor setpoint has been reached
+/// @return true if the setpoint is reached, false otherwise
+////////////////////////////////////////////////////////////
+bool checkLeftMotorSetpointReached();
 
 #endif // CONTROL_MOTOR_ABSTRACTION_H

@@ -13,6 +13,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <mqueue.h>
+#include <errno.h>
 
 // project includes
 #include "hardwareAbstraction.h"
@@ -44,7 +45,7 @@ typedef struct motor
     bool move;          // Flag to indicate if the motor is moving
     bool setpointReached; // Flag to indicate if the setpoint is reached
     uint32_t timeLastReadEncoder; // Encoder value for the motor
-    regulator_t *regulator; // Pointer to the regulator structure
+    regulatorManager_t *regulator; // Pointer to the regulator structure
     int32_t encoderValue;   // Encoder value for the motor
     int16_t speedValueCurent;     // Speed value for the motor
     int16_t speedValueCmd;        // Command speed value for the motor

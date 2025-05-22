@@ -22,6 +22,9 @@ typedef struct command_t
     int16_t speed;
 } command_t;
 
+//Queue message
+struct mq_attr attr;
+
 void *regulatorManagerTask(void *p_pvParam)
 {
     motorManager_t *motorManager = (motorManager_t *)p_pvParam;

@@ -19,14 +19,21 @@
 
 static char s_pcRobotName[] = "Robot_zebi_putin_de_merde";
 static char s_pcIpAddr[16] = {0};
-static int s_iRole = 0;
+static RobotType_t s_iRole = 0;
 static bool s_bUseLoopback = true; // boolean to enable/disable the use of loopback
 static xOsTaskCtx s_xTaskHandle = {0};
-
 
 ///////////////////////////////////////////
 /// findIpAddress
 ///////////////////////////////////////////
+
+int idCardInit(RobotType_t type)
+{
+    s_iRole = type;
+
+    return 0;
+}
+
 static void findIpAddress(void)
 {
     struct ifaddrs *ifaddr, *ifa;
@@ -128,7 +135,7 @@ int createManifest(manifest_t *p_ptManifest)
 void idCardNetworkInit(void)
 {
     int l_iReturn = 0;
-    
+
     // Initialiser la gestion des tâches
     l_iReturn = osTaskInit(&s_xTaskHandle);
     if (l_iReturn != OS_TASK_SUCCESS)
@@ -136,14 +143,14 @@ void idCardNetworkInit(void)
         X_LOG_TRACE("ERROR: Failed to initialize task: %s", osTaskGetErrorString(l_iReturn));
         return;
     }
-    
+
     // Configurer le handler comme fonction de tâche
     s_xTaskHandle.t_ptTask = handleIsAnyRobotHere;
     s_xTaskHandle.t_ptTaskArg = NULL;
-    
+
     // Ensure the stop flag is correctly reset before creating the task
     atomic_store(&s_xTaskHandle.a_iStopFlag, OS_TASK_SECURE_FLAG);
-    
+
     // Créer la tâche
     l_iReturn = osTaskCreate(&s_xTaskHandle);
     if (l_iReturn != OS_TASK_SUCCESS)
@@ -151,14 +158,14 @@ void idCardNetworkInit(void)
         X_LOG_TRACE("ERROR: Failed to create UDP discovery task: %s", osTaskGetErrorString(l_iReturn));
         return;
     }
-    
+
     X_LOG_TRACE("UDP discovery task started successfully");
 }
 
 ///////////////////////////////////////////
 /// handleIsAnyRobotHere
 ///////////////////////////////////////////
-void* handleIsAnyRobotHere(void* p_pvArg)
+void *handleIsAnyRobotHere(void *p_pvArg)
 {
     (void)p_pvArg; // unused argument avoid warning
 
@@ -166,7 +173,7 @@ void* handleIsAnyRobotHere(void* p_pvArg)
     char l_pcBuffer[16];
     manifest_t l_sManifest = {0};
     uint8_t l_ucSendBuffer[3 + sizeof(manifest_t)];
-    
+
     // ensure the buffer is clean
     memset(l_ucSendBuffer, 0, sizeof(l_ucSendBuffer));
 
@@ -186,25 +193,22 @@ void* handleIsAnyRobotHere(void* p_pvArg)
         networkCloseSocket(l_ptSocket);
     }
 
-    // define a timeout to avoid blocking
-    networkSetTimeout(l_ptSocket, 10000, false); // 10 seconds timeout
-
     // prepare the manifest
     l_iReturn = createManifest(&l_sManifest);
     X_ASSERT(l_iReturn == 0);
-    
+
     uint16_t payloadSize = (uint16_t)sizeof(manifest_t);
-    
+
     // build the buffer according to the network_message_t structure with pointer approach
-    uint8_t* ptr = l_ucSendBuffer;
-    
+    uint8_t *ptr = l_ucSendBuffer;
+
     // write the payload size (2 bytes)
-    *ptr++ = (uint8_t)((payloadSize >> 8) & 0xFF);  // MSB (most significant byte)
-    *ptr++ = (uint8_t)(payloadSize & 0xFF);         // LSB (least significant byte)
-    
+    *ptr++ = (uint8_t)((payloadSize >> 8) & 0xFF); // MSB (most significant byte)
+    *ptr++ = (uint8_t)(payloadSize & 0xFF);        // LSB (least significant byte)
+
     // write the message type (1 byte)
     *ptr++ = ID_MANIFEST;
-    
+
     // copy the manifest to the buffer
     memcpy(ptr, &l_sManifest, sizeof(manifest_t));
 
@@ -220,7 +224,7 @@ void* handleIsAnyRobotHere(void* p_pvArg)
                 X_LOG_TRACE("Received valid robot discovery request");
 
                 size_t totalSize = sizeof(uint16_t) + sizeof(uint8_t) + sizeof(manifest_t);
-                
+
                 l_iReturn = networkSendTo(l_ptSocket, l_ucSendBuffer,
                                           totalSize,
                                           &l_tSenderAddr);
@@ -255,7 +259,11 @@ void* handleIsAnyRobotHere(void* p_pvArg)
 
     // Fermer le socket
     networkCloseSocket(l_ptSocket);
-    
+
     return NULL;
 }
 
+RobotType_t idCardGetRole()
+{
+    return s_iRole;
+}

@@ -33,7 +33,7 @@ int hardwareAbstractionInit()
     l_iReturn = mrpiz_init();
     if (l_iReturn != 0)
     {
-        X_LOG_TRACE("Failed to initialize MrPiz, error=%d", l_iReturn);
+        X_LOG_TRACE("Failed to initialize MrPiz, error=%d, error message: %s", l_iReturn, mrpiz_error_msg());
         return -1;
     }
 

@@ -554,9 +554,8 @@ int networkReceiveFrom(NetworkSocket *p_ptSocket, void *p_pBuffer, unsigned long
     int l_iErrnoReturn = errno;
     X_LOG_TRACE("networkReceiveFrom: Last errno error: %d", l_iErrnoReturn);
 
-    if (l_iReturn < 0 && errno != EAGAIN)
+    if (l_iReturn < 0 && errno != EAGAIN && errno != EWOULDBLOCK)
     {
-        X_LOG_TRACE("networkReceiveFrom: Receive failed with error code %d", errno);
         l_iReturn = NETWORK_ERROR;
     }
     else if (l_iReturn == 0)

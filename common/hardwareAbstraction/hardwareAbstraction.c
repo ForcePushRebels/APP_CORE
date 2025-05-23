@@ -38,43 +38,45 @@ int hardwareAbstractionInit()
     }
 
     // init sensors - vérifier d'abord quels capteurs sont disponibles
-    int sensorCount = 0;
-    mrpiz_proxy_sensor_id availableSensors[] = {
+    int l_iSensorCount = 0;
+    mrpiz_proxy_sensor_id l_tAvailableSensors[] = 
+    {
         MRPIZ_PROXY_SENSOR_FRONT_LEFT,
         MRPIZ_PROXY_SENSOR_FRONT_CENTER_LEFT,
         MRPIZ_PROXY_SENSOR_FRONT_CENTER,
         MRPIZ_PROXY_SENSOR_FRONT_CENTER_RIGHT,
-        MRPIZ_PROXY_SENSOR_FRONT_RIGHT};
+        MRPIZ_PROXY_SENSOR_FRONT_RIGHT
+    };
 
     // Check which sensors are available
-    for (size_t l_uIndex = 0; l_uIndex < sizeof(availableSensors) / sizeof(availableSensors[0]); l_uIndex++)
+    for (size_t l_uIndex = 0; l_uIndex < sizeof(l_tAvailableSensors) / sizeof(l_tAvailableSensors[0]); l_uIndex++)
     {
-        int value = mrpiz_proxy_sensor_get(availableSensors[l_uIndex]);
+        int value = mrpiz_proxy_sensor_get(l_tAvailableSensors[l_uIndex]);
         if (value != -1)
         {
             // This sensor is available, add it to our configuration
-            if (sensorCount < HARDWARE_ABSTRACTION_MAX_SENSORS)
+            if (l_iSensorCount < HARDWARE_ABSTRACTION_MAX_SENSORS)
             {
-                t_HardwareAbstraction.t_iSensors[sensorCount] = availableSensors[l_uIndex];
-                sensorCount++;
-                X_LOG_TRACE("Sensor %d available", availableSensors[l_uIndex]);
+                t_HardwareAbstraction.t_iSensors[l_iSensorCount] = l_tAvailableSensors[l_uIndex];
+                l_iSensorCount++;
+                X_LOG_TRACE("Sensor %d available", l_tAvailableSensors[l_uIndex]);
             }
         }
         else
         {
-            X_LOG_TRACE("Sensor %d not available: %s", availableSensors[l_uIndex], mrpiz_error_msg());
+            X_LOG_TRACE("Sensor %d not available: %s", l_tAvailableSensors[l_uIndex], mrpiz_error_msg());
         }
     }
 
     // If no sensor is available, it's a problem
-    if (sensorCount == 0)
+    if (l_iSensorCount == 0)
     {
         X_LOG_TRACE("No sensors available on this robot");
         return -1;
     }
 
     // Update the number of available sensors
-    X_LOG_TRACE("Found %d available sensors", sensorCount);
+    X_LOG_TRACE("Found %d available sensors", l_iSensorCount);
 
     // init motors
     t_HardwareAbstraction.t_iMotors[0] = MRPIZ_MOTOR_LEFT;

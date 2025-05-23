@@ -79,6 +79,8 @@ add_compile_options(
     -Wall
     -Wextra
     -pedantic
+    -Wno-unused-variable
+    -Wno-unused-value
     -MMD
     -MP
 )

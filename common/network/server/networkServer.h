@@ -45,22 +45,19 @@ typedef uint32_t ClientID;
 #define INVALID_CLIENT_ID 0
 
 // Error codes
-#define SERVER_OK 0x200B000
-#define SERVER_ERROR 0x200B001
-#define SERVER_MAX_CLIENTS_REACHED 0x200B002
-#define SERVER_INVALID_STATE 0x200B003
-#define SERVER_THREAD_ERROR 0x200B004
-#define SERVER_CLIENT_DISCONNECTED 0x200B005
-#define SERVER_SOCKET_ERROR 0x200B006
-#define SERVER_MEMORY_ERROR 0x200B007
-#define SERVER_TIMEOUT 0x200B008
-#define SERVER_INVALID_PARAM 0x200B009
-#define SERVER_NOT_RUNNING 0x200B00A
-#define SERVER_CLIENT_NOT_FOUND 0x200B00B
+#define SERVER_OK                   0x200B000
+#define SERVER_ERROR                0x200B001
+#define SERVER_MAX_CLIENTS_REACHED  0x200B002
+#define SERVER_INVALID_STATE        0x200B003
+#define SERVER_THREAD_ERROR         0x200B004
+#define SERVER_CLIENT_DISCONNECTED  0x200B005
+#define SERVER_SOCKET_ERROR         0x200B006
+#define SERVER_MEMORY_ERROR         0x200B007
+#define SERVER_TIMEOUT              0x200B008
+#define SERVER_INVALID_PARAM        0x200B009
+#define SERVER_NOT_RUNNING          0x200B00A
+#define SERVER_CLIENT_NOT_FOUND     0x200B00B
 
-//-----------------------------------------------------------------------------
-// Server Management Functions (Singleton)
-//-----------------------------------------------------------------------------
 
 ///////////////////////////////////////////
 /// @brief Initialize the network server system
@@ -97,6 +94,19 @@ int networkServerStop(void);
 /// @brief Clean up the network server system and release all resources
 ///////////////////////////////////////////
 void networkServerCleanup(void);
+
+///////////////////////////////////////////
+/// @brief Connect server to network (encapsulates bind + listen)
+/// @return SERVER_OK or error code
+///////////////////////////////////////////
+int networkServerConnect(void);
+
+///////////////////////////////////////////
+/// @brief Accept a new client connection (encapsulates accept + client setup)
+/// @param clientId Pointer to store the new client ID (optional, can be NULL)
+/// @return SERVER_OK if client accepted, SERVER_TIMEOUT if no client, or error code
+///////////////////////////////////////////
+int networkServerAcceptClient(ClientID *p_ptClientId);
 
 //-----------------------------------------------------------------------------
 // Client Management Functions

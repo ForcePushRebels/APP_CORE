@@ -136,8 +136,6 @@ int main()
     // start server
     l_iReturn = networkServerStart();
     X_ASSERT(l_iReturn == SERVER_OK);
-
-    X_LOG_TRACE("Server started on port %d", l_tServerConfig.t_usPort);
     
     // main loop
     while (1)

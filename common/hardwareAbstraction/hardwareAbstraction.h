@@ -20,7 +20,7 @@
 #include "xAssert.h"
 #include "xTask.h"
 
-#define HARDWARE_ABSTRACTION_MAX_SENSORS 5
+#define HARDWARE_ABSTRACTION_MAX_SENSORS 3
 #define HARDWARE_ABSTRACTION_MAX_MOTORS 2
 
 ////////////////////////////////////////////////

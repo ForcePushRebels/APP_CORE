@@ -17,8 +17,12 @@
 #include "xTimer.h"
 #include "stdint.h"
 
-#define SENSOR_MANAGER_SENSORS_COUNT 5
+#define SENSOR_MANAGER_SENSORS_COUNT 3
+#define SENSOR_MAX_RAW_VALUE 188
+#define SENSOR_MAX_MM_VALUE 320
 
+#define SENSOR_MIN_RAW_VALUE 24
+#define SENSOR_MIN_MM_VALUE 12
 ////////////////////////////////////////////////////////////
 /// @brief Sensor manager structure
 ////////////////////////////////////////////////////////////
@@ -30,12 +34,9 @@ typedef struct sensorManager_t
     uint16_t t_tISensors[SENSOR_MANAGER_SENSORS_COUNT];
 } sensorManager_t;
 
-
-
 // error codes
-#define SENSOR_MANAGER_OK               0x5d8c6010
-#define SENSOR_MANAGER_INVALID_ARG      0x5d8c6011
-
+#define SENSOR_MANAGER_OK 0x5d8c6010
+#define SENSOR_MANAGER_INVALID_ARG 0x5d8c6011
 
 ///////////////////////////////////////////
 /// @brief Initialize the sensor manager
@@ -44,7 +45,6 @@ typedef struct sensorManager_t
 ///////////////////////////////////////////
 int sensorManagerInit(void);
 
-
 ///////////////////////////////////////////
 /// @brief Check forward
 ///
@@ -52,14 +52,12 @@ int sensorManagerInit(void);
 ///////////////////////////////////////////
 bool checkForward(void);
 
-
 ///////////////////////////////////////////
 /// @brief Start monitoring the environment
-/// 
+///
 /// @return SENSOR_MANAGER_OK if successful, error code otherwise
 ///////////////////////////////////////////
 int startMonitoring();
-
 
 ///////////////////////////////////////////
 /// @brief Stop monitoring the environment
@@ -75,13 +73,11 @@ int stopMonitoring(void);
 ///////////////////////////////////////////
 uint16_t updateVision(int sensor);
 
-
 ///////////////////////////////////////////
 /// @brief Convertit une valeur capteur brute (0-255) en millimètres (0-200mm)
 /// @param rawValue : valeur brute du capteur (0-255)
 /// @return distance en mm (0-200)
 ///////////////////////////////////////////
 uint16_t rawValuesToMm(uint16_t rawValue);
-
 
 #endif

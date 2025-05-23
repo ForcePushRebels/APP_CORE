@@ -4,24 +4,28 @@
 //
 // Written : 23/05/2025
 ////////////////////////////////////////////////////////////
-#ifndef MOTORCONTROL_H
-#define MOTORCONTROL_H
+#ifndef MOTOR_CONTROL_H
+#define MOTOR_CONTROL_H
 
+#include <stdint.h>
 #include <stdbool.h>
+#include "mrpiz.h"
+#include "error.h"
+#include "xOsMutex.h"
+#include "xLog.h"
+#include "xAssert.h"
+#include "xTask.h"
+#include "hardwareAbstraction.h"
 
-// Initialisation et arrêt global du module motor_control
+// Définition des constantes
+#define MAX_SPEED_RAD_S 10.0  // Vitesse maximale en rad/s
+
+
+// Fonctions publiques
 int motor_control_init(void);
 void motor_control_shutdown(void);
-
-// Commande de vitesse en rad/s pour chaque moteur
-int motor_control_set_left_speed(double speed_rad_s);
-int motor_control_set_right_speed(double speed_rad_s);
-
-// Lecture de la vitesse réelle en rad/s pour chaque moteur
+int motor_control_set_speed(uint16_t motor_id, double speed_rad_s);
 double motor_control_get_left_speed(void);
 double motor_control_get_right_speed(void);
 
-// Arrêt d'urgence des deux moteurs
-void motor_control_stop(void);
-
-#endif // MOTORCONTROL_H
+#endif // MOTOR_CONTROL_H

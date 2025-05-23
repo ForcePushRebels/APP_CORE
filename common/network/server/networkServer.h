@@ -95,6 +95,19 @@ int networkServerStop(void);
 ///////////////////////////////////////////
 void networkServerCleanup(void);
 
+///////////////////////////////////////////
+/// @brief Connect server to network (encapsulates bind + listen)
+/// @return SERVER_OK or error code
+///////////////////////////////////////////
+int networkServerConnect(void);
+
+///////////////////////////////////////////
+/// @brief Accept a new client connection (encapsulates accept + client setup)
+/// @param clientId Pointer to store the new client ID (optional, can be NULL)
+/// @return SERVER_OK if client accepted, SERVER_TIMEOUT if no client, or error code
+///////////////////////////////////////////
+int networkServerAcceptClient(ClientID *p_ptClientId);
+
 //-----------------------------------------------------------------------------
 // Client Management Functions
 //-----------------------------------------------------------------------------

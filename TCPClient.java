@@ -23,18 +23,14 @@ public class TCPClient extends JFrame {
     private boolean connected = false;
     private DatagramSocket udpSocket;
 
-    // Message type constants - SENT BY ANDROID
-    private static final byte ID_SET_MOVEMENT = 0x00;
-    private static final byte ID_START = 0x01;
-    private static final byte ID_STOP = 0x02;
-    private static final byte ID_CHOOSE_MANU_MODE = 0x03;
-    private static final byte ID_SELECTED_POINTS = 0x04;
-    private static final byte ID_GET_FINAL_METRICS = 0x05;
-    private static final byte ID_UPLOAD_MAP = 0x06;
-    private static final byte ID_ASK_STRATS_LIST = 0x07;
-    private static final byte ID_SELECT_START = 0x08;
+    // Message type constants - ALIGNED WITH C CODE (networkEncode.h)
+    // ====== SEND BY ANDROID ======
+    private static final byte ID_SET_MOVEMENT = 0x01;
+    private static final byte ID_MISSION_CONTROL = 0x02;
+    private static final byte ID_SELECTED_POINTS = 0x05;
+    private static final byte ID_UPLOAD_MAP = 0x07;
 
-    // Message type constants - SENT BY BOT
+    // ====== SEND BY BOT ======
     private static final byte ID_INF_BATTERY = 0x10;
     private static final byte ID_INF_STATUS = 0x11;
     private static final byte ID_INF_POS = 0x12;
@@ -42,9 +38,6 @@ public class TCPClient extends JFrame {
 
     private static final byte ID_MAP_FRAGMENT = 0x20;
     private static final byte ID_MAP_FULL = 0x21;
-    private static final byte ID_METRICS_EXPLO = 0x22;
-    private static final byte ID_METRICS_INTER = 0x23;
-    private static final byte ID_STARTS_LIST = 0x24;
 
     // UDP message types
     private static final byte ID_IS_ANY_ROBOT_HERE = 0x30;
@@ -74,28 +67,20 @@ public class TCPClient extends JFrame {
         connectButton = new JButton("Connecter");
         connectionPanel.add(connectButton);
 
-        // 2. Panel for message type selection
+        // 2. Panel for message type selection - UPDATED TO MATCH C CODE
         JPanel typePanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         typePanel.add(new JLabel("Type de message:"));
         messageTypeComboBox = new JComboBox<>(new String[] {
-                "ID_SET_MOVEMENT (0x00)",
-                "ID_START (0x01)",
-                "ID_STOP (0x02)",
-                "ID_CHOOSE_MANU_MODE (0x03)",
-                "ID_SELECTED_POINTS (0x04)",
-                "ID_GET_FINAL_METRICS (0x05)",
-                "ID_UPLOAD_MAP (0x06)",
-                "ID_ASK_STRATS_LIST (0x07)",
-                "ID_SELECT_START (0x08)",
+                "ID_SET_MOVEMENT (0x01)",
+                "ID_MISSION_CONTROL (0x02)",
+                "ID_SELECTED_POINTS (0x05)",
+                "ID_UPLOAD_MAP (0x07)",
                 "ID_INF_BATTERY (0x10)",
                 "ID_INF_STATUS (0x11)",
                 "ID_INF_POS (0x12)",
                 "ID_INF_TIME (0x13)",
                 "ID_MAP_FRAGMENT (0x20)",
                 "ID_MAP_FULL (0x21)",
-                "ID_METRICS_EXPLO (0x22)",
-                "ID_METRICS_INTER (0x23)",
-                "ID_STARTS_LIST (0x24)",
                 "ID_IS_ANY_ROBOT_HERE (0x30)",
                 "ID_MANIFEST (0x31)"
         });
@@ -162,7 +147,7 @@ public class TCPClient extends JFrame {
             public void actionPerformed(ActionEvent e) {
                 // Vérifier si c'est un message UDP ou si nous sommes connectés
                 int selectedIndex = messageTypeComboBox.getSelectedIndex();
-                boolean isUdpDiscoveryMessage = (selectedIndex == 18); // ID_IS_ANY_ROBOT_HERE
+                boolean isUdpDiscoveryMessage = (selectedIndex == 10); // ID_IS_ANY_ROBOT_HERE index corrected
 
                 if (isUdpDiscoveryMessage || connected) {
                     sendMessage();
@@ -177,7 +162,7 @@ public class TCPClient extends JFrame {
             public void actionPerformed(ActionEvent e) {
                 // Vérifier si c'est un message UDP ou si nous sommes connectés
                 int selectedIndex = messageTypeComboBox.getSelectedIndex();
-                boolean isUdpDiscoveryMessage = (selectedIndex == 18); // ID_IS_ANY_ROBOT_HERE
+                boolean isUdpDiscoveryMessage = (selectedIndex == 10); // ID_IS_ANY_ROBOT_HERE index corrected
 
                 if (isUdpDiscoveryMessage || connected) {
                     sendMessage();
@@ -240,29 +225,84 @@ public class TCPClient extends JFrame {
             new Thread(new Runnable() {
                 public void run() {
                     try {
-                        byte[] buffer = new byte[4096]; // Buffer pour les données brutes
-                        int bytesRead;
+                        // CORRECTED: Sequential reading to match C server protocol
+                        while (connected) {
+                            // STEP 1: Read payload size (2 bytes) - like C server does
+                            byte[] sizeBuffer = new byte[2];
+                            int sizeRead = 0;
 
-                        while ((bytesRead = socket.getInputStream().read(buffer)) != -1) {
-                            final byte[] data = Arrays.copyOf(buffer, bytesRead);
+                            // Ensure we read exactly 2 bytes for size
+                            while (sizeRead < 2 && connected) {
+                                int bytesRead = socket.getInputStream().read(sizeBuffer, sizeRead, 2 - sizeRead);
+                                if (bytesRead == -1) {
+                                    // Connection closed
+                                    connected = false;
+                                    break;
+                                }
+                                sizeRead += bytesRead;
+                            }
+
+                            if (!connected || sizeRead != 2)
+                                break;
+
+                            // Extract payload size (big endian, like C server sends)
+                            int payloadSize = ((sizeBuffer[0] & 0xFF) << 8) | (sizeBuffer[1] & 0xFF);
+
+                            if (payloadSize < 0 || payloadSize > 4096) {
+                                SwingUtilities.invokeLater(new Runnable() {
+                                    public void run() {
+                                        responseArea
+                                                .append("Erreur: Taille de payload invalide: " + payloadSize + "\n");
+                                    }
+                                });
+                                continue;
+                            }
+
+                            // STEP 2: Read message (1 byte type + payload)
+                            byte[] messageBuffer = new byte[1 + payloadSize]; // 1 byte header + payload
+                            int messageRead = 0;
+
+                            // Ensure we read the complete message
+                            while (messageRead < (1 + payloadSize) && connected) {
+                                int bytesRead = socket.getInputStream().read(messageBuffer, messageRead,
+                                        (1 + payloadSize) - messageRead);
+                                if (bytesRead == -1) {
+                                    // Connection closed
+                                    connected = false;
+                                    break;
+                                }
+                                messageRead += bytesRead;
+                            }
+
+                            if (!connected || messageRead != (1 + payloadSize))
+                                break;
+
+                            // Process the complete message
+                            final byte[] finalMessageData = messageBuffer;
+                            final int finalPayloadSize = payloadSize;
 
                             SwingUtilities.invokeLater(new Runnable() {
                                 public void run() {
-                                    // Essayer de décoder comme un message réseau
-                                    DecodedMessage decodedMessage = NetworkMessageDecoder.decode(data);
+                                    // Extract message type (first byte)
+                                    byte messageType = finalMessageData[0];
 
-                                    if (decodedMessage != null) {
-                                        String messageInfo = String.format(
-                                                "Message reçu [%s - 0x%02X]\n" +
-                                                        "Structure détaillée:\n%s\n",
-                                                decodedMessage.getMessageTypeString(),
-                                                decodedMessage.getMessageType() & 0xFF,
-                                                decodedMessage.getStructureDetails());
-                                        responseArea.append(messageInfo + "\n");
-                                    } else {
-                                        // Afficher comme données brutes si le décodage échoue
-                                        responseArea.append("Données brutes reçues: " + bytesToHex(data) + "\n");
+                                    // Extract payload (remaining bytes)
+                                    byte[] payload = new byte[finalPayloadSize];
+                                    if (finalPayloadSize > 0) {
+                                        System.arraycopy(finalMessageData, 1, payload, 0, finalPayloadSize);
                                     }
+
+                                    // Create a DecodedMessage for display
+                                    DecodedMessage decodedMessage = new DecodedMessage(messageType, payload,
+                                            finalPayloadSize);
+
+                                    String messageInfo = String.format(
+                                            "Message reçu [%s - 0x%02X]\n" +
+                                                    "Structure détaillée:\n%s\n",
+                                            decodedMessage.getMessageTypeString(),
+                                            decodedMessage.getMessageType() & 0xFF,
+                                            decodedMessage.getStructureDetails());
+                                    responseArea.append(messageInfo + "\n");
                                 }
                             });
                         }
@@ -339,7 +379,7 @@ public class TCPClient extends JFrame {
 
     private void sendMessage() {
         String messageText;
-    
+
         if (!useCustomPayloadCheckbox.isSelected()) {
             // Use predefined payload
             int selectedIndex = testPayloadComboBox.getSelectedIndex();
@@ -370,60 +410,86 @@ public class TCPClient extends JFrame {
             // Use custom payload
             messageText = messageField.getText().trim();
         }
-    
+
         if (messageText.isEmpty() && testPayloadComboBox.getSelectedIndex() != 0) {
             // If text is empty but not intentionally selected as empty payload
             responseArea.append("Erreur: Payload vide\n");
             return;
         }
-    
+
         try {
-            // Get message type based on selection
+            // Get message type based on selection - CORRECTED TO MATCH C CODE
             int selectedIndex = messageTypeComboBox.getSelectedIndex();
             byte messageType;
-            
-            if (selectedIndex >= 0 && selectedIndex <= 8) {
-                // Android messages
-                messageType = (byte) selectedIndex;
-            } else if (selectedIndex >= 9 && selectedIndex <= 12) {
-                // Bot info messages
-                messageType = (byte) (0x10 + (selectedIndex - 9));
-            } else if (selectedIndex >= 13 && selectedIndex <= 17) {
-                // Bot map messages
-                messageType = (byte) (0x20 + (selectedIndex - 13));
-            } else if (selectedIndex >= 18 && selectedIndex <= 19) {
-                // UDP messages
-                messageType = (byte) (0x30 + (selectedIndex - 18));
-            } else {
-                messageType = ID_START;
+
+            switch (selectedIndex) {
+                case 0:
+                    messageType = ID_SET_MOVEMENT;
+                    break; // 0x01
+                case 1:
+                    messageType = ID_MISSION_CONTROL;
+                    break; // 0x02
+                case 2:
+                    messageType = ID_SELECTED_POINTS;
+                    break; // 0x05
+                case 3:
+                    messageType = ID_UPLOAD_MAP;
+                    break; // 0x07
+                case 4:
+                    messageType = ID_INF_BATTERY;
+                    break; // 0x10
+                case 5:
+                    messageType = ID_INF_STATUS;
+                    break; // 0x11
+                case 6:
+                    messageType = ID_INF_POS;
+                    break; // 0x12
+                case 7:
+                    messageType = ID_INF_TIME;
+                    break; // 0x13
+                case 8:
+                    messageType = ID_MAP_FRAGMENT;
+                    break; // 0x20
+                case 9:
+                    messageType = ID_MAP_FULL;
+                    break; // 0x21
+                case 10:
+                    messageType = ID_IS_ANY_ROBOT_HERE;
+                    break; // 0x30
+                case 11:
+                    messageType = ID_MANIFEST;
+                    break; // 0x31
+                default:
+                    messageType = ID_SET_MOVEMENT;
+                    break;
             }
-    
+
             // Si c'est un message UDP (ID_IS_ANY_ROBOT_HERE), l'envoyer via UDP
             // même si nous ne sommes pas connectés en TCP
             if (messageType == ID_IS_ANY_ROBOT_HERE) {
                 // Utiliser l'adresse de loopback pour les tests
                 String targetIp = "127.0.0.1"; // Adresse de loopback
                 int targetPort = 13769; // Port spécifique pour le message UDP
-    
+
                 sendUdpMessage(messageType, messageText, targetIp, targetPort);
-    
+
             } else if (connected && outputStream != null) {
                 // Pour les autres messages, vérifier que nous sommes connectés en TCP
                 NetworkMessage networkMsg = new NetworkMessage(messageType, messageText.getBytes());
-                
+
                 // 1. Envoyer d'abord la taille (2 octets)
                 byte[] sizeBytes = networkMsg.encodeSize();
                 outputStream.write(sizeBytes);
-                
+
                 // 2. Envoyer ensuite le message (type + payload)
                 byte[] messageBytes = networkMsg.encodeMessage();
                 outputStream.write(messageBytes);
                 outputStream.flush();
-    
+
                 responseArea.append("Message TCP envoyé en deux parties:\n");
                 responseArea.append("1. Taille (2 octets): " + bytesToHex(sizeBytes) + "\n");
-                responseArea.append("2. Message (Type=0x" + String.format("%02X", messageType) + 
-                                   ", Payload=\"" + messageText + "\"): " + bytesToHex(messageBytes) + "\n");
+                responseArea.append("2. Message (Type=0x" + String.format("%02X", messageType) +
+                        ", Payload=\"" + messageText + "\"): " + bytesToHex(messageBytes) + "\n");
                 messageField.setText("");
             } else {
                 // Si ce n'est pas un message UDP et que nous ne sommes pas connectés
@@ -436,7 +502,7 @@ public class TCPClient extends JFrame {
                 disconnect();
         }
     }
-    
+
     private void sendUdpMessage(byte messageType, String messageText, String targetIp, int targetPort) {
         try {
             if (udpSocket == null || udpSocket.isClosed()) {
@@ -639,42 +705,41 @@ public class TCPClient extends JFrame {
 
     // Network message class to handle the C API format (TCP - 32-bit size)
     // Network message class to handle the C API format (TCP - 16-bit size)
-private static class NetworkMessage {
-    private byte messageType;
-    private byte[] payload;
-    private int payloadSize;
+    private static class NetworkMessage {
+        private byte messageType;
+        private byte[] payload;
+        private int payloadSize;
 
-    public NetworkMessage(byte messageType, byte[] msgPayload) {
-        this.messageType = messageType;
-        this.payload = msgPayload;
-        this.payloadSize = (msgPayload != null) ? msgPayload.length : 0;
-    }
-
-    // Méthode pour obtenir la taille du payload sur 2 octets
-    public byte[] encodeSize() {
-        ByteBuffer buffer = ByteBuffer.allocate(2);
-        buffer.order(ByteOrder.BIG_ENDIAN); // Utiliser Big Endian (ordre réseau)
-        buffer.putShort((short) payloadSize);
-        return buffer.array();
-    }
-
-    // Méthode pour obtenir le message (type + payload)
-    public byte[] encodeMessage() {
-        int messageSize = 1 + payloadSize; // messageType + payload
-        ByteBuffer buffer = ByteBuffer.allocate(messageSize);
-        
-        // Écrire le type de message (1 octet)
-        buffer.put(messageType);
-        
-        // Écrire le payload
-        if (payload != null && payloadSize > 0) {
-            buffer.put(payload);
+        public NetworkMessage(byte messageType, byte[] msgPayload) {
+            this.messageType = messageType;
+            this.payload = msgPayload;
+            this.payloadSize = (msgPayload != null) ? msgPayload.length : 0;
         }
-        
-        return buffer.array();
-    }
-}
 
+        // Méthode pour obtenir la taille du payload sur 2 octets
+        public byte[] encodeSize() {
+            ByteBuffer buffer = ByteBuffer.allocate(2);
+            buffer.order(ByteOrder.BIG_ENDIAN); // Utiliser Big Endian (ordre réseau)
+            buffer.putShort((short) payloadSize);
+            return buffer.array();
+        }
+
+        // Méthode pour obtenir le message (type + payload)
+        public byte[] encodeMessage() {
+            int messageSize = 1 + payloadSize; // messageType + payload
+            ByteBuffer buffer = ByteBuffer.allocate(messageSize);
+
+            // Écrire le type de message (1 octet)
+            buffer.put(messageType);
+
+            // Écrire le payload
+            if (payload != null && payloadSize > 0) {
+                buffer.put(payload);
+            }
+
+            return buffer.array();
+        }
+    }
 
     // Network message class for UDP with 16-bit size
     private static class NetworkMessageUdp {
@@ -790,51 +855,32 @@ private static class NetworkMessage {
         }
     }
 
-    // Network message decoder class to handle the C API format (TCP - 32-bit size)
+    // Network message decoder class - CORRECTED TO MATCH C PROTOCOL
     private static class NetworkMessageDecoder {
-        // Décode un message TCP à partir d'un tableau d'octets
+        // TCP messages are now decoded directly in the reading thread
+        // This method is kept for backward compatibility but not used for TCP
         public static DecodedMessage decode(byte[] data) {
-            if (data == null || data.length < 5) { // Taille minimale: 4 (size) + 1 (header)
-                return null;
-            }
-
-            ByteBuffer buffer = ByteBuffer.wrap(data);
-            buffer.order(ByteOrder.BIG_ENDIAN); // Utiliser Big Endian (ordre réseau)
-
-            // Lire la taille du payload
-            int payloadSize = buffer.getInt();
-
-            // Lire le type de message (1 octet de header)
-            byte msgType = buffer.get();
-
-            // Vérifier que la taille du message est cohérente
-            if (data.length < 5 + payloadSize) {
-                return null;
-            }
-
-            // Extraire le payload
-            byte[] payload = new byte[payloadSize];
-            if (payloadSize > 0) {
-                buffer.get(payload, 0, payloadSize);
-            }
-
-            return new DecodedMessage(msgType, payload, payloadSize);
+            // This method is deprecated for TCP - we now read sequentially
+            return null;
         }
 
         // Décode un message UDP à partir d'un tableau d'octets (16-bit size)
         public static DecodedMessage decodeUdp(byte[] data) {
             // Décodage direct (sans utiliser ByteBuffer)
-            if (data.length < 3) return null;
-            
+            if (data.length < 3)
+                return null;
+
             // Reconstruire la taille manuellement - inverse l'ordre si nécessaire
             int payloadSize = ((data[0] & 0xFF) << 8) | (data[1] & 0xFF);
-            // Version alternative: int payloadSize = ((data[1] & 0xFF) << 8) | (data[0] & 0xFF);
-            
+            // Version alternative: int payloadSize = ((data[1] & 0xFF) << 8) | (data[0] &
+            // 0xFF);
+
             byte msgType = data[2];
-            
+
             // Vérifier la cohérence
-            if (data.length < 3 + payloadSize) return null;
-            
+            if (data.length < 3 + payloadSize)
+                return null;
+
             byte[] payload = Arrays.copyOfRange(data, 3, 3 + payloadSize);
             return new DecodedMessage(msgType, payload, payloadSize);
         }
@@ -870,22 +916,12 @@ private static class NetworkMessage {
                 // Messages ANDROID
                 case ID_SET_MOVEMENT:
                     return "ID_SET_MOVEMENT";
-                case ID_START:
-                    return "ID_START";
-                case ID_STOP:
-                    return "ID_STOP";
-                case ID_CHOOSE_MANU_MODE:
-                    return "ID_CHOOSE_MANU_MODE";
+                case ID_MISSION_CONTROL:
+                    return "ID_MISSION_CONTROL";
                 case ID_SELECTED_POINTS:
                     return "ID_SELECTED_POINTS";
-                case ID_GET_FINAL_METRICS:
-                    return "ID_GET_FINAL_METRICS";
                 case ID_UPLOAD_MAP:
                     return "ID_UPLOAD_MAP";
-                case ID_ASK_STRATS_LIST:
-                    return "ID_ASK_STRATS_LIST";
-                case ID_SELECT_START:
-                    return "ID_SELECT_START";
 
                 // Messages BOT
                 case ID_INF_BATTERY:
@@ -900,12 +936,6 @@ private static class NetworkMessage {
                     return "ID_MAP_FRAGMENT";
                 case ID_MAP_FULL:
                     return "ID_MAP_FULL";
-                case ID_METRICS_EXPLO:
-                    return "ID_METRICS_EXPLO";
-                case ID_METRICS_INTER:
-                    return "ID_METRICS_INTER";
-                case ID_STARTS_LIST:
-                    return "ID_STARTS_LIST";
 
                 // UDP
                 case ID_IS_ANY_ROBOT_HERE:
@@ -920,10 +950,11 @@ private static class NetworkMessage {
         // Méthode pour afficher tous les champs de la structure
         public String getStructureDetails() {
             StringBuilder sb = new StringBuilder();
-            sb.append("Structure network_message_t:\n");
-            sb.append(String.format("t_iPayloadSize: %d (0x%08X)\n", payloadSize, payloadSize));
-            sb.append(String.format("t_iHeader: 0x%02X (%s)\n", messageType & 0xFF, getMessageTypeString()));
-            sb.append(String.format("t_ptucPayload: %d bytes\n", payload.length));
+            sb.append("Structure network_message_t (C protocol):\n");
+            sb.append(String.format("Payload size (2 bytes): %d (0x%04X)\n", payloadSize, payloadSize));
+            sb.append(
+                    String.format("Message type (1 byte): 0x%02X (%s)\n", messageType & 0xFF, getMessageTypeString()));
+            sb.append(String.format("Payload content: %d bytes\n", payload.length));
 
             // Afficher le contenu du payload en hex et en texte
             if (payload.length > 0) {

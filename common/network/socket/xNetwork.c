@@ -499,7 +499,7 @@ int networkSendTo(NetworkSocket *p_ptSocket, const void *p_pBuffer, unsigned lon
                 p_pAddress->t_cAddress, p_pAddress->t_usPort, p_ulSize);
 
     l_iReturn = sendto(p_ptSocket->t_iSocketFd, p_pBuffer, p_ulSize, 0,
-                    (struct sockaddr *)&l_tAddr, sizeof(l_tAddr));
+                       (struct sockaddr *)&l_tAddr, sizeof(l_tAddr));
 
     if (l_iReturn < 0)
     {
@@ -548,9 +548,9 @@ int networkReceiveFrom(NetworkSocket *p_ptSocket, void *p_pBuffer, unsigned long
                 p_ptSocket->t_iSocketFd, p_ulSize);
 
     l_iReturn = recvfrom(p_ptSocket->t_iSocketFd, p_pBuffer, p_ulSize, 0,
-                      (struct sockaddr *)&l_tSenderAddr, &l_iAddrLen);
+                         (struct sockaddr *)&l_tSenderAddr, &l_iAddrLen);
 
-    //get last errno error
+    // get last errno error
     int l_iErrnoReturn = errno;
     X_LOG_TRACE("networkReceiveFrom: Last errno error: %d", l_iErrnoReturn);
 

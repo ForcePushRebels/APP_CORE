@@ -197,41 +197,15 @@ int networkServerStart(void)
         return SERVER_OK;
     }
 
-    // lock the mutex
-    mutexLock(&s_ptServerInstance->t_tMutex);
-
-    // create the server socket
-    s_ptServerInstance->t_ptSocket = networkCreateSocket(NETWORK_SOCK_TCP);
-    if (s_ptServerInstance->t_ptSocket == NULL)
+    // ABSTRACTION: Use the new connect function
+    int l_iResult = networkServerConnect();
+    if (l_iResult != SERVER_OK)
     {
-        X_LOG_TRACE("Failed to create server socket");
-        mutexUnlock(&s_ptServerInstance->t_tMutex);
-        return SERVER_SOCKET_ERROR;
-    }
-
-    // bind the server socket
-    int l_iResult = networkBind(s_ptServerInstance->t_ptSocket, &s_ptServerInstance->t_tAddress);
-    if (l_iResult != NETWORK_OK)
-    {
-        X_LOG_TRACE("Failed to bind server socket: %s", networkGetErrorString(l_iResult));
-        networkCloseSocket(s_ptServerInstance->t_ptSocket);
-        s_ptServerInstance->t_ptSocket = NULL;
-        mutexUnlock(&s_ptServerInstance->t_tMutex);
-        return SERVER_SOCKET_ERROR;
-    }
-
-    // start listening
-    l_iResult = networkListen(s_ptServerInstance->t_ptSocket, s_ptServerInstance->t_sConfig.t_iBacklog);
-    if (l_iResult != NETWORK_OK)
-    {
-        X_LOG_TRACE("Failed to listen on server socket: %s", networkGetErrorString(l_iResult));
-        networkCloseSocket(s_ptServerInstance->t_ptSocket);
-        s_ptServerInstance->t_ptSocket = NULL;
-        mutexUnlock(&s_ptServerInstance->t_tMutex);
-        return SERVER_SOCKET_ERROR;
+        return l_iResult;
     }
 
     // mark the server as running
+    mutexLock(&s_ptServerInstance->t_tMutex);
     s_ptServerInstance->t_bRunning = true;
     mutexUnlock(&s_ptServerInstance->t_tMutex);
 
@@ -672,6 +646,30 @@ int networkServerSendMessage(ClientID p_tClientId,
 }
 
 ///////////////////////////////////////////
+/// Helper function for complete TCP read
+///////////////////////////////////////////
+static int networkReceiveComplete(NetworkSocket *p_ptSocket, uint8_t *p_pucBuffer, int p_iSize)
+{
+    int l_iTotalReceived = 0;
+    int l_iReceived;
+
+    while (l_iTotalReceived < p_iSize)
+    {
+        l_iReceived = networkReceive(p_ptSocket, p_pucBuffer + l_iTotalReceived, p_iSize - l_iTotalReceived);
+
+        if (l_iReceived <= 0)
+        {
+            // Error or connection closed
+            return l_iReceived;
+        }
+
+        l_iTotalReceived += l_iReceived;
+    }
+
+    return l_iTotalReceived;
+}
+
+///////////////////////////////////////////
 /// networkServerGetErrorString
 ///////////////////////////////////////////
 const char *networkServerGetErrorString(int p_iError)
@@ -721,6 +719,183 @@ ServerConfig networkServerCreateDefaultConfig(void)
     l_tConfig.t_iReceiveTimeout = DEFAULT_RECV_TIMEOUT;
 
     return l_tConfig;
+}
+
+//-----------------------------------------------------------------------------
+// Server Connection Abstraction Implementation
+//-----------------------------------------------------------------------------
+
+///////////////////////////////////////////
+/// networkServerConnect
+///////////////////////////////////////////
+int networkServerConnect(void)
+{
+    if (s_ptServerInstance == NULL)
+    {
+        X_LOG_TRACE("Server not initialized");
+        return SERVER_INVALID_STATE;
+    }
+
+    // check if the server is already connected
+    if (s_ptServerInstance->t_ptSocket != NULL)
+    {
+        X_LOG_TRACE("Server already connected");
+        return SERVER_OK;
+    }
+
+    // lock the mutex
+    mutexLock(&s_ptServerInstance->t_tMutex);
+
+    // create the server socket
+    s_ptServerInstance->t_ptSocket = networkCreateSocket(NETWORK_SOCK_TCP);
+    if (s_ptServerInstance->t_ptSocket == NULL)
+    {
+        X_LOG_TRACE("Failed to create server socket");
+        mutexUnlock(&s_ptServerInstance->t_tMutex);
+        return SERVER_SOCKET_ERROR;
+    }
+
+    // bind the server socket
+    int l_iResult = networkBind(s_ptServerInstance->t_ptSocket, &s_ptServerInstance->t_tAddress);
+    if (l_iResult != NETWORK_OK)
+    {
+        X_LOG_TRACE("Failed to bind server socket: %s", networkGetErrorString(l_iResult));
+        networkCloseSocket(s_ptServerInstance->t_ptSocket);
+        s_ptServerInstance->t_ptSocket = NULL;
+        mutexUnlock(&s_ptServerInstance->t_tMutex);
+        return SERVER_SOCKET_ERROR;
+    }
+
+    // start listening
+    l_iResult = networkListen(s_ptServerInstance->t_ptSocket, s_ptServerInstance->t_sConfig.t_iBacklog);
+    if (l_iResult != NETWORK_OK)
+    {
+        X_LOG_TRACE("Failed to listen on server socket: %s", networkGetErrorString(l_iResult));
+        networkCloseSocket(s_ptServerInstance->t_ptSocket);
+        s_ptServerInstance->t_ptSocket = NULL;
+        mutexUnlock(&s_ptServerInstance->t_tMutex);
+        return SERVER_SOCKET_ERROR;
+    }
+
+    mutexUnlock(&s_ptServerInstance->t_tMutex);
+
+    X_LOG_TRACE("Server connected and listening on port %d", s_ptServerInstance->t_sConfig.t_usPort);
+    return SERVER_OK;
+}
+
+///////////////////////////////////////////
+/// networkServerAcceptClient
+///////////////////////////////////////////
+int networkServerAcceptClient(ClientID *p_ptClientId)
+{
+    if (s_ptServerInstance == NULL)
+    {
+        X_LOG_TRACE("Server not initialized");
+        return SERVER_INVALID_STATE;
+    }
+
+    if (s_ptServerInstance->t_ptSocket == NULL)
+    {
+        X_LOG_TRACE("Server not connected");
+        return SERVER_INVALID_STATE;
+    }
+
+    // wait for a client connection with timeout
+    int l_iActivity = networkWaitForActivity(s_ptServerInstance->t_ptSocket, SERVER_ACCEPT_TIMEOUT);
+
+    // if no activity, return timeout
+    if (l_iActivity <= 0)
+    {
+        return SERVER_TIMEOUT;
+    }
+
+    // accept the new client connection
+    NetworkAddress l_tClientAddress;
+    NetworkSocket *l_ptClientSocket = networkAccept(s_ptServerInstance->t_ptSocket, &l_tClientAddress);
+
+    if (l_ptClientSocket == NULL)
+    {
+        X_LOG_TRACE("Accept failed");
+        return SERVER_SOCKET_ERROR;
+    }
+
+    X_LOG_TRACE("New client connection from %s:%d",
+                l_tClientAddress.t_cAddress, l_tClientAddress.t_usPort);
+
+    // check the number of clients before creating the new instance
+    mutexLock(&s_ptServerInstance->t_tMutex);
+    bool l_bMaxClients = (s_ptServerInstance->t_iNumClients >= MAX_CLIENTS);
+    mutexUnlock(&s_ptServerInstance->t_tMutex);
+
+    if (l_bMaxClients)
+    {
+        X_LOG_TRACE("Maximum number of clients reached, rejecting connection");
+        networkCloseSocket(l_ptClientSocket);
+        return SERVER_MAX_CLIENTS_REACHED;
+    }
+
+    // create the client context
+    clientCtx *l_ptClient = (clientCtx *)malloc(sizeof(clientCtx));
+    if (l_ptClient == NULL)
+    {
+        X_LOG_TRACE("Failed to allocate memory for client");
+        networkCloseSocket(l_ptClientSocket);
+        return SERVER_MEMORY_ERROR;
+    }
+
+    // initialize the client
+    memset(l_ptClient, 0, sizeof(clientCtx));
+    l_ptClient->t_ptSocket = l_ptClientSocket;
+    l_ptClient->t_tAddress = l_tClientAddress;
+    l_ptClient->t_bConnected = true;
+    l_ptClient->t_ptServer = s_ptServerInstance;
+
+    // configure the client task
+    l_ptClient->t_tTask.t_ptTask = clientThreadFunc;
+    l_ptClient->t_tTask.t_ptTaskArg = l_ptClient;
+    l_ptClient->t_tTask.t_iPriority = 1;
+    l_ptClient->t_tTask.t_ulStackSize = CLIENT_THREAD_STACK_SIZE;
+
+    // configure the socket timeout if necessary
+    if (s_ptServerInstance->t_sConfig.t_bUseTimeout && s_ptServerInstance->t_sConfig.t_iReceiveTimeout > 0)
+    {
+        networkSetTimeout(l_ptClientSocket, s_ptServerInstance->t_sConfig.t_iReceiveTimeout, false);
+    }
+
+    // add the client to the table (this also sets its ID)
+    int l_iResult = addClient(l_ptClient);
+    if (l_iResult != SERVER_OK)
+    {
+        X_LOG_TRACE("Failed to add client: %s", networkServerGetErrorString(l_iResult));
+        networkCloseSocket(l_ptClientSocket);
+        free(l_ptClient);
+        return l_iResult;
+    }
+
+    // create the client thread
+    int l_iTaskResult = osTaskCreate(&l_ptClient->t_tTask);
+    if (l_iTaskResult != OS_TASK_SUCCESS)
+    {
+        X_LOG_TRACE("Failed to create client thread: %s",
+                    osTaskGetErrorString(l_iTaskResult));
+
+        // remove the client from the table
+        removeClient(l_ptClient);
+
+        // clean up
+        networkCloseSocket(l_ptClientSocket);
+        free(l_ptClient);
+        return SERVER_THREAD_ERROR;
+    }
+
+    // return the client ID if requested
+    if (p_ptClientId != NULL)
+    {
+        *p_ptClientId = l_ptClient->t_tId;
+    }
+
+    X_LOG_TRACE("Client %u accepted and thread created", l_ptClient->t_tId);
+    return SERVER_OK;
 }
 
 ///////////////////////////////////////////
@@ -875,10 +1050,10 @@ static void *clientThreadFunc(void *p_pvArg)
     while (p_ptClient->t_bConnected && p_ptServer->t_bRunning &&
            atomic_load(&p_ptClient->t_tTask.a_iStopFlag) != OS_TASK_STOP_REQUEST)
     {
-        // STEP 1: First receive the size (2 bytes)
-        p_iReceived = networkReceive(p_ptClient->t_ptSocket, p_aucBuffer, sizeof(uint16_t));
+        // STEP 1: First receive the size (2 bytes) - FIXED: use complete receive
+        p_iReceived = networkReceiveComplete(p_ptClient->t_ptSocket, p_aucBuffer, sizeof(uint16_t));
 
-        X_LOG_TRACE("Data received: %x bytes", p_aucBuffer);
+        X_LOG_TRACE("Size data received: %d bytes", p_iReceived);
 
         if (p_iReceived == sizeof(uint16_t))
         {
@@ -888,9 +1063,9 @@ static void *clientThreadFunc(void *p_pvArg)
             uint32_t l_ulPayloadSize = NET_TO_HOST_SHORT(l_usPayloadSize);
 
             // Validate payload size before allocation
-            if (l_ulPayloadSize > SERVER_MAX_BUFFER_SIZE || l_ulPayloadSize == 0)
+            if (l_ulPayloadSize > SERVER_MAX_BUFFER_SIZE)
             {
-                X_LOG_TRACE("Invalid payload size received: %u bytes", l_ulPayloadSize);
+                X_LOG_TRACE("Payload size too large: %u bytes (max: %d)", l_ulPayloadSize, SERVER_MAX_BUFFER_SIZE);
                 continue;
             }
 
@@ -904,8 +1079,8 @@ static void *clientThreadFunc(void *p_pvArg)
                 continue;
             }
 
-            // STEP 3: Receive the message (header + payload)
-            p_iReceived = networkReceive(p_ptClient->t_ptSocket, l_pucMessageBuffer, 1 + l_ulPayloadSize);
+            // STEP 3: Receive the message (header + payload) - FIXED: use complete receive
+            p_iReceived = networkReceiveComplete(p_ptClient->t_ptSocket, l_pucMessageBuffer, 1 + l_ulPayloadSize);
 
             if (p_iReceived == 1 + (int)l_ulPayloadSize)
             {

@@ -83,7 +83,7 @@ int main()
     int l_iReturn = 0;
 
     t_logCtx t_LogConfig;
-    t_LogConfig.t_bLogToFile = true;
+    t_LogConfig.t_bLogToFile = false;
     t_LogConfig.t_bLogToConsole = true;
     memcpy(t_LogConfig.t_cLogPath, s_aCLogPath, sizeof(s_aCLogPath));
 

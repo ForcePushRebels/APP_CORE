@@ -57,7 +57,7 @@ else()
         INTOX
         # Define the required Intox variables
         intox_address="127.0.0.1"
-        intox_port=12345
+        intox_port=12348
     )
 
     # Output executable name

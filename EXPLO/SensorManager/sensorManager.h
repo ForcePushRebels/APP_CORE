@@ -55,10 +55,10 @@ bool checkForward(void);
 
 ///////////////////////////////////////////
 /// @brief Start monitoring the environment
-///
+/// 
 /// @return SENSOR_MANAGER_OK if successful, error code otherwise
 ///////////////////////////////////////////
-int startMonitoring(void);
+int startMonitoring();
 
 
 ///////////////////////////////////////////
@@ -67,6 +67,21 @@ int startMonitoring(void);
 /// @return SENSOR_MANAGER_OK if successful, error code otherwise
 ///////////////////////////////////////////
 int stopMonitoring(void);
+
+///////////////////////////////////////////
+/// @brief Get one of the sensor values
+/// @param sensor : valeur du capteur (0;1;2)
+/// @return one of the sensor value
+///////////////////////////////////////////
+uint16_t updateVision(int sensor);
+
+
+///////////////////////////////////////////
+/// @brief Convertit une valeur capteur brute (0-255) en millimètres (0-200mm)
+/// @param rawValue : valeur brute du capteur (0-255)
+/// @return distance en mm (0-200)
+///////////////////////////////////////////
+uint16_t rawValuesToMm(uint16_t rawValue);
 
 
 #endif

@@ -186,9 +186,6 @@ void* handleIsAnyRobotHere(void* p_pvArg)
         networkCloseSocket(l_ptSocket);
     }
 
-    // define a timeout to avoid blocking
-    networkSetTimeout(l_ptSocket, 10000, false); // 10 seconds timeout
-
     // prepare the manifest
     l_iReturn = createManifest(&l_sManifest);
     X_ASSERT(l_iReturn == 0);

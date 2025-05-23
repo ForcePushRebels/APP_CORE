@@ -94,7 +94,7 @@ void testMotors(void) {
         
         // Arrêter les moteurs avant de changer de phase
         motor_control_stop();
-        xTimerDelay(500); // Attendre 500ms pour stabilisation
+        xTimerDelay(1000); // Attendre 1000ms pour stabilisation
     }
     
     // Différentes phases de test
@@ -149,9 +149,11 @@ void testMotors(void) {
     }
     
     // Afficher les vitesses actuelles
+    
     X_LOG_TRACE("Current speeds - Left: %.2f rad/s, Right: %.2f rad/s",
                 motor_control_get_left_speed(),
                 motor_control_get_right_speed());
+    
 }
 
 // Fonction de test du hardware abstraction layer

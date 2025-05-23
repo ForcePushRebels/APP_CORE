@@ -14,9 +14,9 @@
 
 // --- Types de base ---
 typedef struct {
-    double x;
-    double y;
-    double theta;
+    int x;
+    int y;
+    float theta;
 } Position;
 
 typedef enum {

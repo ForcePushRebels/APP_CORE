@@ -21,6 +21,9 @@
 #include "handleNetworkMessage.h"
 #include "idCard.h"
 #include "sensorManager.h"
+#include "motorControl.h"
+#include "xTimer.h"
+
 #include "map_engine.h"
 
 static const uint8_t s_aCLogPath[] = "explo.log";
@@ -78,6 +81,147 @@ static void l_fWatchdogExpiryHandler(void)
     X_ASSERT(false);
 }
 
+// Fonction de test des moteurs
+void testMotors(void) {
+    static uint8_t test_phase = 0;
+    static uint64_t last_phase_time = 0;
+    uint64_t current_time = xTimerGetCurrentMs();
+    
+    // Changer de phase toutes les 3 secondes
+    if (current_time - last_phase_time > 3000) {
+        test_phase = (test_phase + 1) % 8;  // 8 phases au total
+        last_phase_time = current_time;
+        
+        // Arrêter les moteurs avant de changer de phase
+        motor_control_stop();
+        xTimerDelay(500); // Attendre 500ms pour stabilisation
+    }
+    
+    // Différentes phases de test
+    switch (test_phase) {
+        case 0: // Moteur gauche en avant
+            motor_control_set_left_speed(2.0);  // 2 rad/s
+            motor_control_set_right_speed(0.0);
+            X_LOG_TRACE("Test phase 0: Left motor forward");
+            break;
+            
+        case 1: // Moteur gauche en arrière
+            motor_control_set_left_speed(-2.0);  // -2 rad/s
+            motor_control_set_right_speed(0.0);
+            X_LOG_TRACE("Test phase 1: Left motor backward");
+            break;
+            
+        case 2: // Moteur droit en avant
+            motor_control_set_right_speed(2.0);  // 2 rad/s
+            motor_control_set_left_speed(0.0);
+            X_LOG_TRACE("Test phase 2: Right motor forward");
+            break;
+            
+        case 3: // Moteur droit en arrière
+            motor_control_set_right_speed(-2.0);  // -2 rad/s
+            motor_control_set_left_speed(0.0);
+            X_LOG_TRACE("Test phase 3: Right motor backward");
+            break;
+            
+        case 4: // Les deux moteurs en avant
+            motor_control_set_left_speed(2.0);
+            motor_control_set_right_speed(2.0);
+            X_LOG_TRACE("Test phase 4: Both motors forward");
+            break;
+            
+        case 5: // Les deux moteurs en arrière
+            motor_control_set_left_speed(-2.0);
+            motor_control_set_right_speed(-2.0);
+            X_LOG_TRACE("Test phase 5: Both motors backward");
+            break;
+            
+        case 6: // Rotation gauche (moteur gauche en arrière, droit en avant)
+            motor_control_set_left_speed(-2.0);
+            motor_control_set_right_speed(2.0);
+            X_LOG_TRACE("Test phase 6: Left rotation");
+            break;
+            
+        case 7: // Rotation droite (moteur gauche en avant, droit en arrière)
+            motor_control_set_left_speed(2.0);
+            motor_control_set_right_speed(-2.0);
+            X_LOG_TRACE("Test phase 7: Right rotation");
+            break;
+    }
+    
+    // Afficher les vitesses actuelles
+    X_LOG_TRACE("Current speeds - Left: %.2f rad/s, Right: %.2f rad/s",
+                motor_control_get_left_speed(),
+                motor_control_get_right_speed());
+}
+
+// Fonction de test du hardware abstraction layer
+void testHardwareAbstraction(void) {
+    static uint8_t test_phase = 0;
+    static uint64_t last_phase_time = 0;
+    uint64_t current_time = xTimerGetCurrentMs();
+    
+    // Changer de phase toutes les 2 secondes
+    if (current_time - last_phase_time > 2000) {
+        test_phase = (test_phase + 1) % 6;  // 6 phases de test
+        last_phase_time = current_time;
+        
+        // Arrêter les moteurs avant de changer de phase
+        SetMotorSpeed(0, 0);
+        SetMotorSpeed(1, 0);
+        xTimerDelay(500); // Attendre 500ms pour stabilisation
+    }
+    
+    // Différentes phases de test
+    switch (test_phase) {
+        case 0: // Test des moteurs
+            X_LOG_TRACE("=== Testing Motors ===");
+            SetMotorSpeed(0, 50);  // Moteur gauche à 50%
+            SetMotorSpeed(1, 50);  // Moteur droit à 50%
+            
+            // Lire les encodeurs
+            uint16_t motor_ids[2] = {0, 1};
+            if (GetMotorEncoderValues(motor_ids) == 0) {
+                X_LOG_TRACE("Encoder values - Left: %d, Right: %d", motor_ids[0], motor_ids[1]);
+            }
+            break;
+            
+        case 1: // Test des capteurs
+            X_LOG_TRACE("=== Testing Sensors ===");
+            uint16_t sensor_values[HARDWARE_ABSTRACTION_MAX_SENSORS];
+            if (GetSensorValues(sensor_values) == 0) {
+                for (int i = 0; i < HARDWARE_ABSTRACTION_MAX_SENSORS; i++) {
+                    X_LOG_TRACE("Sensor %d value: %d", i, sensor_values[i]);
+                }
+            }
+            break;
+            
+        case 2: // Test de la batterie
+            X_LOG_TRACE("=== Testing Battery ===");
+            int battery_level = GetBatteryLevel();
+            float battery_voltage = GetBatteryVoltage();
+            X_LOG_TRACE("Battery level: %d%%, Voltage: %.2fV", battery_level, battery_voltage);
+            break;
+            
+        case 3: // Test des LEDs
+            X_LOG_TRACE("=== Testing LEDs ===");
+            SetLedColor(MRPIZ_LED_RED);
+            X_LOG_TRACE("LED set to RED");
+            break;
+            
+        case 4: // Test des LEDs (suite)
+            X_LOG_TRACE("=== Testing LEDs (continued) ===");
+            SetLedColor(MRPIZ_LED_GREEN);
+            X_LOG_TRACE("LED set to GREEN");
+            break;
+            
+        case 5: // Test des LEDs (fin)
+            X_LOG_TRACE("=== Testing LEDs (final) ===");
+            SetLedColor(MRPIZ_LED_BLUE);
+            X_LOG_TRACE("LED set to BLUE");
+            break;
+    }
+}
+
 int main()
 {
     int l_iReturn = 0;
@@ -94,6 +238,7 @@ int main()
     // init hardware abstraction
     l_iReturn = hardwareAbstractionInit();
     X_ASSERT(l_iReturn == 0);
+    X_LOG_TRACE("Hardware abstraction initialized successfully");
 
     // init watchdog
     l_iReturn = watchdog_init(300);
@@ -132,6 +277,11 @@ int main()
     l_iReturn = startMonitoring();
     X_ASSERT(l_iReturn == SENSOR_MANAGER_OK);
 
+    // Initialisation du contrôle des moteurs
+    l_iReturn = motor_control_init();
+    X_ASSERT(l_iReturn == 0);
+    X_LOG_TRACE("Motor control initialized");
+
     // start server
     l_iReturn = networkServerStart();
     X_ASSERT(l_iReturn == SERVER_OK);
@@ -143,6 +293,12 @@ int main()
     // main loop
     while (1)
     {
+        // Test du hardware abstraction layer
+        //testHardwareAbstraction();
+        
+        // Test des moteurs
+        //testMotors();
+        
         // Envoyer le signal SOS en morse
         sendMorseSOS();
 
@@ -151,6 +307,8 @@ int main()
     }
 
     // Ce code ne sera jamais atteint, mais pour être complet:
+    hardwareAbstractionClose();
+    motor_control_shutdown();
     cleanupMessageHandlerSystem();
     idCardNetworkCleanup();
     networkServerStop();

@@ -199,6 +199,9 @@ endforeach()
 # Link zlib directly
 target_link_libraries(explo ${ZLIB_LIBRARIES})
 
+# Link lib math for all project
+target_link_libraries(explo m)
+
 if(EXTRA_LIBS)
     target_link_libraries(explo ${EXTRA_LIBS})
 endif()

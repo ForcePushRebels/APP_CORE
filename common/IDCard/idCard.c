@@ -19,7 +19,7 @@
 
 static char s_pcRobotName[] = "Robot_zebi_putin_de_merde";
 static char s_pcIpAddr[16] = {0};
-static int s_iRole = 0;
+static RobotType_t s_iRole = 0;
 static bool s_bUseLoopback = true; // boolean to enable/disable the use of loopback
 static xOsTaskCtx s_xTaskHandle = {0};
 
@@ -27,6 +27,12 @@ static xOsTaskCtx s_xTaskHandle = {0};
 ///////////////////////////////////////////
 /// findIpAddress
 ///////////////////////////////////////////
+
+int idCardInit(RobotType_t type){
+    s_iRole = type;
+}
+
+
 static void findIpAddress(void)
 {
     struct ifaddrs *ifaddr, *ifa;
@@ -256,3 +262,7 @@ void* handleIsAnyRobotHere(void* p_pvArg)
     return NULL;
 }
 
+RobotType_t getRole()
+{
+    return s_iRole;
+}

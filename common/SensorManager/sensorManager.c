@@ -7,14 +7,17 @@
 ////////////////////////////////////////////////////////////
 
 #include "sensorManager.h"
+#include "idCard.h"
 
 static sensorManager_t s_tSensorManager;
 
 #define SENSOR_MANAGER_TASK_PERIOD 100
+#define SENSOR_OBSTACLE_THRESHOLD 150
 
 // prototypes
 static void *sensorManagerTask(void *p_pvParam);
 static void updateSensorData(void *p_pvParam);
+bool checkMovePossible(void);
 
 ///////////////////////////////////////////
 /// sensorManagerInit
@@ -52,10 +55,44 @@ int sensorManagerInit(void)
 }
 
 ///////////////////////////////////////////
+/// checkForward
+///////////////////////////////////////////
+bool checkForward(void)
+{
+    return checkMovePossible();
+}
+
+///////////////////////////////////////////
+/// checkMovePossible
+///////////////////////////////////////////
+bool checkMovePossible(void)
+{
+    // On suppose que les valeurs sont à jour dans s_tSensorManager.t_tISensors
+    for (int i = 0; i < SENSOR_MANAGER_SENSORS_COUNT-2; i++)
+    {
+        if (s_tSensorManager.t_tISensors[i] < SENSOR_OBSTACLE_THRESHOLD)
+        {
+            // Un capteur détecte un obstacle : mouvement impossible
+            X_LOG_TRACE("Obstacle détecté");
+            return false;
+        }
+    }
+    // Aucun obstacle détecté
+    return true;
+}
+
+///////////////////////////////////////////
 /// startMonitoring
 ///////////////////////////////////////////
-int startMonitoring(void)
+int startMonitoring()
 {
+
+    // TODO Nico: gérer le roleRobot :
+    // Si Explo : updateVision à rajouter
+    // Si Inter : rien
+
+    // TODO Nico : fonction capteur sol luminosité pour zone d'intérêt
+
     int32_t l_iRet = SENSOR_MANAGER_OK;
 
     l_iRet = osTaskCreate(&s_tSensorManager.t_tTaskHandler);
@@ -73,6 +110,13 @@ int startMonitoring(void)
 int stopMonitoring(void)
 {
     return osTaskStop(&s_tSensorManager.t_tTaskHandler, 10);
+}
+
+uint16_t updateVision(int sensor)
+{
+    X_ASSERT(sensor >= 0 && sensor < SENSOR_MANAGER_SENSORS_COUNT-2); 
+    uint16_t raw = s_tSensorManager.t_tISensors[sensor];
+    return rawValuesToMm(raw);
 }
 
 ///////////////////////////////////////////
@@ -120,4 +164,15 @@ static void updateSensorData(void *p_pvParam)
     {
         X_LOG_TRACE("Error getting sensor values");
     }
+}
+
+///////////////////////////////////////////
+/// rawValuesToMm
+///////////////////////////////////////////
+uint16_t rawValuesToMm(uint16_t rawValue){
+    
+    if (rawValue > 255) rawValue = 255;
+
+    // Conversion linéaire : 0 -> 0mm, 255 -> 200mm
+    return (rawValue * 200) / 255;
 }

@@ -21,7 +21,7 @@
 #include "handleNetworkMessage.h"
 #include "idCard.h"
 #include "sensorManager.h"
-
+#include "map_engine.h"
 
 static const uint8_t s_aCLogPath[] = "explo.log";
 
@@ -124,7 +124,6 @@ int main()
     // Configurer et initialiser la découverte UDP
     idCardNetworkInit();
 
-
     // init sensor manager
     l_iReturn = sensorManagerInit();
     X_ASSERT(l_iReturn == SENSOR_MANAGER_OK);
@@ -136,22 +135,26 @@ int main()
     // start server
     l_iReturn = networkServerStart();
     X_ASSERT(l_iReturn == SERVER_OK);
-    
+
+    // init map engine
+    l_iReturn = map_engine_init();
+    X_ASSERT(l_iReturn == MAP_ENGINE_OK);
+
     // main loop
     while (1)
     {
         // Envoyer le signal SOS en morse
         sendMorseSOS();
-        
+
         // Pour envoyer des mises à jour périodiques, on devra attendre d'avoir un client connecté
         // et utiliser serverSendMessage à ce moment-là.
     }
-    
+
     // Ce code ne sera jamais atteint, mais pour être complet:
     cleanupMessageHandlerSystem();
     idCardNetworkCleanup();
     networkServerStop();
     networkServerCleanup();
-    
+
     return 0;
 }

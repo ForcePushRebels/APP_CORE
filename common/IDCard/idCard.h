@@ -20,11 +20,11 @@
 #include <arpa/inet.h>
 
 #pragma pack(push, 1)
-typedef enum 
+typedef enum
 {
-    EXPLORATION,
-    INTERVENTION
-}RobotType_t;
+    IDCARD_ROLE_EXPLO,
+    IDCARD_ROLE_INTER
+} RobotType_t;
 typedef struct idCard_t
 {
     char t_pcRobotName[32];
@@ -63,6 +63,6 @@ void idCardNetworkCleanup(void);
 ///////////////////////////////////////////
 void *handleIsAnyRobotHere(void *p_pvArg);
 
-RobotType_t getRole();
+RobotType_t idCardGetRole();
 
 #endif // IDCARD_H_

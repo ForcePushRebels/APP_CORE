@@ -8,11 +8,19 @@
 
 #include "sensorManager.h"
 #include "idCard.h"
+#include "map_engine.h"
+#include "idCard.h"
 
 static sensorManager_t s_tSensorManager;
 
 #define SENSOR_MANAGER_TASK_PERIOD 100
 #define SENSOR_OBSTACLE_THRESHOLD 150
+
+#define SENSOR_MAX_RAW_VALUE 188
+#define SENSOR_MAX_MM_VALUE 320
+
+#define SENSOR_MIN_RAW_VALUE 24
+#define SENSOR_MIN_MM_VALUE 12
 
 // prototypes
 static void *sensorManagerTask(void *p_pvParam);
@@ -68,7 +76,7 @@ bool checkForward(void)
 bool checkMovePossible(void)
 {
     // On suppose que les valeurs sont à jour dans s_tSensorManager.t_tISensors
-    for (int i = 0; i < SENSOR_MANAGER_SENSORS_COUNT-2; i++)
+    for (int i = 0; i < SENSOR_MANAGER_SENSORS_COUNT - 2; i++)
     {
         if (s_tSensorManager.t_tISensors[i] < SENSOR_OBSTACLE_THRESHOLD)
         {
@@ -114,7 +122,7 @@ int stopMonitoring(void)
 
 uint16_t updateVision(int sensor)
 {
-    X_ASSERT(sensor >= 0 && sensor < SENSOR_MANAGER_SENSORS_COUNT-2); 
+    X_ASSERT(sensor >= 0 && sensor < SENSOR_MANAGER_SENSORS_COUNT - 2);
     uint16_t raw = s_tSensorManager.t_tISensors[sensor];
     return rawValuesToMm(raw);
 }
@@ -164,15 +172,28 @@ static void updateSensorData(void *p_pvParam)
     {
         X_LOG_TRACE("Error getting sensor values");
     }
+
+    for (int i = 0; i < SENSOR_MANAGER_SENSORS_COUNT; i++)
+    {
+        s_tSensorManager.t_tISensors[i] = rawValuesToMm(s_tSensorManager.t_tISensors[i]);
+    }
+
+    if (idCardGetRole() == IDCARD_ROLE_EXPLO)
+    {
+        map_engine_update_vision(s_tSensorManager.t_tISensors, SENSOR_MANAGER_SENSORS_COUNT - 2);
+    }
 }
 
 ///////////////////////////////////////////
 /// rawValuesToMm
 ///////////////////////////////////////////
-uint16_t rawValuesToMm(uint16_t rawValue){
-    
-    if (rawValue > 255) rawValue = 255;
+uint16_t rawValuesToMm(uint16_t rawValue)
+{
 
-    // Conversion linéaire : 0 -> 0mm, 255 -> 200mm
-    return (rawValue * 200) / 255;
+    if (rawValue > 255)
+        rawValue = 255;
+
+    uint16_t converted_value = (rawValue * (SENSOR_MAX_MM_VALUE - SENSOR_MIN_MM_VALUE)) / (SENSOR_MAX_RAW_VALUE - SENSOR_MIN_RAW_VALUE) + SENSOR_MIN_MM_VALUE;
+    // X_LOG_TRACE("Conversion: %d -> %d", rawValue, converted_value);
+    return (uint16_t)converted_value;
 }

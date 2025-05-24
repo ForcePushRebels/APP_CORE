@@ -29,3 +29,10 @@
  * @par License
  * PATO ESEO License (see LICENSE.md)
  */
+
+#ifndef __MAIN_H__
+#define __MAIN_H__
+
+#include "StrategyManager/strategy_manager.h" // For StrategyManager API
+
+#endif /* __MAIN_H__ */

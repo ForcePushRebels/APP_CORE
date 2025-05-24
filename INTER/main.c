@@ -16,3 +16,5 @@
  * @par License
  * PATO ESEO License (see LICENSE.md)
  */
+
+#include "main.h"

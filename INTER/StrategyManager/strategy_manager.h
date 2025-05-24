@@ -21,7 +21,7 @@
  * ForcePushRebels – PATO Project (collective contributor)
  * Uriel Fodong <uriel.fodong@reseau.eseo.fr> (individual contributor)
  * 
- * @version 0.0.0
+ * @version 0.0.1
  *
  * @copyright
  * © 2025 ESEO – All rights reserved.
@@ -29,3 +29,11 @@
  * @par License
  * PATO ESEO License (see LICENSE.md)
  */
+
+#ifndef __STRATEGY_MANAGER_H__
+#define __STRATEGY_MANAGER_H__
+
+#define V(MAJ, MIN, PATCH) ((MAJ)*10000 + (MIN)*100 + (PATCH)) // Macro to define version numbers
+#define STRATEGY_MANAGER_API_VERSION 	V(0, 0, 1) // current header API version
+
+#endif /* __STRATEGY_MANAGER_H__ */

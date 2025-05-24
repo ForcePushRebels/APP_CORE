@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: LicenseRef-PATO-ESEO
 
 /**
- * @file main.c
- * @brief Source file for the main module.
+ * @file strategy_manager.c
+ * @brief Source file for the Strategy Manager module.
  *
  * @author
  * ForcePushRebels – PATO Project (collective contributor)  

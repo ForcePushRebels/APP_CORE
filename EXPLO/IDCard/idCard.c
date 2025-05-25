@@ -199,7 +199,7 @@ void *handleIsAnyRobotHere(void *p_pvArg)
     (void)p_pvArg; // unused argument avoid warning
 
     int l_iReturn = 0;
-    char l_pcBuffer[16];
+    uint8_t l_ucBuffer[64];  // Changed to uint8_t and increased size for binary data
     manifest_t l_sManifest = {0};
     uint8_t l_ucSendBuffer[3 + sizeof(manifest_t)];
 
@@ -244,13 +244,16 @@ void *handleIsAnyRobotHere(void *p_pvArg)
     while (atomic_load(&s_xTaskHandle.a_iStopFlag) == OS_TASK_SECURE_FLAG)
     {
         // wait and receive a datagram
-        l_iReturn = networkReceiveFrom(l_ptSocket, l_pcBuffer, sizeof(l_pcBuffer), &l_tSenderAddr);
+        l_iReturn = networkReceiveFrom(l_ptSocket, l_ucBuffer, sizeof(l_ucBuffer), &l_tSenderAddr);
 
         if (l_iReturn > 0) // check if data has been received
         {
-            if (l_pcBuffer[0] == ID_IS_ANY_ROBOT_HERE)
+            X_LOG_TRACE("Received UDP data: %d bytes from %s:%d", 
+                       l_iReturn, l_tSenderAddr.t_cAddress, l_tSenderAddr.t_usPort);
+            
+            if (l_iReturn == 1 && l_ucBuffer[0] == ID_IS_ANY_ROBOT_HERE)
             {
-                X_LOG_TRACE("Received valid robot discovery request");
+                X_LOG_TRACE("Received valid robot discovery request (0x%02X)", l_ucBuffer[0]);
 
                 size_t totalSize = sizeof(uint16_t) + sizeof(uint8_t) + sizeof(manifest_t);
 
@@ -270,7 +273,8 @@ void *handleIsAnyRobotHere(void *p_pvArg)
             }
             else
             {
-                // NONE
+                X_LOG_TRACE("Received unrecognized UDP message: %d bytes, first byte=0x%02X", 
+                           l_iReturn, l_ucBuffer[0]);
             }
         }
         else if (l_iReturn == NETWORK_TIMEOUT)

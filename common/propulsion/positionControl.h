@@ -26,6 +26,13 @@ enum  move_type_t
     RIGHT
 };
 
+// Position structure
+typedef struct {
+    int32_t x_mm;        // X position in millimeters
+    int32_t y_mm;        // Y position in millimeters
+    float angle_rad;     // Angle in radians
+} Position_t;
+
 // Constants for position control
 #define REGULATION_PERIOD_MS 50     // Regulation period in milliseconds
 #define ACCELERATION_COEF   0.5     // Acceleration coefficient (0-1)
@@ -81,7 +88,12 @@ int16_t position_control_stop(void);
 ////////////////////////////////////////////////////////////
 bool position_control_is_motion_finished(void);
 
-
+////////////////////////////////////////////////////////////
+/// @brief Get the current robot position
+/// @param position Pointer to store the current position
+/// @return 0 if success, -1 if error
+////////////////////////////////////////////////////////////
+int16_t position_control_get_position(Position_t* position);
 
 // Test functions
 int16_t position_control_test_straight_line(void);

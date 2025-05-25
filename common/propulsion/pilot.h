@@ -24,7 +24,6 @@ typedef enum {
     DIR_BACKWARD,
     DIR_LEFT,
     DIR_RIGHT
-    // ... autres directions si besoin
 } Direction;
 
 // À adapter selon ton projet

@@ -8,6 +8,9 @@
 #include <math.h>
 #include <string.h>
 
+// Global position variable
+static Position_t g_robot_position = {0, 0, 0.0f};
+static xOsMutexCtx g_position_mutex;
 
 // Position control structure for each wheel
 typedef struct 
@@ -83,6 +86,37 @@ static double calculate_ramp_distance(double speed, double acceleration)
     return (speed * speed) / (2.0 * acceleration);
 }
 
+// Helper function to update robot position
+static void update_robot_position(int32_t left_ticks, int32_t right_ticks) 
+{
+    mutexLock(&g_position_mutex);
+    
+    // Calculate wheel movements in mm
+    // Convert ticks to mm: (ticks * circumference) / ticks_per_rev
+    double left_mm = (left_ticks * 2.0 * M_PI * WHEEL_RADIUS_CM * 10.0) / ENCODER_TICKS_REV;
+    double right_mm = (right_ticks * 2.0 * M_PI * WHEEL_RADIUS_CM * 10.0) / ENCODER_TICKS_REV;
+    
+    // Calculate linear and angular movement
+    double linear_mm = (left_mm + right_mm) / 2.0;
+    double angular_rad = (right_mm - left_mm) / (WHEEL_DISTANCE_CM * 10.0); // Convert to mm
+    
+    // Update angle
+    g_robot_position.angle_rad += angular_rad;
+    
+    // Normalize angle to [-π, π]
+    while (g_robot_position.angle_rad > M_PI) g_robot_position.angle_rad -= 2.0 * M_PI;
+    while (g_robot_position.angle_rad < -M_PI) g_robot_position.angle_rad += 2.0 * M_PI;
+    
+    // Update x and y coordinates (distance from origin in mm)
+    g_robot_position.x_mm += (int32_t)(linear_mm * cos(g_robot_position.angle_rad));
+    g_robot_position.y_mm += (int32_t)(linear_mm * sin(g_robot_position.angle_rad));
+    
+    X_LOG_TRACE("Position updated - X: %d mm, Y: %d mm, Angle: %.2f rad",
+                g_robot_position.x_mm, g_robot_position.y_mm, g_robot_position.angle_rad);
+    
+    mutexUnlock(&g_position_mutex);
+}
+
 static void* wheel_position_control_task(void* arg) 
 {
     wheel_position_control_t* control = (wheel_position_control_t*)arg;
@@ -106,6 +140,21 @@ static void* wheel_position_control_task(void* arg)
             continue;
         }
 
+        // Get current encoder positions
+        uint16_t encoder_values[2] = {0, 0};
+        GetMotorEncoderValues(encoder_values);
+        
+        // Calculate encoder deltas
+        int32_t left_delta = encoder_values[0] - g_left_wheel.current_ticks;
+        int32_t right_delta = encoder_values[1] - g_right_wheel.current_ticks;
+        
+        // Update robot position
+        update_robot_position(left_delta, right_delta);
+        
+        // Update current ticks
+        g_left_wheel.current_ticks = encoder_values[0];
+        g_right_wheel.current_ticks = encoder_values[1];
+        
         // Calculate remaining distance in ticks
         int32_t remaining_ticks = control->target_ticks - control->current_ticks;
         int32_t abs_remaining = abs(remaining_ticks);
@@ -174,12 +223,6 @@ static void* wheel_position_control_task(void* arg)
         {
             motor_control_set_right_speed(control->target_speed);
         }
-        
-        // Update current position
-        uint16_t encoder_values[2] = {0, 0};
-        GetMotorEncoderValues(encoder_values);
-        control->current_ticks = (control == &g_left_wheel) ? 
-                               encoder_values[0] : encoder_values[1];
         
         // Check if we need position correction
         if (control->motion_finished && abs_remaining > 0) 
@@ -304,6 +347,17 @@ int16_t position_control_stop(void)
     return 0;
 }
 
+int16_t position_control_get_position(Position_t* position) 
+{
+    if (!g_initialized || !position) return -1;
+    
+    mutexLock(&g_position_mutex);
+    *position = g_robot_position;
+    mutexUnlock(&g_position_mutex);
+    
+    return 0;
+}
+
 static void wheel_position_control_init(wheel_position_control_t* control) 
 {
     if (!control) return;
@@ -363,11 +417,19 @@ int16_t position_control_init(void)
 
     X_LOG_TRACE("Initializing position control");
     
+    // Initialize position mutex
+    if (mutexCreate(&g_position_mutex) != MUTEX_OK)
+    {
+        X_LOG_TRACE("Failed to create position mutex");
+        return -1;
+    }
+    
     // Initialize motor control first
     int16_t motor_init_result = motor_control_init();
     if (motor_init_result != 0)
     {
         X_LOG_TRACE("Failed to initialize motor control: %d", motor_init_result);
+        mutexDestroy(&g_position_mutex);
         return -1;
     }
     X_LOG_TRACE("Motor control initialized successfully");
@@ -399,11 +461,12 @@ int16_t position_control_shutdown(void)
     motor_control_shutdown();
     X_LOG_TRACE("Motor control shutdown complete");
     
+    // Clean up position mutex
+    mutexDestroy(&g_position_mutex);
+    
     g_initialized = false;
     X_LOG_TRACE("Position control shutdown complete");
     return 0;
 }
-
-
 
 // --- End of file ---

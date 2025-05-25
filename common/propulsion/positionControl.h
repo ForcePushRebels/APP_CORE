@@ -25,6 +25,16 @@ enum  move_type_t
     RIGHT
 };
 
+// Constants for position control
+#define WHEEL_RADIUS_CM     3.2     // Wheel radius in centimeters
+#define WHEEL_DISTANCE_CM   10.0    // Distance between wheels in centimeters
+#define REGULATION_PERIOD_MS 50     // Regulation period in milliseconds
+#define ACCELERATION_COEF   0.5     // Acceleration coefficient (0-1)
+#define DECELERATION_COEF   0.5     // Deceleration coefficient (0-1)
+#define MIN_SPEED_RAD_S     0.5     // Minimum speed to start movement
+#define ENCODER_TICKS_REV   360     // Number of encoder ticks per revolution
+#define CORRECTION_SPEED    0.5     // Speed for final position correction
+
 // Public functions
 
 ////////////////////////////////////////////////////////////
@@ -66,6 +76,14 @@ int16_t position_control_turn(int16_t angle_rad, float speed_rad_s_max);
 /// @return 0 if success, -1 if error
 ////////////////////////////////////////////////////////////
 int16_t position_control_stop(void);
+
+////////////////////////////////////////////////////////////
+/// @brief Check if the current motion is finished
+/// @return true if motion is finished, false otherwise
+////////////////////////////////////////////////////////////
+bool position_control_is_motion_finished(void);
+
+
 
 // Test functions
 int16_t position_control_test_straight_line(void);

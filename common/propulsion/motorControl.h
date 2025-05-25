@@ -17,14 +17,14 @@
 #include "xTask.h"
 #include "hardwareAbstraction.h"
 
-#define WHEEL_RADIUS_M      0.03
+#define WHEEL_RADIUS_CM     3.2
 #define ENCODER_TICKS_REV   360
 #define REGULATION_PERIOD_MS 50
 #define KP                  30.0    // Gain proportionnel à adapter
 #define KI                  0.1     // Gain intégral
 #define MAX_INTEGRAL_ERROR  100.0   // Limite de l'erreur intégrale
 #define MAX_SPEED_CM_S      16.0
-#define MAX_SPEED_RAD_S     (MAX_SPEED_CM_S / (WHEEL_RADIUS_M * 100.0))  // Conversion de cm/s en rad/s
+#define MAX_SPEED_RAD_S     (MAX_SPEED_CM_S / WHEEL_RADIUS_CM)  // Conversion de cm/s en rad/s
 
 // Fonctions publiques
 

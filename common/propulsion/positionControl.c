@@ -46,7 +46,13 @@ static int32_t distance_to_ticks(double distance_mm)
     
     // Convert radians to encoder ticks
     // One revolution (2π radians) = ENCODER_TICKS_REV ticks
-    return (int32_t)(wheel_rotation_rad * ENCODER_TICKS_REV / (2.0 * M_PI));
+    // Multiply by 10 to correct the scaling
+    int32_t ticks = (int32_t)(wheel_rotation_rad * ENCODER_TICKS_REV/ (2.0 * M_PI));
+    
+    X_LOG_TRACE("Distance conversion: distance=%d mm, wheel_rotation=%.2f rad, ticks=%d",
+                (int)distance_mm, wheel_rotation_rad, ticks);
+    
+    return ticks;
 }
 
 // Helper function to convert angle to encoder ticks
@@ -59,7 +65,13 @@ static int32_t angle_to_ticks(double angle_rad)
     double wheel_rotation_rad = (angle_rad * wheel_distance) / WHEEL_RADIUS_CM;
     
     // Convert radians to encoder ticks
-    return (int32_t)(wheel_rotation_rad * ENCODER_TICKS_REV / (2.0 * M_PI));
+    // Multiply by 10 to correct the scaling
+    int32_t ticks = (int32_t)(wheel_rotation_rad * ENCODER_TICKS_REV / (2.0 * M_PI));
+    
+    X_LOG_TRACE("Angle conversion: angle=%.2f rad, wheel_rotation=%.2f rad, ticks=%d",
+                angle_rad, wheel_rotation_rad, ticks);
+    
+    return ticks;
 }
 
 // --- Internal functions ---
@@ -392,55 +404,6 @@ int16_t position_control_shutdown(void)
     return 0;
 }
 
-// --- Test functions ---
 
-int16_t position_control_test_straight_line(void) 
-{
-    if (!g_initialized) 
-    {
-        X_LOG_TRACE("Cannot run test: position control not initialized");
-        return -1;
-    }
-
-    static bool test_started = false;
-    static uint64_t start_time = 0;
-    uint64_t current_time = xTimerGetCurrentMs();
-    
-    if (!test_started) 
-    {
-        X_LOG_TRACE("Starting straight line test");
-        
-        // Stop current motion
-        position_control_stop();
-        xTimerDelay(1000); // Wait 1 second for stabilization
-        
-        // Advance 500mm at 2 rad/s
-        position_control_advance(500, 2.0);
-        
-        test_started = true;
-        start_time = current_time;
-        X_LOG_TRACE("Test started: advancing 500mm at 2 rad/s");
-    }
-    
-    // Display progress every 500ms
-    if (current_time - start_time > 500) 
-    {
-        mutexLock(&g_left_wheel.mutex);
-        mutexLock(&g_right_wheel.mutex);
-        
-        X_LOG_TRACE("Test in progress - Time elapsed: %.1f seconds", (current_time - start_time) / 1000.0);
-        X_LOG_TRACE("Left wheel - Position: %.2f rad, Speed: %.2f rad/s", 
-                    g_left_wheel.current_speed, g_left_wheel.current_speed);
-        X_LOG_TRACE("Right wheel - Position: %.2f rad, Speed: %.2f rad/s", 
-                    g_right_wheel.current_speed, g_right_wheel.current_speed);
-        
-        mutexUnlock(&g_right_wheel.mutex);
-        mutexUnlock(&g_left_wheel.mutex);
-        
-        start_time = current_time;
-    }
-
-    return 0;
-}
 
 // --- End of file ---

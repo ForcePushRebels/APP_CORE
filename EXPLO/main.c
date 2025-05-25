@@ -229,7 +229,21 @@ void testHardwareAbstraction(void) {
 void testPositionControl(void) {
     static uint8_t test_phase = 0;
     static uint64_t last_phase_time = 0;
+    static uint64_t last_position_update = 0;
     uint64_t current_time = xTimerGetCurrentMs();
+    Position_t current_position;
+    
+    // Afficher la position toutes les 500ms
+    if (current_time - last_position_update > 500) {
+        if (position_control_get_position(&current_position) == 0) {
+            X_LOG_TRACE("Robot position - X: %d mm, Y: %d mm, Angle: %.2f rad (%.1f°)",
+                        current_position.x_mm,
+                        current_position.y_mm,
+                        current_position.angle_rad,
+                        current_position.angle_rad * 180.0 / M_PI);
+        }
+        last_position_update = current_time;
+    }
     
     // Changer de phase toutes les 5 secondes
     if (current_time - last_phase_time > 5000) {
@@ -239,6 +253,16 @@ void testPositionControl(void) {
         // Arrêter le mouvement avant de changer de phase
         position_control_stop();
         xTimerDelay(1000); // Attendre 1000ms pour stabilisation
+        
+        // Afficher la position finale de la phase précédente
+        if (position_control_get_position(&current_position) == 0) {
+            X_LOG_TRACE("Phase %d completed - Final position: X: %d mm, Y: %d mm, Angle: %.2f rad (%.1f°)",
+                        test_phase,
+                        current_position.x_mm,
+                        current_position.y_mm,
+                        current_position.angle_rad,
+                        current_position.angle_rad * 180.0 / M_PI);
+        }
     }
     
     // Différentes phases de test

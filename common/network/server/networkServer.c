@@ -10,7 +10,6 @@
 #include "xLog.h"
 #include <stdlib.h>
 #include <string.h>
-#include <arpa/inet.h> // Pour htonl, htons, etc.
 
 //-----------------------------------------------------------------------------
 // Constants & Defines

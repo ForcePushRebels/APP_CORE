@@ -267,6 +267,10 @@ if(USE_TLS)
     message(STATUS "Linking with wolfSSL libraries: ${WOLFSSL_LIBRARIES}")
 endif()
 
+# Add build type definitions
+target_compile_definitions(explo PRIVATE EXPLO_BUILD)
+target_compile_definitions(inter PRIVATE INTER_BUILD)
+
 # Summary
 message(STATUS "")
 message(STATUS "Build configuration summary:")

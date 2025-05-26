@@ -70,16 +70,16 @@ NetworkSocket *networkCreateSocket(int p_iType)
 //////////////////////////////////
 /// networkMakeAddress
 //////////////////////////////////
-NetworkAddress networkMakeAddress(const char *p_pcAddress, unsigned short p_usPort)
+NetworkAddress networkMakeAddress(const char *p_ptcAddress, unsigned short p_usPort)
 {
     NetworkAddress l_tAddress;
     memset(&l_tAddress, 0, sizeof(NetworkAddress));
 
     // Check pointer parameters with assertions
-    X_ASSERT(p_pcAddress != NULL);
+    X_ASSERT(p_ptcAddress != NULL);
 
     // Replace non-pointer assertions with condition checks
-    if (p_usPort <= 0 || strlen(p_pcAddress) == 0)
+    if (p_usPort <= 0 || strlen(p_ptcAddress) == 0)
     {
         // Return empty address on invalid parameters
         return l_tAddress;
@@ -89,11 +89,11 @@ NetworkAddress networkMakeAddress(const char *p_pcAddress, unsigned short p_usPo
 
     // Validate IPv4 address format
     struct in_addr l_tAddr;
-    if (inet_pton(AF_INET, p_pcAddress, &l_tAddr) == 1)
+    if (inet_pton(AF_INET, p_ptcAddress, &l_tAddr) == 1)
     {
         // Direct memory copy instead of strncpy for fixed-size fields
-        memcpy(l_tAddress.t_cAddress, p_pcAddress,
-               (strlen(p_pcAddress) < INET_ADDRSTRLEN) ? strlen(p_pcAddress) : INET_ADDRSTRLEN - 1);
+        memcpy(l_tAddress.t_cAddress, p_ptcAddress,
+               (strlen(p_ptcAddress) < INET_ADDRSTRLEN) ? strlen(p_ptcAddress) : INET_ADDRSTRLEN - 1);
     }
 
     return l_tAddress;
@@ -106,10 +106,16 @@ int networkBind(NetworkSocket *p_ptSocket, const NetworkAddress *p_pAddress)
 {
     // Check pointers
     if (!p_ptSocket || p_ptSocket->t_iSocketFd < 0)
+    {
+        X_LOG_TRACE("networkBind: Invalid socket");
         return NETWORK_INVALID_PARAM;
+    }
 
     if (!p_pAddress)
+    {
+        X_LOG_TRACE("networkBind: Invalid address");
         return NETWORK_INVALID_PARAM;
+    }
 
     struct sockaddr_in l_tAddr;
     memset(&l_tAddr, 0, sizeof(l_tAddr));
@@ -127,7 +133,10 @@ int networkBind(NetworkSocket *p_ptSocket, const NetworkAddress *p_pAddress)
     }
 
     if (bind(p_ptSocket->t_iSocketFd, (struct sockaddr *)&l_tAddr, sizeof(l_tAddr)) < 0)
+    {
+        X_LOG_TRACE("networkBind: Bind failed with error %d", errno);
         return NETWORK_ERROR;
+    }
 
     return NETWORK_OK;
 }
@@ -138,12 +147,18 @@ int networkBind(NetworkSocket *p_ptSocket, const NetworkAddress *p_pAddress)
 int networkListen(NetworkSocket *p_ptSocket, int p_iBacklog)
 {
     if (!p_ptSocket || p_ptSocket->t_iSocketFd < 0)
+    {
+        X_LOG_TRACE("networkBind: Invalid socket");
         return NETWORK_INVALID_PARAM;
+    }
 
     int l_iBacklog = (p_iBacklog > 0) ? p_iBacklog : NETWORK_MAX_PENDING;
 
     if (listen(p_ptSocket->t_iSocketFd, l_iBacklog) < 0)
+    {
+        X_LOG_TRACE("networkListen: Listen failed with error %d", errno);
         return NETWORK_ERROR;
+    }
 
     return NETWORK_OK;
 }

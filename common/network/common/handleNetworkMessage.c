@@ -18,8 +18,8 @@
 ///////////////////////////////////////////
 typedef struct message_handler_entry_t
 {
-    uint8_t t_ucMessageType;       // Type de message
-    message_handler_t t_ptHandler; // Fonction de traitement
+    uint8_t t_ucMessageType;       // Message type
+    message_handler_t t_ptHandler; // Message handler function
 } messageHandlerEntry_t;
 
 static messageHandlerEntry_t *s_ptHandlers = NULL; // list of handlers
@@ -40,7 +40,7 @@ static void handleUnknownMessage(clientCtx *p_ptClient, const network_message_t 
 ///////////////////////////////////////////
 void initMessageHandlerSystem(void)
 {
-    s_ulHandlersCapacity = 10; // Taille initiale
+    s_ulHandlersCapacity = 10; // Initial size
     s_ptHandlers = (messageHandlerEntry_t *)malloc(s_ulHandlersCapacity * sizeof(messageHandlerEntry_t));
     s_ulHandlersCount = 0;
 
@@ -109,7 +109,7 @@ void unregisterMessageHandler(uint8_t p_ucMessageType)
     {
         if (s_ptHandlers[i].t_ucMessageType == p_ucMessageType)
         {
-            // Déplacer le dernier élément à la place de l'élément supprimé
+            // Move the last element to the place of the deleted element
             s_ptHandlers[i] = s_ptHandlers[s_ulHandlersCount - 1];
             s_ulHandlersCount--;
             X_LOG_TRACE("Unregistered handler for message type 0x%02X", p_ucMessageType);

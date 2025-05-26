@@ -216,7 +216,7 @@ void *handleIsAnyRobotHere(void *p_pvArg)
     X_LOG_TRACE("UDP socket created successfully");
 
     // use 0.0.0.0 to listen on all interfaces
-    NetworkAddress l_tAddress = networkMakeAddress("127.0.0.1", 13769);
+    NetworkAddress l_tAddress = networkMakeAddress("0.0.0.0", 13769);
     NetworkAddress l_tSenderAddr;
 
     l_iReturn = networkBind(l_ptSocket, &l_tAddress);

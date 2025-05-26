@@ -8,7 +8,7 @@
  * ForcePushRebels – PATO Project (collective contributor)  
  * Uriel Fodong <uriel.fodong@reseau.eseo.fr> (individual contributor)
  *
- * @version 0.1.0
+ * @version 1.0.0
  *
  * @copyright
  * © 2025 ESEO – All rights reserved.
@@ -20,24 +20,15 @@
 #include <assert.h>
 #include <stdlib.h>
 
+#include "../../helpers/util_macros.h"
+
+#define STRATEGY_MANAGER_IMPL_VERSION VER(1, 0, 0)
 #include "../include/strategy_manager.h"
 
 #include "../../logger/log.h"
 #include "../../symbols/ret_codes.h"
-#include "../../helpers/util_macros.h"
 
 #define LOG_TAG "StrategyManager"
-
-// Implementation declares compatibility range (which APIs it supports)
-#define STRATEGY_MANAGER_API_COMPAT_MIN V(0, 1, 0)
-#define STRATEGY_MANAGER_API_COMPAT_MAX V(0, 1, 0)
-#define STRATEGY_MANAGER_IMPL_VERSION   V(0, 1, 0)
-
-// Check that header API version is within supported range
-#if STRATEGY_MANAGER_API_VERSION < STRATEGY_MANAGER_API_COMPAT_MIN || \
-    STRATEGY_MANAGER_API_VERSION > STRATEGY_MANAGER_API_COMPAT_MAX
-#error "Header API version outside implementation compatibility range"
-#endif
 
 struct strategy_manager_s
 {
@@ -326,7 +317,7 @@ int strategy_manager__getStatus(StrategyManager *self)
 	LOG_DEBUG_MSG(LOG_TAG, ASCII_R2ARROW "entering strategy_manager__getStatus()");
 
 	/* ===== Variables locales ===== */
-    // Déclare les variables temporaires
+	int ret = RET_NOT_IMPL_INT; // ⬅️ "Rater-vite". Initialisé par un code d'erreur (prog défensive)
 
 	/* ===== Logique principale ===== */
 	/*
@@ -346,7 +337,7 @@ int strategy_manager__getStatus(StrategyManager *self)
 	/* ===== Postconditions ===== */
 	// Vérifie les invariants après logique
 
-	return RET_NOT_IMPL_INT; // ⬅️ Constante temporaire, à remplacer par un vrai code de statut
+	return ret; // ⬅️ Constante temporaire, à remplacer par un vrai code de statut
 }
 
 __attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
@@ -417,7 +408,7 @@ void strategy_manager__interlockManuMode(StrategyManager *self)
 }
 
 __attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
-static void strategy_manager__computeStrat(StrategyManager *self)
+void strategy_manager__computeStrat(StrategyManager *self)
 {
 	/* ===== Préconditions ===== */
     assert(self != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
@@ -447,7 +438,7 @@ static void strategy_manager__computeStrat(StrategyManager *self)
 }
 
 __attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
-static int strategy_manager__startTimer(StrategyManager *self)
+int strategy_manager__startTimer(StrategyManager *self)
 {
 	/* ===== Préconditions ===== */
     assert(self != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
@@ -477,7 +468,7 @@ static int strategy_manager__startTimer(StrategyManager *self)
 }
 
 __attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
-static int strategy_manager__stopTimer(StrategyManager *self)
+int strategy_manager__stopTimer(StrategyManager *self)
 {
 	/* ===== Préconditions ===== */
     assert(self != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
@@ -507,7 +498,7 @@ static int strategy_manager__stopTimer(StrategyManager *self)
 }
 
 __attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
-static void strategy_manager__updateStatus(StrategyManager *self)
+void strategy_manager__updateStatus(StrategyManager *self)
 {
 	/* ===== Préconditions ===== */
 	// Vérifie les invariants avant logique

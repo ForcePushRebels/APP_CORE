@@ -21,7 +21,7 @@
  * ForcePushRebels – PATO Project (collective contributor)
  * Uriel Fodong <uriel.fodong@reseau.eseo.fr> (individual contributor)
  * 
- * @version 0.1.0
+ * @version 1.0.0
  *
  * @copyright
  * © 2025 ESEO – All rights reserved.
@@ -37,8 +37,21 @@
 
 #include <time.h> // For timer management
 
-#define V(MAJ, MIN, PATCH) ((MAJ)*10000 + (MIN)*100 + (PATCH)) // Macro to define version numbers
-#define STRATEGY_MANAGER_API_VERSION 	V(0, 1, 0) // current header API version
+#define STRATEGY_MANAGER_API_VERSION VER(1, 0, 0)
+
+// -- Strategy Manager Compatibility --
+#ifdef STRATEGY_MANAGER_IMPL_VERSION
+#if MIN(STRATEGY_MANAGER_IMPL_VERSION) != MIN(STRATEGY_MANAGER_API_VERSION)
+#error "strategy_manager.h: Incompatible Strategy Manager major version"
+#endif
+#endif
+
+// -- Intervention Manager Compatibility --
+#ifdef INTERVENTION_MANAGER_IMPL_VERSION
+#if MAJ(INTERVENTION_MANAGER_IMPL_VERSION) != MAJ(STRATEGY_MANAGER_API_VERSION)
+#error "intervention_manager.h: Incompatible Intervention Manager major version"
+#endif
+#endif
 
 typedef enum {
 	INIT, // Initialisation
@@ -92,7 +105,23 @@ int strategy_manager__getStatus(StrategyManager *);
 void strategy_manager__reportStatus(StrategyManager *, MoveReason);
 
 	// Manual interlock
-	
+
 void strategy_manager__interlockManuMode(StrategyManager *);
+
+/* Private methods */
+
+	// Strategy computation
+
+void strategy_manager__computeStrat(StrategyManager *self);
+
+	// Timer management
+
+int strategy_manager__startTimer(StrategyManager *self);
+
+int strategy_manager__stopTimer(StrategyManager *self);
+
+	// Status update
+
+void strategy_manager__updateStatus(StrategyManager *self);
 
 #endif /* __STRATEGY_MANAGER_H__ */

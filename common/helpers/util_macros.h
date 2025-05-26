@@ -18,6 +18,11 @@
 #ifndef __UTIL_MACROS_H__
 #define __UTIL_MACROS_H__
 
+#define VER(MAJ, MIN, PATCH) (((MAJ) << 16) | ((MIN) << 8) | (PATCH))
+#define MAJ(VER) (((VER) >> 16) & 0xFF)
+#define MIN(VER) (((VER) >> 8) & 0xFF)
+#define PATCH(VER) ((VER) & 0xFF)
+
 // For unused variables (to silence compiler warnings)
 #define UNUSED(val)      ((void)(val))
 #define UNUSED_INT       (0)

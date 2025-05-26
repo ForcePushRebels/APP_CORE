@@ -22,15 +22,15 @@ int main(int argc, char *argv[]) {
 	(void)argc;
 	(void)argv;
 	
-	StrategyManager *strategyManager = strategy_manager__create();
+	InterventionManager *interventionManager = intervention_manager__create();
 
-	strategy_manager__endMove(strategyManager);
+	intervention_manager__startInter(interventionManager);
 	
 	/*
 		Logic to implement here...
 	*/
-	
-	strategy_manager__delete(strategyManager);
-	
+
+	intervention_manager__stopInter(interventionManager);
+
 	return EXIT_FAILURE;
 }

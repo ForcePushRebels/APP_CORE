@@ -33,6 +33,6 @@
 
 #include <stdlib.h>
 
-#include "strategy_manager.h" // For StrategyManager API
+#include "../include/intervention_manager.h"
 
 #endif /* __MAIN_H__ */

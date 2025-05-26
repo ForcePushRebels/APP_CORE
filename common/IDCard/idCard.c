@@ -18,7 +18,11 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-static char s_pcRobotName[] = "Robot_zebi_putin_de_merde";
+#ifdef EXPLO_BUILD
+static char s_pcRobotName[] = "Claquette de Christophe";
+#else
+static char s_pcRobotName[] = "Chaussette de Dorian";
+#endif
 static char s_pcIpAddr[16] = {0};
 static int s_iRole = 0;
 static bool s_bUseLoopback = true; // boolean to enable/disable the use of loopback

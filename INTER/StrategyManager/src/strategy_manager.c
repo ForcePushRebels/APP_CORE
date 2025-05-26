@@ -22,8 +22,11 @@
 
 #include "../include/strategy_manager.h"
 
+#include "../../logger/log.h"
 #include "../../symbols/ret_codes.h"
 #include "../../helpers/util_macros.h"
+
+#define LOG_TAG "StrategyManager"
 
 // Implementation declares compatibility range (which APIs it supports)
 #define STRATEGY_MANAGER_API_COMPAT_MIN V(0, 1, 0)
@@ -48,6 +51,8 @@ StrategyManager *strategy_manager__create()
 	/* ===== Préconditions ===== */
 	assert(true); // ⬅️ À conserver. Indique explicitement qu'il n'y a pas de précondition
 
+	LOG_DEBUG_MSG(LOG_TAG, ASCII_R2ARROW "entering strategy_manager__create()");
+
 	/* ===== Variables locales ===== */
 	StrategyManager *strategyManager = FAKE_PTR; // ⬅️ À remplacer. malloc/calloc pour la persistence
 
@@ -64,6 +69,8 @@ StrategyManager *strategy_manager__create()
 		       }
 	*/
 
+	LOG_DEBUG_MSG(LOG_TAG, ASCII_L2ARROW "exiting strategy_manager__create()");
+
 	/* ===== Postconditions ===== */
     // assert(strategyManager != NULL); // ⬅️ À décommenter. Pour les plus téméraires
 
@@ -77,6 +84,8 @@ void strategy_manager__delete(StrategyManager *self)
 	assert(self != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
 
 	UNUSED(self); // ⬅️ À retirer. Dès que 'self' est utilisé en dehors des assert()
+
+	LOG_DEBUG_MSG(LOG_TAG, ASCII_R2ARROW "entering strategy_manager__delete()");
 
 	/* ===== Variables locales ===== */
     // Déclare les variables temporaires
@@ -96,6 +105,8 @@ void strategy_manager__delete(StrategyManager *self)
 		           free(self);
 	*/
 
+	LOG_DEBUG_MSG(LOG_TAG, ASCII_L2ARROW "exiting strategy_manager__delete()");
+
 	/* ===== Postconditions ===== */
     // assert(strategyManager == NULL); // ⬅️ À décommenter. Quand le SAFE_FREE() est utilisé
 
@@ -113,6 +124,8 @@ void strategy_manager__askStrat(StrategyManager *self)
 	/* ===== Variables locales ===== */
     // Déclare les variables temporaires
 
+	LOG_DEBUG_MSG(LOG_TAG, ASCII_R2ARROW "entering strategy_manager__askStrat()");
+
 	/* ===== Logique principale ===== */
 	/*
 		TODO : Indiquer la liste des stratégies disponibles.
@@ -128,6 +141,7 @@ void strategy_manager__askStrat(StrategyManager *self)
 				*count = n;
 	*/
 
+	LOG_DEBUG_MSG(LOG_TAG, ASCII_L2ARROW "exiting strategy_manager__askStrat()");
 
 	/* ===== Postconditions ===== */
 	// Vérifie les invariants après logique
@@ -143,6 +157,8 @@ void strategy_manager__giveIDStrategieToFollow(StrategyManager *self, int idStra
 
 	UNUSED(self); // ⬅️ À retirer dès que 'self' est utilisé en dehors des assert()
 	UNUSED(idStrat); // ⬅️ À retirer dès que 'idStrat' est utilisé dans la logique
+
+	LOG_DEBUG_MSG(LOG_TAG, ASCII_R2ARROW "entering strategy_manager__giveIDStrategieToFollow()");
 
 	/* ===== Variables locales ===== */
     // Déclare les variables temporaires
@@ -163,6 +179,8 @@ void strategy_manager__giveIDStrategieToFollow(StrategyManager *self, int idStra
 		           }
 	*/
 
+	LOG_DEBUG_MSG(LOG_TAG, ASCII_L2ARROW "exiting strategy_manager__giveIDStrategieToFollow()");
+
 	/* ===== Postconditions ===== */
 	// Vérifie les invariants après logique
 
@@ -176,6 +194,8 @@ void strategy_manager__startMove(StrategyManager *self)
 	assert(self != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
 
 	UNUSED(self); // ⬅️ À retirer. Dès que 'self' est utilisé en dehors des assert()
+
+	LOG_DEBUG_MSG(LOG_TAG, ASCII_R2ARROW "entering strategy_manager__startMove()");
 
 	/* ===== Variables locales ===== */
 	// Déclare les variables temporaires
@@ -193,6 +213,8 @@ void strategy_manager__startMove(StrategyManager *self)
 		           self->isMoving = true;
 	*/
 
+	LOG_DEBUG_MSG(LOG_TAG, ASCII_L2ARROW "exiting strategy_manager__startMove()");
+
 	/* ===== Postconditions ===== */
 	// Vérifie les invariants après logique
 
@@ -206,6 +228,8 @@ void strategy_manager__endMove(StrategyManager *self)
 	assert(self != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
 
 	UNUSED(self); // ⬅️ À retirer. Dès que 'self' est utilisé en dehors des assert()
+
+	LOG_DEBUG_MSG(LOG_TAG, ASCII_R2ARROW "entering strategy_manager__endMove()");
 
 	/* ===== Variables locales ===== */
     // Déclare les variables temporaires
@@ -223,6 +247,8 @@ void strategy_manager__endMove(StrategyManager *self)
 		           self->isMoving = false;
 	*/
 
+	LOG_DEBUG_MSG(LOG_TAG, ASCII_L2ARROW "exiting strategy_manager__endMove()");
+
 	/* ===== Postconditions ===== */
 	// Vérifie les invariants après logique
 
@@ -237,6 +263,8 @@ bool strategy_manager__alertWallNear(StrategyManager *self)
 
 	UNUSED(self); // ⬅️ À retirer. Dès que 'self' est utilisé en dehors des assert()
 
+	LOG_DEBUG_MSG(LOG_TAG, ASCII_R2ARROW "entering strategy_manager__alertWallNear()");
+
 	/* ===== Variables locales ===== */
 	bool ret = RET_NOT_IMPL_BOOL; // ⬅️ "Rater-vite". Initialisé par un code d'erreur (prog défensive)
 
@@ -245,6 +273,8 @@ bool strategy_manager__alertWallNear(StrategyManager *self)
 		TODO : Implémenter la logique pour détecter si un mur est proche.
 		Probablement via les données de self->Timer ou capteurs associés.
 	*/
+
+	LOG_DEBUG_MSG(LOG_TAG, ASCII_L2ARROW "exiting strategy_manager__alertWallNear()");
 
 	/* ===== Postconditions ===== */
 	// Vérifie les invariants après logique
@@ -259,6 +289,8 @@ void strategy_manager__alertEndConditionReach(StrategyManager *self)
 	assert(self != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
 
 	UNUSED(self); // ⬅️ À retirer. Dès que 'self' est utilisé en dehors des assert()
+
+	LOG_DEBUG_MSG(LOG_TAG, ASCII_R2ARROW "entering strategy_manager__alertEndConditionReach()");
 
 	/* ===== Variables locales ===== */
     // Déclare les variables temporaires
@@ -275,6 +307,8 @@ void strategy_manager__alertEndConditionReach(StrategyManager *self)
 		           strategy_manager__switchToIdle(self);
 	*/
 
+	LOG_DEBUG_MSG(LOG_TAG, ASCII_L2ARROW "exiting strategy_manager__alertEndConditionReach()");
+
 	/* ===== Postconditions ===== */
 	// Vérifie les invariants après logique
 
@@ -288,6 +322,8 @@ int strategy_manager__getStatus(StrategyManager *self)
 	assert(self != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
 
 	UNUSED(self); // ⬅️ À retirer. Dès que 'self' est utilisé en dehors des assert()
+
+	LOG_DEBUG_MSG(LOG_TAG, ASCII_R2ARROW "entering strategy_manager__getStatus()");
 
 	/* ===== Variables locales ===== */
     // Déclare les variables temporaires
@@ -304,6 +340,8 @@ int strategy_manager__getStatus(StrategyManager *self)
 		           return self->status;
 		           // ou : return strategy_manager__computeStatus(self);
 	*/
+
+	LOG_DEBUG_MSG(LOG_TAG, ASCII_L2ARROW "exiting strategy_manager__getStatus()");
 
 	/* ===== Postconditions ===== */
 	// Vérifie les invariants après logique
@@ -322,6 +360,8 @@ void strategy_manager__reportStatus(StrategyManager *self, MoveReason pilotStatu
 	UNUSED(self); // ⬅️ À retirer. Dès que 'self' est utilisé en dehors des assert()
 	UNUSED(pilotStatus); // ⬅️ À retirer. Dès que 'pilotStatus' est utilisé en dehors des assert()
 
+	LOG_DEBUG_MSG(LOG_TAG, ASCII_R2ARROW "entering strategy_manager__reportStatus()");
+
 	/* ===== Variables locales ===== */
     // Déclare les variables temporaires
 
@@ -338,6 +378,8 @@ void strategy_manager__reportStatus(StrategyManager *self, MoveReason pilotStatu
 		           log_info("Pilot status reporté : %d", pilotStatus);
 	*/
 
+	LOG_DEBUG_MSG(LOG_TAG, ASCII_L2ARROW "exiting strategy_manager__reportStatus()");
+
 	/* ===== Postconditions ===== */
 	// Vérifie les invariants après logique
 
@@ -352,6 +394,8 @@ void strategy_manager__interlockManuMode(StrategyManager *self)
 
 	UNUSED(self); // ⬅️ À retirer. Dès que 'self' est utilisé en dehors des assert()
 
+	LOG_DEBUG_MSG(LOG_TAG, ASCII_R2ARROW "entering strategy_manager__interlockManuMode()");
+
 	/* ===== Variables locales ===== */
     // Déclare les variables temporaires
 
@@ -363,6 +407,8 @@ void strategy_manager__interlockManuMode(StrategyManager *self)
             - Bloquer certaines commandes automatiques
             - Mettre à jour l'état interne en conséquence
     */
+
+	LOG_DEBUG_MSG(LOG_TAG, ASCII_L2ARROW "exiting strategy_manager__interlockManuMode()");
 
 	/* ===== Postconditions ===== */
 	// Vérifie les invariants après logique
@@ -378,6 +424,8 @@ static void strategy_manager__computeStrat(StrategyManager *self)
 
 	UNUSED(self); // ⬅️ À retirer. Dès que 'self' est utilisé en dehors des assert()
 
+	LOG_DEBUG_MSG(LOG_TAG, ASCII_R2ARROW "entering strategy_manager__computeStrat()");
+
 	/* ===== Variables locales ===== */
     // Déclare les variables temporaires
 
@@ -389,6 +437,8 @@ static void strategy_manager__computeStrat(StrategyManager *self)
 		       - Choix de la meilleure stratégie selon des règles métier
 		       - Mise à jour des champs internes dans 'self'
 	*/
+
+	LOG_DEBUG_MSG(LOG_TAG, ASCII_L2ARROW "exiting strategy_manager__computeStrat()");
 
 	/* ===== Postconditions ===== */
 	// Vérifie les invariants après logique
@@ -405,6 +455,8 @@ static int strategy_manager__startTimer(StrategyManager *self)
 
 	UNUSED(self); // ⬅️ À retirer. Dès que 'self' est utilisé en dehors des assert()
 
+	LOG_DEBUG_MSG(LOG_TAG, ASCII_R2ARROW "entering strategy_manager__startTimer()");
+
 	/* ===== Variables locales ===== */
 	int ret = RET_NOT_IMPL_INT; // ⬅️ "Rater-vite". Initialisé par un code d'erreur (prog défensive)
 
@@ -415,6 +467,8 @@ static int strategy_manager__startTimer(StrategyManager *self)
                    int ret = timer_start(self->Timer);
                    return ret;
     */
+
+	LOG_DEBUG_MSG(LOG_TAG, ASCII_L2ARROW "exiting strategy_manager__startTimer()");
 
 	/* ===== Postconditions ===== */
 	// assert(ret == RET_OK); // ⬅️ À décommenter. Pour les plus téméraires
@@ -431,6 +485,8 @@ static int strategy_manager__stopTimer(StrategyManager *self)
 
 	UNUSED(self); // ⬅️ À retirer. Dès que 'self' est utilisé en dehors des assert()
 
+	LOG_DEBUG_MSG(LOG_TAG, ASCII_R2ARROW "entering strategy_manager__stopTimer()");
+
 	/* ===== Variables locales ===== */
 	int ret = RET_NOT_IMPL_INT; // ⬅️ "Rater-vite". Initialisé par un code d'erreur (prog défensive)
 
@@ -441,6 +497,8 @@ static int strategy_manager__stopTimer(StrategyManager *self)
                    ret = timer_stop(self->Timer);
                    return ret;
     */
+
+	LOG_DEBUG_MSG(LOG_TAG, ASCII_L2ARROW "exiting strategy_manager__stopTimer()");
 
 	/* ===== Postconditions ===== */
 	// assert(ret == RET_OK); // ⬅️ À décommenter. Pour les plus téméraires
@@ -458,6 +516,8 @@ static void strategy_manager__updateStatus(StrategyManager *self)
 
 	UNUSED(self); // ⬅️ À retirer. Dès que 'self' est utilisé en dehors des assert()
 
+	LOG_DEBUG_MSG(LOG_TAG, ASCII_R2ARROW "entering strategy_manager__updateStatus()");
+
 	/* ===== Variables locales ===== */
     // Déclare les variables temporaires
 
@@ -469,6 +529,8 @@ static void strategy_manager__updateStatus(StrategyManager *self)
                - Mise à jour de flags ou codes de statut dans self
                - Déclenchement d'événements ou notifications si besoin
     */
+   
+	LOG_DEBUG_MSG(LOG_TAG, ASCII_L2ARROW "exiting strategy_manager__updateStatus()");
 
 	/* ===== Postconditions ===== */
 	// Vérifie les invariants après logique

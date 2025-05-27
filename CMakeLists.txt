@@ -213,9 +213,6 @@ endforeach()
 # Link zlib directly
 target_link_libraries(explo ${ZLIB_LIBRARIES})
 
-# Link lib math for all project
-target_link_libraries(explo m)
-
 if(EXTRA_LIBS)
     target_link_libraries(explo ${EXTRA_LIBS})
 endif()
@@ -255,6 +252,16 @@ endforeach()
 
 # Link zlib directly
 target_link_libraries(inter ${ZLIB_LIBRARIES})
+
+# Find math library
+find_library(MATH_LIBRARY m)
+
+# Link math library to executables
+if(MATH_LIBRARY)
+    target_link_libraries(explo ${MATH_LIBRARY})
+    target_link_libraries(inter ${MATH_LIBRARY})
+endif()
+
 
 if(EXTRA_LIBS)
     target_link_libraries(inter ${EXTRA_LIBS})

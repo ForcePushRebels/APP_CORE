@@ -14,16 +14,15 @@
 
 // --- Types de base ---
 typedef struct {
-    double x;
-    double y;
-    double theta;
+    int x;
+    int y;
+    float theta;
 } Position;
 
 typedef enum {
     DIR_FORWARD,
     DIR_LEFT,
     DIR_RIGHT
-    // ... autres directions si besoin
 } Direction;
 
 // --- Machine à états ---

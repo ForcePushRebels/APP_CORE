@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
+#include <math.h>
 
 // project includes
 #include "hardwareAbstraction.h"
@@ -23,6 +24,7 @@
 #include "sensorManager.h"
 #include "motorControl.h"
 #include "xTimer.h"
+#include "positionControl.h"
 
 #include "map_engine.h"
 
@@ -94,7 +96,7 @@ void testMotors(void) {
         
         // Arrêter les moteurs avant de changer de phase
         motor_control_stop();
-        xTimerDelay(500); // Attendre 500ms pour stabilisation
+        xTimerDelay(1000); // Attendre 1000ms pour stabilisation
     }
     
     // Différentes phases de test
@@ -149,9 +151,11 @@ void testMotors(void) {
     }
     
     // Afficher les vitesses actuelles
+    
     X_LOG_TRACE("Current speeds - Left: %.2f rad/s, Right: %.2f rad/s",
                 motor_control_get_left_speed(),
                 motor_control_get_right_speed());
+    
 }
 
 // Fonction de test du hardware abstraction layer
@@ -222,6 +226,56 @@ void testHardwareAbstraction(void) {
     }
 }
 
+// Fonction de test du contrôle de position
+void testPositionControl(void) {
+    static uint8_t test_phase = 0;
+    static uint64_t last_phase_time = 0;
+    uint64_t current_time = xTimerGetCurrentMs();
+    
+    // Changer de phase toutes les 5 secondes
+    if (current_time - last_phase_time > 5000) {
+        test_phase = (test_phase + 1) % 6;  // 6 phases de test
+        last_phase_time = current_time;
+        
+        // Arrêter le mouvement avant de changer de phase
+        position_control_stop();
+        xTimerDelay(1000); // Attendre 1000ms pour stabilisation
+    }
+    
+    // Différentes phases de test
+    switch (test_phase) {
+        case 0: // Avancer de 500mm
+            X_LOG_TRACE("Test phase 0: Advance 500mm");
+            position_control_advance(500, 2.0);  // 500mm à 2 rad/s
+            break;
+            
+        case 1: // Rotation à gauche de π/2 radians (90 degrés)
+            X_LOG_TRACE("Test phase 1: Rotate left π/2 rad (90°)");
+            position_control_turn(M_PI/2, 2.0);  // π/2 rad à 2 rad/s
+            break;
+            
+        case 2: // Avancer de 300mm
+            X_LOG_TRACE("Test phase 2: Advance 300mm");
+            position_control_advance(300, 2.0);  // 300mm à 2 rad/s
+            break;
+            
+        case 3: // Rotation à droite de π radians (180 degrés)
+            X_LOG_TRACE("Test phase 3: Rotate right π rad (180°)");
+            position_control_turn(-M_PI, 2.0);  // -π rad à 2 rad/s
+            break;
+            
+        case 4: // Avancer de 200mm
+            X_LOG_TRACE("Test phase 4: Advance 200mm");
+            position_control_advance(200, 2.0);  // 200mm à 2 rad/s
+            break;
+            
+        case 5: // Rotation à gauche de π/2 radians (90 degrés)
+            X_LOG_TRACE("Test phase 5: Rotate left π/2 rad (90°)");
+            position_control_turn(M_PI/2, 2.0);  // π/2 rad à 2 rad/s
+            break;
+    }
+}
+
 int main()
 {
     int l_iReturn = 0;
@@ -282,6 +336,11 @@ int main()
     X_ASSERT(l_iReturn == 0);
     X_LOG_TRACE("Motor control initialized");
 
+    // Initialisation du contrôle de position
+    l_iReturn = position_control_init();
+    X_ASSERT(l_iReturn == 0);
+    X_LOG_TRACE("Position control initialized");
+
     // start server
     l_iReturn = networkServerStart();
     X_ASSERT(l_iReturn == SERVER_OK);
@@ -293,9 +352,6 @@ int main()
     // main loop
     while (1)
     {
-        // Test du hardware abstraction layer
-        //testHardwareAbstraction();
-        
         // Test des moteurs
         //testMotors();
         
@@ -309,6 +365,7 @@ int main()
     // Ce code ne sera jamais atteint, mais pour être complet:
     hardwareAbstractionClose();
     motor_control_shutdown();
+    position_control_shutdown();
     cleanupMessageHandlerSystem();
     idCardNetworkCleanup();
     networkServerStop();

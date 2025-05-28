@@ -19,12 +19,12 @@
 #include "motorControl.h"
 #include "robotConfiguration.h"
 
-enum  move_type_t
+typedef enum moveType
 {
     FORWARD,
     LEFT,
     RIGHT
-};
+}move_type_t;
 
 // Position structure
 typedef struct {

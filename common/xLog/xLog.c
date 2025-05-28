@@ -15,6 +15,9 @@
 #include <stdarg.h>
 #include <string.h>
 #include <stdatomic.h>
+#include <unistd.h>
+#include <libgen.h>
+#include <limits.h>
 
 // Logger state
 typedef enum
@@ -119,7 +122,7 @@ int xLogWrite(const char *p_ptkcFile, uint32_t p_ulLine, const char *p_ptkcForma
     char l_cUserMsg[XOS_LOG_MSG_SIZE] = {0};
     char l_cFullMsg[XOS_LOG_MSG_SIZE + 128] = {0};
     const char *l_pcFileName = "UnknownFile";
-    
+
     // Récupération sécurisée de l'horodatage
     const char *l_pcTimestamp = xHorodateurGetString();
     if (l_pcTimestamp != NULL)
@@ -132,17 +135,17 @@ int xLogWrite(const char *p_ptkcFile, uint32_t p_ulLine, const char *p_ptkcForma
     if (p_ptkcFile != NULL)
     {
         l_pcFileName = p_ptkcFile;
-    const char *l_pcLastSlash = strrchr(p_ptkcFile, '/');
-    if (l_pcLastSlash != NULL)
-    {
-        l_pcFileName = l_pcLastSlash + 1;
-    }
-    else
-    {
-        l_pcLastSlash = strrchr(p_ptkcFile, '\\');
+        const char *l_pcLastSlash = strrchr(p_ptkcFile, '/');
         if (l_pcLastSlash != NULL)
         {
             l_pcFileName = l_pcLastSlash + 1;
+        }
+        else
+        {
+            l_pcLastSlash = strrchr(p_ptkcFile, '\\');
+            if (l_pcLastSlash != NULL)
+            {
+                l_pcFileName = l_pcLastSlash + 1;
             }
         }
     }
@@ -231,4 +234,42 @@ int xLogClose(void)
     mutexDestroy(&s_tLogMutex);
 
     return XOS_LOG_OK;
+}
+
+////////////////////////////////////////////////////////////
+/// xLogGetExecutablePath
+////////////////////////////////////////////////////////////
+int xLogGetExecutablePath(char *p_pcExecutablePath, size_t p_iSize)
+{
+    if (p_pcExecutablePath == NULL || p_iSize == 0)
+    {
+        return -1;
+    }
+
+    char l_cExePath[PATH_MAX];
+    ssize_t l_iPathLen = readlink("/proc/self/exe", l_cExePath, sizeof(l_cExePath) - 1);
+    if (l_iPathLen == -1)
+    {
+        return -1;
+    }
+    l_cExePath[l_iPathLen] = '\0';
+
+    // Get directory path of executable
+    char *l_pcDirPath = dirname(l_cExePath);
+    if (l_pcDirPath == NULL)
+    {
+        return -1;
+    }
+
+    // Copy directory path to output buffer
+    size_t l_iDirLen = strlen(l_pcDirPath);
+    if (l_iDirLen >= p_iSize)
+    {
+        return -1; // Buffer too small
+    }
+
+    strncpy(p_pcExecutablePath, l_pcDirPath, p_iSize - 1);
+    p_pcExecutablePath[p_iSize - 1] = '\0';
+
+    return (int)l_iDirLen;
 }

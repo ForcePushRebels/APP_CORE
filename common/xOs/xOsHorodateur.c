@@ -4,6 +4,7 @@
 //
 // general discloser: copy or share the file is forbidden
 // Written : 14/11/2024
+// Modified: 2025 - Enhanced precision to microseconds
 // Intellectual property of Christophe Benedetti
 ////////////////////////////////////////////////////////////
 
@@ -13,48 +14,44 @@
 #include <string.h>
 #include <stdio.h>
 
-
-#define XOS_HORODATEUR_BUFFER_SIZE 64   // Size of the buffer for the formatted timestamp
+#define XOS_HORODATEUR_BUFFER_SIZE 72   
 
 // Thread-local buffer: each thread has its own buffer
 static __thread char s_cTimeBuffer[XOS_HORODATEUR_BUFFER_SIZE];
 
 ////////////////////////////////////////////////////////////
-/// xHorodateurGetString
+/// xHorodateurGetString - Enhanced with microsecond precision
 ////////////////////////////////////////////////////////////
 const char* xHorodateurGetString(void)
 {
     struct timespec ts;
     struct tm tm_result;
 
-    // Réinitialiser le buffer thread-local
-    memset(s_cTimeBuffer, 0, XOS_HORODATEUR_BUFFER_SIZE);
-
-    // Obtenir l'heure actuelle avec haute résolution
+    // Get current high-resolution time
     if (clock_gettime(CLOCK_REALTIME, &ts) != 0) 
     {
         return NULL;
     }
 
-    // Conversion en heure locale de façon thread-safe
+    // Convert to local time in thread-safe manner
     if (localtime_r(&ts.tv_sec, &tm_result) == NULL) 
     {
         return NULL;
     }
 
-    // Formater la partie "date/heure" (YYYY-MM-DD HH:MM:SS)
-    if (strftime(s_cTimeBuffer, XOS_HORODATEUR_BUFFER_SIZE, "%Y-%m-%d %H:%M:%S", &tm_result) == 0) 
-    {
-        return NULL;
-    }
+    // Format complete timestamp in one call: YYYY-MM-DD HH:MM:SS.microseconds
+    // Convert nanoseconds to microseconds (divide by 1000)
+    int written = snprintf(s_cTimeBuffer, XOS_HORODATEUR_BUFFER_SIZE,
+                          "%04d-%02d-%02d %02d:%02d:%02d.%06ld",
+                          tm_result.tm_year + 1900,
+                          tm_result.tm_mon + 1,
+                          tm_result.tm_mday,
+                          tm_result.tm_hour,
+                          tm_result.tm_min,
+                          tm_result.tm_sec,
+                          ts.tv_nsec / 1000);  // nanoseconds to microseconds
 
-    // Calculer la taille actuelle dans le buffer
-    size_t len = strlen(s_cTimeBuffer);
-
-    // Concaténer directement les millisecondes dans le buffer
-    // ts.tv_nsec est en nanosecondes, on le convertit en millisecondes
-    int written = snprintf(s_cTimeBuffer + len, XOS_HORODATEUR_BUFFER_SIZE - len, ".%03ld", ts.tv_nsec / 1000000);
-    if (written < 0 || (size_t)written >= XOS_HORODATEUR_BUFFER_SIZE - len) 
+    if (written < 0 || written >= XOS_HORODATEUR_BUFFER_SIZE) 
     {
         return NULL;
     }
@@ -68,12 +65,30 @@ const char* xHorodateurGetString(void)
 uint32_t xHorodateurGet(void)
 {
     struct timespec ts;
-    // Obtenir le temps actuel
+    // Get current time
     if (clock_gettime(CLOCK_REALTIME, &ts) != 0) 
     {
-        X_ASSERT(0); // Erreur critique
+        X_ASSERT(0); // Critical error
         return 0;
     }
-    // Retourner la partie secondes (timestamp Unix)
+    // Return seconds part (Unix timestamp)
     return (uint32_t)ts.tv_sec;
+}
+
+////////////////////////////////////////////////////////////
+/// xHorodateurGetMicroseconds - High-resolution timestamp
+////////////////////////////////////////////////////////////
+uint64_t xHorodateurGetMicroseconds(void)
+{
+    struct timespec ts;
+    // Get current high-resolution time
+    if (clock_gettime(CLOCK_REALTIME, &ts) != 0) 
+    {
+        X_ASSERT(0); // Critical error
+        return 0;
+    }
+    
+    // Convert to microseconds since Unix epoch
+    // seconds * 1,000,000 + nanoseconds / 1,000
+    return ((uint64_t)ts.tv_sec * 1000000ULL) + ((uint64_t)ts.tv_nsec / 1000ULL);
 }

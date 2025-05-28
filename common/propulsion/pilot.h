@@ -23,7 +23,6 @@ typedef enum {
     DIR_FORWARD,
     DIR_LEFT,
     DIR_RIGHT
-    // ... autres directions si besoin
 } Direction;
 
 // --- Machine à états ---
@@ -58,7 +57,7 @@ typedef enum {
 typedef struct {
     double distance_mm;
     double angle_rad;
-    int max_speed;
+    float max_speed;
     Direction direction;
     bool relative;
     // Ajoute d'autres champs si besoin
@@ -92,7 +91,7 @@ int32_t pilot_init(int max_speed, double wheel_radius_m, double wheel_base_m);
 void pilot_shutdown(void);
 
 // Commandes de mouvement
-void pilot_advance(double distance_mm, int max_speed);
+void pilot_advance(double distance_mm, float max_speed);
 void pilot_continuousAdvance(int max_speed);
 void pilot_turn(double angle_rad, int max_speed, bool relative);
 void pilot_goTo(double x, double y, int max_speed);

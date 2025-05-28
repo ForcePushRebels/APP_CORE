@@ -250,6 +250,8 @@ int motor_control_set_speed(uint16_t motor_id, double speed_rad_s)
     if (speed_rad_s > MAX_SPEED_RAD_S) speed_rad_s = MAX_SPEED_RAD_S;
     if (speed_rad_s < -MAX_SPEED_RAD_S) speed_rad_s = -MAX_SPEED_RAD_S;
 
+    X_LOG_TRACE("Setting motor %d speed to %.2f rad/s", motor_id, speed_rad_s);
+    
     motor_regulator_t* reg = (motor_id == MRPIZ_MOTOR_LEFT) ? &g_left_motor : &g_right_motor;
     
     mutexLock(&reg->mutex);

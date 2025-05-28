@@ -456,17 +456,17 @@ static int removeClient(clientCtx *p_ptClient)
 ///////////////////////////////////////////
 /// networkServerGetClientAddress
 ///////////////////////////////////////////
-bool networkServerGetClientAddress(ClientID p_tClientId, char *p_pcBuffer, int p_iSize)
+bool networkServerGetClientAddress(ClientID p_tClientId, char *p_ptcBuffer, int p_iSize)
 {
     clientCtx *l_ptClient = findClientById(p_tClientId);
-    if (l_ptClient == NULL || p_pcBuffer == NULL || p_iSize <= 0)
+    if (l_ptClient == NULL || p_ptcBuffer == NULL || p_iSize <= 0)
     {
         return false;
     }
 
     // copy the address to the buffer
-    strncpy(p_pcBuffer, l_ptClient->t_tAddress.t_cAddress, p_iSize - 1);
-    p_pcBuffer[p_iSize - 1] = '\0';
+    strncpy(p_ptcBuffer, l_ptClient->t_tAddress.t_cAddress, p_iSize - 1);
+    p_ptcBuffer[p_iSize - 1] = '\0';
 
     return true;
 }

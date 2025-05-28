@@ -21,7 +21,7 @@ typedef struct server_ctx_t serverCtx;
 typedef struct client_ctx_t clientCtx;
 
 // Message handler function type
-typedef void (*MessageHandler)(clientCtx *p_pttClient, const network_message_t *p_pttMessage);
+typedef void (*MessageHandler)(clientCtx *p_pttClient, const network_message_t *p_pttTimeComponentessage);
 
 // Server configuration
 typedef struct
@@ -112,7 +112,7 @@ int networkServerConnect(void);
 /// @param size Buffer size
 /// @return true on success
 ///////////////////////////////////////////
-bool networkServerGetClientAddress(ClientID p_tClientId, char *p_pcBuffer, int p_iSize);
+bool networkServerGetClientAddress(ClientID p_tClientId, char *p_ptcBuffer, int p_iSize);
 
 ///////////////////////////////////////////
 /// @brief Get the client port

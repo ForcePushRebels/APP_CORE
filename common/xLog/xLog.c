@@ -14,6 +14,7 @@
 #include "xAssert.h"
 #include "xOsHorodateur.h"
 #include "xOsMutex.h"
+#include "xOsMemory.h"
 
 #include <stdio.h>
 #include <stdarg.h>
@@ -26,14 +27,6 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <ctype.h>
-
-// Secure memory clearing macro 
-#define XOS_MEMORY_SANITIZE(ptr, size) do { \
-    volatile unsigned char *volatile_ptr = (volatile unsigned char*)(ptr); \
-    for (size_t i = 0; i < (size); i++) { \
-        volatile_ptr[i] = 0; \
-    } \
-} while(0)
 
 // Logger state
 typedef enum

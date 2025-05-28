@@ -32,6 +32,7 @@ typedef struct sensorManager_t
     xOsMutexCtx t_tMutex;
     xOsTimerCtx t_tTimer;
     uint16_t t_tISensors[SENSOR_MANAGER_SENSORS_COUNT];
+    uint16_t t_tFloorSensor;
 } sensorManager_t;
 
 // error codes

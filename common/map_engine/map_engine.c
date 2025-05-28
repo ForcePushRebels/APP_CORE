@@ -30,6 +30,7 @@ typedef struct
 {
     map_cell_t map[MAP_WIDTH][MAP_HEIGHT];
     uint8_t discovery_percent;
+    int interest_area_count;
 } map_engine_t;
 
 typedef struct
@@ -224,6 +225,34 @@ int map_engine_update_vision(uint16_t *sensor_data, uint8_t sensor_count)
 #if MAP_DEBUG
     print_map();
 #endif
+
+    return MAP_ENGINE_OK;
+}
+
+int map_engine_update_floor_sensor(uint16_t floor_sensor)
+{
+
+    if (floor_sensor >= 99) //TODO: remove this: select a value for the floor sensor
+    {
+        return MAP_ENGINE_OK;
+    }
+
+    position_t robot_pos = get_pos();
+    int16_t grid_x = robot_pos.x_mm / MAP_CELL_SIZE_MM;
+    int16_t grid_y = robot_pos.y_mm / MAP_CELL_SIZE_MM;
+    if (grid_x < 0 || grid_x >= MAP_WIDTH || grid_y < 0 || grid_y >= MAP_HEIGHT)
+    {
+        X_LOG_TRACE("Invalid grid position: %d, %d", grid_x, grid_y);
+        return MAP_ENGINE_ERROR_UNKNOWN;
+    }
+
+    if (map_engine.map[grid_x][grid_y].type == MAP_CELL_INTEREST_AREA)
+    {
+        return MAP_ENGINE_OK;
+    }
+
+    map_engine.map[grid_x][grid_y].type = MAP_CELL_INTEREST_AREA;
+    map_engine.interest_area_count++;
 
     return MAP_ENGINE_OK;
 }

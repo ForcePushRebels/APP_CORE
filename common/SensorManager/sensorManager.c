@@ -171,11 +171,14 @@ static void updateSensorData(void *p_pvParam)
     {
         s_tSensorManager.t_tISensors[i] = rawValuesToMm(s_tSensorManager.t_tISensors[i]);
     }
+    
+    s_tSensorManager.t_tFloorSensor = GetFloorSensorValue();
 
     if (idCardGetRole() == IDCARD_ROLE_EXPLO)
     {
         map_engine_update_vision(s_tSensorManager.t_tISensors, SENSOR_MANAGER_SENSORS_COUNT);
     }
+
 }
 
 ///////////////////////////////////////////

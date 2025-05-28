@@ -101,6 +101,14 @@ int map_engine_get_discovery_percent();
  */
 int map_engine_update_vision(uint16_t *sensor_data, uint8_t sensor_count);
 
+
+/**
+ * @brief Update the floor sensor
+ * @param floor_sensor The floor sensor to update: value in mm.
+ * @return MAP_ENGINE_OK if successful, MAP_ENGINE_ERROR_UPDATE_FLOOR_SENSOR if not
+ */
+int map_engine_update_floor_sensor(uint16_t floor_sensor);
+
 /* ******************************************* Public callback functions declarations ************************************ */
 
 #endif /* _MAP_ENGINE_H_ */

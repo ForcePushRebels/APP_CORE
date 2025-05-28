@@ -28,7 +28,7 @@
 
 
 static const uint8_t s_aCLogPath[] = "explo.log";
-
+int start = 0;
 // Définition des durées pour le code morse (en millisecondes)
 #define UNIT_TIME 300
 #define SHORT_SIGNAL (UNIT_TIME)
@@ -264,39 +264,13 @@ void testPositionControl(void) {
                         current_position.angle_rad * 180.0 / M_PI);
         }
     }
-    
-    // Différentes phases de test
-    switch (test_phase) {
-        case 0: // Avancer de 500mm
-            X_LOG_TRACE("Test phase 0: Advance 500mm");
-            position_control_advance(500, 2.0);  // 500mm à 2 rad/s
-            break;
-            
-        case 1: // Rotation à gauche de π/2 radians (90 degrés)
-            X_LOG_TRACE("Test phase 1: Rotate left π/2 rad (90°)");
-            position_control_turn(M_PI/2, 2.0);  // π/2 rad à 2 rad/s
-            break;
-            
-        case 2: // Avancer de 300mm
-            X_LOG_TRACE("Test phase 2: Advance 300mm");
-            position_control_advance(300, 2.0);  // 300mm à 2 rad/s
-            break;
-            
-        case 3: // Rotation à droite de π radians (180 degrés)
-            X_LOG_TRACE("Test phase 3: Rotate right π rad (180°)");
-            position_control_turn(-M_PI, 2.0);  // -π rad à 2 rad/s
-            break;
-            
-        case 4: // Avancer de 200mm
-            X_LOG_TRACE("Test phase 4: Advance 200mm");
-            position_control_advance(200, 2.0);  // 200mm à 2 rad/s
-            break;
-            
-        case 5: // Rotation à gauche de π/2 radians (90 degrés)
-            X_LOG_TRACE("Test phase 5: Rotate left π/2 rad (90°)");
-            position_control_turn(M_PI/2, 2.0);  // π/2 rad à 2 rad/s
-            break;
+    if(start == 0)
+    {
+        position_control_advance(500, 2.0);
+        //position_control_turn(M_PI/2, 2.0);
+        start = 1;
     }
+    
 }
 
 int main()
@@ -368,7 +342,9 @@ int main()
     l_iReturn = networkServerStart();
     X_ASSERT(l_iReturn == SERVER_OK);
     
+
     // main loop
+
     while (1)
     {
         // Test des moteurs
@@ -376,7 +352,8 @@ int main()
 
         // Test en ligne droite
         testPositionControl();
-        
+          // 500mm à 2 rad/s
+
         // Pour envoyer des mises à jour périodiques, on devra attendre d'avoir un client connecté
         // et utiliser serverSendMessage à ce moment-là.
     }

@@ -1,10 +1,10 @@
 ////////////////////////////////////////////////////////////
-// os Task header file - NASA JPL 10 Rules Compliant
+// os Task header file 
 // defines the os function for task manipulation
 //
 // general discloser: copy or share the file is forbidden
 // Written : 14/11/2024
-// Modified: 12/01/2025 - NASA JPL compliance
+// Modified: 28/05/2025 - Security improvements
 // Intellectual property of Christophe Benedetti
 ////////////////////////////////////////////////////////////
 

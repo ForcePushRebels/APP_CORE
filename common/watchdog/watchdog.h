@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////
-//  Watchdog header file - NASA JPL 10 Rules Compliant 
+//  Watchdog header file 
 //  Provides ultra-fast  watchdog support using POSIX timer
 //
 // general disclosure: copy or share the file is forbidden

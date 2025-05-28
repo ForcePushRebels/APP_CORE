@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////
-//  Watchdog src file - NASA JPL 10 Rules Compliant 
+//  Watchdog src file 
 //  Provides ultra-fast  watchdog support using POSIX timer
 //
 // general disclosure: copy or share the file is forbidden

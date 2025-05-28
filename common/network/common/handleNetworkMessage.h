@@ -13,41 +13,41 @@
 #include "networkEncode.h"
 
 ///////////////////////////////////////////
-/// @brief Définition du type pour les fonctions de traitement des messages
+/// @brief Definition of the type for the message handling functions
 ///////////////////////////////////////////
 typedef void (*message_handler_t)(clientCtx* p_ptClient, const network_message_t* p_ptMessage);
 
 ///////////////////////////////////////////
-/// @brief Enregistre un handler pour un type de message spécifique
+/// @brief Register a handler for a specific message type
 ///
-/// @param messageType Type de message à traiter
-/// @param handler Fonction de traitement à appeler
+/// @param messageType Type of message to register the handler for
+/// @param handler Function to call when the message is received
 ///////////////////////////////////////////
 void registerMessageHandler(uint8_t p_ucMessageType, message_handler_t p_ptHandler);
 
 ///////////////////////////////////////////
-/// @brief Désenregistre un handler pour un type de message
+/// @brief Unregister a handler for a specific message type
 ///
-/// @param messageType Type de message dont le handler doit être supprimé
+/// @param messageType Type of message to unregister the handler for
 ///////////////////////////////////////////
 void unregisterMessageHandler(uint8_t p_ucMessageType);
 
 ///////////////////////////////////////////
-/// @brief Fonction principale de traitement des messages réseau
+/// @brief Main function to handle network messages
 ///
-/// @param client Contexte du client
-/// @param message Message réseau à traiter
+/// @param client Client context
+/// @param message Network message to handle
 ///////////////////////////////////////////
 void handleNetworkMessage(clientCtx* p_ptClient, 
                           const network_message_t* p_ptMessage);
 
 ///////////////////////////////////////////
-/// @brief Initialise le système de handlers de messages
+/// @brief Initialize message handler system
 ///////////////////////////////////////////
 void initMessageHandlerSystem(void);
 
 ///////////////////////////////////////////
-/// @brief Nettoie le système de handlers de messages
+/// @brief Clean up message handler system
 ///////////////////////////////////////////
 void cleanupMessageHandlerSystem(void);
 

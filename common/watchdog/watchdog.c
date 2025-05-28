@@ -2,6 +2,7 @@
 //  Watchdog src file
 //  Provides watchdog support using POSIX timer
 //
+// general disclosure: copy or share the file is forbidden
 // Written : 02/05/2025
 ////////////////////////////////////////////////////////////
 
@@ -28,7 +29,7 @@ static void (*g_expiry_handler)(void) = NULL;
 
 // Private variables for POSIX timers
 static timer_t g_timer_id;
-static struct sigevent g_sev;
+static struct sigevent s_tSignalEvent;
 static struct itimerspec g_its;
 
 ////////////////////////////////////////////////////////////
@@ -140,14 +141,14 @@ int watchdog_init(int timeout_ms)
     }
 
     // Event configuration for the timer
-    memset(&g_sev, 0, sizeof(struct sigevent));
-    g_sev.sigev_notify = SIGEV_THREAD;           // Uses a thread to handle the event
-    g_sev.sigev_notify_function = timer_handler; // Callback function
-    g_sev.sigev_value.sival_ptr = &g_watchdog;   // Pass the watchdog structure to the callback
-    g_sev.sigev_notify_attributes = NULL;        // Use default attributes
+    memset(&s_tSignalEvent, 0, sizeof(struct sigevent));
+    s_tSignalEvent.sigev_notify = SIGEV_THREAD;           // Uses a thread to handle the event
+    s_tSignalEvent.sigev_notify_function = timer_handler; // Callback function
+    s_tSignalEvent.sigev_value.sival_ptr = &g_watchdog;   // Pass the watchdog structure to the callback
+    s_tSignalEvent.sigev_notify_attributes = NULL;        // Use default attributes
 
     // Timer creation
-    if (timer_create(CLOCK_MONOTONIC, &g_sev, &g_timer_id) != 0)
+    if (timer_create(CLOCK_MONOTONIC, &s_tSignalEvent, &g_timer_id) != 0)
     {
         X_LOG_TRACE("Failed to create timer: %s", strerror(errno));
         mutexDestroy(&g_watchdog.mutex);

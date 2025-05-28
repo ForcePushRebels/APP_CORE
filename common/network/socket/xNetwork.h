@@ -80,11 +80,11 @@ NetworkSocket *networkCreateSocket(int p_iType);
 
 //////////////////////////////////
 /// @brief Create a network address
-/// @param p_pcAddress IP address string (NULL or empty for INADDR_ANY)
+/// @param p_ptcAddress IP address string (NULL or empty for INADDR_ANY)
 /// @param p_usPort Port number
 /// @return NetworkAddress Address structure
 //////////////////////////////////
-NetworkAddress networkMakeAddress(const char *p_pcAddress, unsigned short p_usPort);
+NetworkAddress networkMakeAddress(const char *p_ptcAddress, unsigned short p_usPort);
 
 //////////////////////////////////
 /// @brief Bind socket to address

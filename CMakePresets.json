@@ -16,7 +16,8 @@
         "CMAKE_BUILD_TYPE": "Debug",
         "DEBUG": "ON",
         "TARGET_MRPIZ": "OFF",
-        "USE_TLS": "OFF"
+        "USE_TLS": "OFF",
+        "USE_3D_SIMULATION": "OFF"
       }
     },
     {
@@ -29,7 +30,36 @@
         "CMAKE_BUILD_TYPE": "Release",
         "DEBUG": "OFF",
         "TARGET_MRPIZ": "OFF",
-        "USE_TLS": "OFF"
+        "USE_TLS": "OFF",
+        "USE_3D_SIMULATION": "OFF"
+      }
+    },
+    {
+      "name": "x86_64-3d-debug",
+      "displayName": "x86_64 3D Debug",
+      "description": "3D Debug build for x86_64 architecture",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/x86_64-3d-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "DEBUG": "ON",
+        "TARGET_MRPIZ": "OFF",
+        "USE_TLS": "OFF",
+        "USE_3D_SIMULATION": "ON"
+      }
+    },
+    {
+      "name": "x86_64-3d-release",
+      "displayName": "x86_64 3D Release",
+      "description": "3D Release build for x86_64 architecture",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/x86_64-3d-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "DEBUG": "OFF",
+        "TARGET_MRPIZ": "OFF",
+        "USE_TLS": "OFF",
+        "USE_3D_SIMULATION": "ON"
       }
     },
     {
@@ -42,7 +72,8 @@
         "CMAKE_BUILD_TYPE": "Release",
         "DEBUG": "OFF",
         "TARGET_MRPIZ": "ON",
-        "USE_TLS": "OFF"
+        "USE_TLS": "OFF",
+        "USE_3D_SIMULATION": "OFF"
       }
     },
     {
@@ -55,7 +86,8 @@
         "CMAKE_BUILD_TYPE": "Debug",
         "DEBUG": "ON",
         "TARGET_MRPIZ": "OFF",
-        "USE_TLS": "OFF"
+        "USE_TLS": "OFF",
+        "USE_3D_SIMULATION": "OFF"
       }
     },
     {
@@ -68,7 +100,36 @@
         "CMAKE_BUILD_TYPE": "Release",
         "DEBUG": "OFF",
         "TARGET_MRPIZ": "OFF",
-        "USE_TLS": "OFF"
+        "USE_TLS": "OFF",
+        "USE_3D_SIMULATION": "OFF"
+      }
+    },
+    {
+      "name": "aarch64-3d-debug",
+      "displayName": "ARM64 3D Debug",
+      "description": "3D Debug build for ARM64 architecture",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/aarch64-3d-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "DEBUG": "ON",
+        "TARGET_MRPIZ": "OFF",
+        "USE_TLS": "OFF",
+        "USE_3D_SIMULATION": "ON"
+      }
+    },
+    {
+      "name": "aarch64-3d-release",
+      "displayName": "ARM64 3D Release",
+      "description": "3D Release build for ARM64 architecture",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/aarch64-3d-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "DEBUG": "OFF",
+        "TARGET_MRPIZ": "OFF",
+        "USE_TLS": "OFF",
+        "USE_3D_SIMULATION": "ON"
       }
     },
     {
@@ -81,7 +142,8 @@
         "CMAKE_BUILD_TYPE": "Release",
         "DEBUG": "OFF",
         "TARGET_MRPIZ": "ON",
-        "USE_TLS": "OFF"
+        "USE_TLS": "OFF",
+        "USE_3D_SIMULATION": "OFF"
       }
     },
     {
@@ -94,7 +156,8 @@
         "CMAKE_BUILD_TYPE": "Release",
         "DEBUG": "OFF",
         "TARGET_MRPIZ": "OFF",
-        "USE_TLS": "ON"
+        "USE_TLS": "ON",
+        "USE_3D_SIMULATION": "OFF"
       }
     }
   ],
@@ -108,6 +171,14 @@
       "configurePreset": "x86_64-release"
     },
     {
+      "name": "x86_64-3d-debug",
+      "configurePreset": "x86_64-3d-debug"
+    },
+    {
+      "name": "x86_64-3d-release",
+      "configurePreset": "x86_64-3d-release"
+    },
+    {
       "name": "x86_64-mrpiz",
       "configurePreset": "x86_64-mrpiz"
     },
@@ -118,6 +189,14 @@
     {
       "name": "aarch64-release",
       "configurePreset": "aarch64-release"
+    },
+    {
+      "name": "aarch64-3d-debug",
+      "configurePreset": "aarch64-3d-debug"
+    },
+    {
+      "name": "aarch64-3d-release",
+      "configurePreset": "aarch64-3d-release"
     },
     {
       "name": "aarch64-mrpiz",

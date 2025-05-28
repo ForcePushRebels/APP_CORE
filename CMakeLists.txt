@@ -25,11 +25,25 @@ message(STATUS "Detected architecture: ${TARGET_ARCH}")
 option(TARGET_MRPIZ "Build for MRPiZ target instead of PC" OFF)
 option(USE_TLS "Enable TLS support" OFF)
 option(DEBUG "Enable debug build" OFF)
+option(USE_3D_SIMULATION "Use 3D simulation instead of 2D (changes Intox port from 12345 to 12348)" OFF)
 
 # Output directories
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+
+# Simulation configuration
+if(USE_3D_SIMULATION)
+    set(INTOX_PORT 12348)
+    set(SIMULATION_TYPE "3D")
+    add_compile_definitions(SIMULATION_3D)
+else()
+    set(INTOX_PORT 12345)
+    set(SIMULATION_TYPE "2D")
+    add_compile_definitions(SIMULATION_2D)
+endif()
+
+set(INTOX_ADDRESS "127.0.0.1")
 
 # MRPiZ configuration (for cross-compilation)
 if(TARGET_MRPIZ)
@@ -55,14 +69,14 @@ else()
     set(CMAKE_C_COMPILER "gcc")
     add_compile_definitions(
         INTOX
-        # Define the required Intox variables
-        intox_address="127.0.0.1"
-        intox_port=12345
+        # Define the required Intox variables with dynamic port
+        intox_address="${INTOX_ADDRESS}"
+        intox_port=${INTOX_PORT}
     )
 
-    # Output executable name
-    set(EXPLO_EXE_NAME "explo_intox")
-    set(INTER_EXE_NAME "inter_intox")
+    # Output executable name with simulation type
+    set(EXPLO_EXE_NAME "explo_intox_${SIMULATION_TYPE}")
+    set(INTER_EXE_NAME "inter_intox_${SIMULATION_TYPE}")
     
     # Link with Intox simulator libraries
     set(MRPIZ_LIB "intoxmrpiz;intox")
@@ -199,9 +213,6 @@ endforeach()
 # Link zlib directly
 target_link_libraries(explo ${ZLIB_LIBRARIES})
 
-# Link lib math for all project
-target_link_libraries(explo m)
-
 if(EXTRA_LIBS)
     target_link_libraries(explo ${EXTRA_LIBS})
 endif()
@@ -242,6 +253,16 @@ endforeach()
 # Link zlib directly
 target_link_libraries(inter ${ZLIB_LIBRARIES})
 
+# Find math library
+find_library(MATH_LIBRARY m)
+
+# Link math library to executables
+if(MATH_LIBRARY)
+    target_link_libraries(explo ${MATH_LIBRARY})
+    target_link_libraries(inter ${MATH_LIBRARY})
+endif()
+
+
 if(EXTRA_LIBS)
     target_link_libraries(inter ${EXTRA_LIBS})
 endif()
@@ -253,6 +274,10 @@ if(USE_TLS)
     message(STATUS "Linking with wolfSSL libraries: ${WOLFSSL_LIBRARIES}")
 endif()
 
+# Add build type definitions
+target_compile_definitions(explo PRIVATE EXPLO_BUILD)
+target_compile_definitions(inter PRIVATE INTER_BUILD)
+
 # Summary
 message(STATUS "")
 message(STATUS "Build configuration summary:")
@@ -262,8 +287,9 @@ if(TARGET_MRPIZ)
     message(STATUS "  Target: MRPiZ")
 else()
     message(STATUS "  Target: PC Development")
-    message(STATUS "  Intox Address: 127.0.0.1")
-    message(STATUS "  Intox Port: 12345")
+    message(STATUS "  Simulation: ${SIMULATION_TYPE}")
+    message(STATUS "  Intox Address: ${INTOX_ADDRESS}")
+    message(STATUS "  Intox Port: ${INTOX_PORT}")
 endif()
 message(STATUS "  TLS Support: ${USE_TLS}")
 message(STATUS "  Debug Build: ${DEBUG}")
@@ -306,7 +332,8 @@ file(WRITE ${PRESETS_FILE} [=[
         "CMAKE_BUILD_TYPE": "Debug",
         "DEBUG": "ON",
         "TARGET_MRPIZ": "OFF",
-        "USE_TLS": "OFF"
+        "USE_TLS": "OFF",
+        "USE_3D_SIMULATION": "OFF"
       }
     },
     {
@@ -319,7 +346,36 @@ file(WRITE ${PRESETS_FILE} [=[
         "CMAKE_BUILD_TYPE": "Release",
         "DEBUG": "OFF",
         "TARGET_MRPIZ": "OFF",
-        "USE_TLS": "OFF"
+        "USE_TLS": "OFF",
+        "USE_3D_SIMULATION": "OFF"
+      }
+    },
+    {
+      "name": "x86_64-3d-debug",
+      "displayName": "x86_64 3D Debug",
+      "description": "3D Debug build for x86_64 architecture",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/x86_64-3d-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "DEBUG": "ON",
+        "TARGET_MRPIZ": "OFF",
+        "USE_TLS": "OFF",
+        "USE_3D_SIMULATION": "ON"
+      }
+    },
+    {
+      "name": "x86_64-3d-release",
+      "displayName": "x86_64 3D Release",
+      "description": "3D Release build for x86_64 architecture",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/x86_64-3d-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "DEBUG": "OFF",
+        "TARGET_MRPIZ": "OFF",
+        "USE_TLS": "OFF",
+        "USE_3D_SIMULATION": "ON"
       }
     },
     {
@@ -332,7 +388,8 @@ file(WRITE ${PRESETS_FILE} [=[
         "CMAKE_BUILD_TYPE": "Release",
         "DEBUG": "OFF",
         "TARGET_MRPIZ": "ON",
-        "USE_TLS": "OFF"
+        "USE_TLS": "OFF",
+        "USE_3D_SIMULATION": "OFF"
       }
     },
     {
@@ -345,7 +402,8 @@ file(WRITE ${PRESETS_FILE} [=[
         "CMAKE_BUILD_TYPE": "Debug",
         "DEBUG": "ON",
         "TARGET_MRPIZ": "OFF",
-        "USE_TLS": "OFF"
+        "USE_TLS": "OFF",
+        "USE_3D_SIMULATION": "OFF"
       }
     },
     {
@@ -358,7 +416,36 @@ file(WRITE ${PRESETS_FILE} [=[
         "CMAKE_BUILD_TYPE": "Release",
         "DEBUG": "OFF",
         "TARGET_MRPIZ": "OFF",
-        "USE_TLS": "OFF"
+        "USE_TLS": "OFF",
+        "USE_3D_SIMULATION": "OFF"
+      }
+    },
+    {
+      "name": "aarch64-3d-debug",
+      "displayName": "ARM64 3D Debug",
+      "description": "3D Debug build for ARM64 architecture",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/aarch64-3d-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "DEBUG": "ON",
+        "TARGET_MRPIZ": "OFF",
+        "USE_TLS": "OFF",
+        "USE_3D_SIMULATION": "ON"
+      }
+    },
+    {
+      "name": "aarch64-3d-release",
+      "displayName": "ARM64 3D Release",
+      "description": "3D Release build for ARM64 architecture",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/aarch64-3d-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "DEBUG": "OFF",
+        "TARGET_MRPIZ": "OFF",
+        "USE_TLS": "OFF",
+        "USE_3D_SIMULATION": "ON"
       }
     },
     {
@@ -371,7 +458,8 @@ file(WRITE ${PRESETS_FILE} [=[
         "CMAKE_BUILD_TYPE": "Release",
         "DEBUG": "OFF",
         "TARGET_MRPIZ": "ON",
-        "USE_TLS": "OFF"
+        "USE_TLS": "OFF",
+        "USE_3D_SIMULATION": "OFF"
       }
     },
     {
@@ -384,7 +472,8 @@ file(WRITE ${PRESETS_FILE} [=[
         "CMAKE_BUILD_TYPE": "Release",
         "DEBUG": "OFF",
         "TARGET_MRPIZ": "OFF",
-        "USE_TLS": "ON"
+        "USE_TLS": "ON",
+        "USE_3D_SIMULATION": "OFF"
       }
     }
   ],
@@ -398,6 +487,14 @@ file(WRITE ${PRESETS_FILE} [=[
       "configurePreset": "x86_64-release"
     },
     {
+      "name": "x86_64-3d-debug",
+      "configurePreset": "x86_64-3d-debug"
+    },
+    {
+      "name": "x86_64-3d-release",
+      "configurePreset": "x86_64-3d-release"
+    },
+    {
       "name": "x86_64-mrpiz",
       "configurePreset": "x86_64-mrpiz"
     },
@@ -408,6 +505,14 @@ file(WRITE ${PRESETS_FILE} [=[
     {
       "name": "aarch64-release",
       "configurePreset": "aarch64-release"
+    },
+    {
+      "name": "aarch64-3d-debug",
+      "configurePreset": "aarch64-3d-debug"
+    },
+    {
+      "name": "aarch64-3d-release",
+      "configurePreset": "aarch64-3d-release"
     },
     {
       "name": "aarch64-mrpiz",

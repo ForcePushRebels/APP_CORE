@@ -6,6 +6,7 @@
 #include "motorControl.h"
 #include "xLog.h"
 
+#define SENSOR_OBSTACLE_THRESHOLD 150
 
 /**
  * @brief Initialise le contrôleur de sécurité.
@@ -49,6 +50,12 @@ void stop(SafetyController* ctrl, double decelerationFactor)
  */
 void moveForward(SafetyController* ctrl, float max_speed) 
 {
+    if (SENSOR_OBSTACLE_THRESHOLD >= 150) 
+    {
+        X_LOG_TRACE("[SafetyController] Seuil d'obstacle atteint, pas de déplacement possible\n");
+        return;
+    }
+    // Si l'arrêt d'urgence est actif, on ne permet pas le mouvement
     if (ctrl->emergencyStopFlag == true) 
     {
         X_LOG_TRACE("[SafetyController] Mouvement bloqué : arrêt d'urgence actif.\n");
@@ -66,7 +73,7 @@ void moveForward(SafetyController* ctrl, float max_speed)
 
 
 /**
- * @brief Effectue une rotation à gauche de 90°.
+ * @brief Effectue une rotation à gauche de 90°.     
  * 
  * @param ctrl Pointeur vers la structure SafetyController.
  * @param max_speed Vitesse maximale de rotation.
@@ -99,3 +106,4 @@ void moveRight(SafetyController* ctrl, float max_speed, bool relative)
     pilot_turn(-3.14159f / 2, max_speed, relative);
     X_LOG_TRACE("[SafetyController] Rotation droite 90°.\n");
 }
+

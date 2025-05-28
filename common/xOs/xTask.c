@@ -40,6 +40,7 @@ int osTaskInit(xOsTaskCtx *p_pttOSTask)
     p_pttOSTask->t_iState = OS_TASK_STATUS_READY;
     p_pttOSTask->t_iExitCode = OS_TASK_EXIT_SUCCESS;
     
+    // Initialize atomic stop flag (relaxed for initialization)
     atomic_init(&p_pttOSTask->a_iStopFlag, OS_TASK_SECURE_FLAG);
 
     return OS_TASK_SUCCESS;
@@ -346,8 +347,8 @@ int osTaskStop(xOsTaskCtx *p_pttOSTask, int p_iTimeout)
         return OS_TASK_ERROR_NOT_RUNNING;
     }
 
-    // Set the stop flag atomically
-    atomic_store(&p_pttOSTask->a_iStopFlag, OS_TASK_STOP_REQUEST);
+    // Set the stop flag atomically with release ordering for proper synchronization
+    atomic_store_explicit(&p_pttOSTask->a_iStopFlag, OS_TASK_STOP_REQUEST, memory_order_release);
 
     // If timeout is 0, don't wait
     if (p_iTimeout <= 0)

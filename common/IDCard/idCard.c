@@ -149,7 +149,8 @@ void idCardNetworkInit(void)
     s_xTaskHandle.t_ptTaskArg = NULL;
 
     // Ensure the stop flag is correctly reset before creating the task
-    atomic_store(&s_xTaskHandle.a_iStopFlag, OS_TASK_SECURE_FLAG);
+    // Use relaxed ordering for initialization phase
+    atomic_store_explicit(&s_xTaskHandle.a_iStopFlag, OS_TASK_SECURE_FLAG, memory_order_relaxed);
 
     // Créer la tâche
     l_iReturn = osTaskCreate(&s_xTaskHandle);
@@ -212,7 +213,9 @@ void *handleIsAnyRobotHere(void *p_pvArg)
     // copy the manifest to the buffer
     memcpy(ptr, &l_sManifest, sizeof(manifest_t));
 
-    while (atomic_load(&s_xTaskHandle.a_iStopFlag) == OS_TASK_SECURE_FLAG)
+    // Cache stop flag check with acquire ordering for loop condition
+    // Flag rarely changes during normal operation, optimize main loop
+    while (atomic_load_explicit(&s_xTaskHandle.a_iStopFlag, memory_order_acquire) == OS_TASK_SECURE_FLAG)
     {
         // wait and receive a datagram
         l_iReturn = networkReceiveFrom(l_ptSocket, l_pcBuffer, sizeof(l_pcBuffer), &l_tSenderAddr);

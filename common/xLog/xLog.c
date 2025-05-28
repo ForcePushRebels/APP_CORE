@@ -40,6 +40,7 @@ static t_logCtx s_tLogConfig = {0};
 static xOsMutexCtx s_tLogMutex;
 static FILE *s_ptLogFile = NULL;
 
+// Atomic log state with explicit initialization for better performance
 static atomic_int s_eLogState = ATOMIC_VAR_INIT(XOS_LOG_STATE_UNINITIALIZED);
 
 // Forward declarations of secure helper functions
@@ -75,8 +76,8 @@ int xLogInit(t_logCtx *p_ptConfig)
     l_cConfigPath[sizeof(l_cConfigPath) - 1] = '\0';
 #endif
 
-    // Early return if already initialized
-    if (atomic_load(&s_eLogState) == XOS_LOG_STATE_INITIALIZED)
+    // Early return if already initialized - use acquire ordering for proper synchronization
+    if (atomic_load_explicit(&s_eLogState, memory_order_acquire) == XOS_LOG_STATE_INITIALIZED)
     {
         return XOS_LOG_OK;
     }
@@ -96,8 +97,8 @@ int xLogInit(t_logCtx *p_ptConfig)
         return XOS_LOG_MUTEX_ERROR;
     }
 
-    // Double-check after acquiring lock
-    if (atomic_load(&s_eLogState) == XOS_LOG_STATE_INITIALIZED)
+    // Double-check after acquiring lock - use relaxed ordering within mutex protection
+    if (atomic_load_explicit(&s_eLogState, memory_order_relaxed) == XOS_LOG_STATE_INITIALIZED)
     {
         mutexUnlock(&s_tLogMutex);
         return XOS_LOG_OK;
@@ -194,7 +195,7 @@ int xLogInit(t_logCtx *p_ptConfig)
     }
 
     // Mark as initialized
-    atomic_store(&s_eLogState, XOS_LOG_STATE_INITIALIZED);
+    atomic_store_explicit(&s_eLogState, XOS_LOG_STATE_INITIALIZED, memory_order_release);
     mutexUnlock(&s_tLogMutex);
 
     return XOS_LOG_OK;
@@ -226,8 +227,10 @@ int xLogWrite(const char *p_ptkcFile, uint32_t p_ulLine, const char *p_ptkcForma
     l_cFormatCopy[sizeof(l_cFormatCopy) - 1] = '\0';
 #endif
 
-    // Early return if not initialized
-    if (atomic_load(&s_eLogState) != XOS_LOG_STATE_INITIALIZED)
+    // Cache log state check with acquire ordering - early return optimization
+    // State rarely changes during normal operation, so cache it locally
+    int l_iLogState = atomic_load_explicit(&s_eLogState, memory_order_acquire);
+    if (l_iLogState != XOS_LOG_STATE_INITIALIZED)
     {
         return XOS_LOG_NOT_INIT;
     }
@@ -341,8 +344,10 @@ int xLogWrite(const char *p_ptkcFile, uint32_t p_ulLine, const char *p_ptkcForma
         return XOS_LOG_MUTEX_ERROR;
     }
 
-    // Verify we're still initialized after lock
-    if (atomic_load(&s_eLogState) != XOS_LOG_STATE_INITIALIZED)
+    // Verify we're still initialized after lock - use cached state with relaxed check
+    // Since we're within mutex protection and state was cached above, use relaxed ordering
+    int l_iCurrentState = atomic_load_explicit(&s_eLogState, memory_order_relaxed);
+    if (l_iCurrentState != XOS_LOG_STATE_INITIALIZED)
     {
         XOS_MEMORY_SANITIZE(l_cUserMsg, sizeof(l_cUserMsg));
         XOS_MEMORY_SANITIZE(l_cFullMsg, sizeof(l_cFullMsg));
@@ -387,7 +392,7 @@ int xLogWrite(const char *p_ptkcFile, uint32_t p_ulLine, const char *p_ptkcForma
 int xLogClose(void)
 {
     // Early return if not initialized
-    if (atomic_load(&s_eLogState) != XOS_LOG_STATE_INITIALIZED)
+    if (atomic_load_explicit(&s_eLogState, memory_order_acquire) != XOS_LOG_STATE_INITIALIZED)
     {
         return XOS_LOG_NOT_INIT;
     }
@@ -400,7 +405,7 @@ int xLogClose(void)
     }
 
     // Double-check after acquiring lock
-    if (atomic_load(&s_eLogState) != XOS_LOG_STATE_INITIALIZED)
+    if (atomic_load_explicit(&s_eLogState, memory_order_acquire) != XOS_LOG_STATE_INITIALIZED)
     {
         mutexUnlock(&s_tLogMutex);
         return XOS_LOG_NOT_INIT;
@@ -424,7 +429,7 @@ int xLogClose(void)
     }
 
     // Mark as uninitialized first (prevents new logging operations)
-    atomic_store(&s_eLogState, XOS_LOG_STATE_UNINITIALIZED);
+    atomic_store_explicit(&s_eLogState, XOS_LOG_STATE_UNINITIALIZED, memory_order_release);
 
     // Securely clear configuration data
     XOS_MEMORY_SANITIZE(&s_tLogConfig, sizeof(s_tLogConfig));

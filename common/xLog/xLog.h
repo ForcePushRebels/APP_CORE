@@ -20,10 +20,16 @@
 #define XOS_LOG_INVALID 0x9E82F72
 #define XOS_LOG_NOT_INIT 0x9E82F73
 #define XOS_LOG_MUTEX_ERROR 0x9E82F74
+#define XOS_LOG_SECURITY_ERROR 0x9E82F75
 
-// Log buffer sizes
+// Log buffer sizes - FIXED BOUNDS for security
 #define XOS_LOG_PATH_SIZE 256
 #define XOS_LOG_MSG_SIZE 1024
+#define XOS_LOG_MAX_FILENAME_SIZE 128
+#define XOS_LOG_TIMESTAMP_SIZE 32
+#define XOS_LOG_BASENAME_SIZE 64
+#define XOS_LOG_FULL_MSG_SIZE (XOS_LOG_MSG_SIZE + 128)  // Fixed calculation
+#define XOS_LOG_TEMP_BUFFER_SIZE 256  // For temporary operations
 
 // Log configuration structure
 typedef struct
@@ -54,14 +60,6 @@ int xLogWrite(const char *p_ptkcFile, uint32_t p_ulLine, const char *p_ptkcForma
 /// @return success or error code
 //////////////////////////////////
 int xLogClose(void);
-
-//////////////////////////////////
-/// @brief Get the directory path of the executable
-/// @param p_pcExecutablePath : buffer to store the directory path
-/// @param p_iSize : size of the buffer
-/// @return length of the directory path on success, -1 on error
-//////////////////////////////////
-int xLogGetExecutablePath(char *p_pcExecutablePath, size_t p_iSize);
 
 // Log macros
 #define X_LOG_TRACE(msg, ...) xLogWrite(__FILE__, __LINE__, "TRACE | " msg, ##__VA_ARGS__)

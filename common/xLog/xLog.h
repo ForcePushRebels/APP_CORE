@@ -30,7 +30,7 @@ typedef struct
 {
     bool t_bLogToFile;                  // Enable file logging
     bool t_bLogToConsole;               // Enable console logging
-    char t_cLogPath[XOS_LOG_PATH_SIZE]; // Log file path
+    char t_cLogPath[XOS_LOG_PATH_SIZE]; // Log filename (full path will be auto-constructed with executable directory)
 } t_logCtx;
 
 //////////////////////////////////

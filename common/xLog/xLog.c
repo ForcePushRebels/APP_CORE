@@ -74,6 +74,34 @@ int xLogInit(t_logCtx *p_ptConfig)
     // Copy configuration (with size limits)
     memcpy(&s_tLogConfig, p_ptConfig, sizeof(t_logCtx));
 
+    // Always construct full path when logging to file
+    if (s_tLogConfig.t_bLogToFile)
+    {
+        char l_cExecutablePath[256] = {0};
+        char l_cFullLogPath[XOS_LOG_PATH_SIZE] = {0};
+        char l_cOriginalFileName[XOS_LOG_PATH_SIZE] = {0};
+        
+        // Save original filename
+        strncpy(l_cOriginalFileName, s_tLogConfig.t_cLogPath, sizeof(l_cOriginalFileName) - 1);
+        l_cOriginalFileName[sizeof(l_cOriginalFileName) - 1] = '\0';
+        
+        // Get executable directory
+        int l_iPathRet = xLogGetExecutablePath(l_cExecutablePath, sizeof(l_cExecutablePath));
+        if (l_iPathRet < 0)
+        {
+            // Fallback to current directory
+            strcpy(l_cExecutablePath, ".");
+        }
+        
+        // Construct full path: executable_directory + "/" + filename
+        snprintf(l_cFullLogPath, sizeof(l_cFullLogPath), "%s/%s", 
+                 l_cExecutablePath, l_cOriginalFileName);
+        
+        // Copy the constructed path back to config
+        strncpy(s_tLogConfig.t_cLogPath, l_cFullLogPath, sizeof(s_tLogConfig.t_cLogPath) - 1);
+        s_tLogConfig.t_cLogPath[sizeof(s_tLogConfig.t_cLogPath) - 1] = '\0';
+    }
+
     // Open log file if needed
     if (s_tLogConfig.t_bLogToFile)
     {
@@ -239,7 +267,7 @@ int xLogClose(void)
 ////////////////////////////////////////////////////////////
 /// xLogGetExecutablePath
 ////////////////////////////////////////////////////////////
-int xLogGetExecutablePath(char *p_pcExecutablePath, size_t p_iSize)
+static int xLogGetExecutablePath(char *p_pcExecutablePath, size_t p_iSize)
 {
     if (p_pcExecutablePath == NULL || p_iSize == 0)
     {
@@ -247,12 +275,12 @@ int xLogGetExecutablePath(char *p_pcExecutablePath, size_t p_iSize)
     }
 
     char l_cExePath[PATH_MAX];
-    ssize_t l_iPathLen = readlink("/proc/self/exe", l_cExePath, sizeof(l_cExePath) - 1);
-    if (l_iPathLen == -1)
+    ssize_t l_lPathLen = readlink("/proc/self/exe", l_cExePath, sizeof(l_cExePath) - 1);
+    if (l_lPathLen == -1)
     {
         return -1;
     }
-    l_cExePath[l_iPathLen] = '\0';
+    l_cExePath[l_lPathLen] = '\0';
 
     // Get directory path of executable
     char *l_pcDirPath = dirname(l_cExePath);

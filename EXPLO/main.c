@@ -308,20 +308,12 @@ void testPilot(void)
 int main()
 {
     int l_iReturn = 0;
-    char l_cExecutablePath[256] = {0};
-    char l_cLogPath[256 + sizeof(s_aCLogPath)] = {0};
 
-    l_iReturn = xLogGetExecutablePath(l_cExecutablePath, sizeof(l_cExecutablePath));
-    if (l_iReturn < 0)
-    {
-        strcpy(l_cExecutablePath, ".");
-    }
-    snprintf(l_cLogPath, sizeof(l_cLogPath), "%s/%s", l_cExecutablePath, s_aCLogPath);
-
+    // Configuration des logs - le chemin complet sera construit automatiquement
     t_logCtx t_LogConfig;
-    t_LogConfig.t_bLogToFile = false;
+    t_LogConfig.t_bLogToFile = true;
     t_LogConfig.t_bLogToConsole = true;
-    strncpy(t_LogConfig.t_cLogPath, l_cLogPath, sizeof(t_LogConfig.t_cLogPath) - 1);
+    strncpy(t_LogConfig.t_cLogPath, (const char*)s_aCLogPath, sizeof(t_LogConfig.t_cLogPath) - 1);
     t_LogConfig.t_cLogPath[sizeof(t_LogConfig.t_cLogPath) - 1] = '\0';
 
     // initialisation des logs

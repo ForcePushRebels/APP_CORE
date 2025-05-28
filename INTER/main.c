@@ -80,24 +80,12 @@ static void l_fWatchdogExpiryHandler(void)
 int main()
 {
     int l_iReturn = 0;
-    char l_cExecutablePath[256] = {0};
-    char l_cLogPath[512] = {0};
 
-    // Récupérer le répertoire de l'exécutable
-    l_iReturn = xLogGetExecutablePath(l_cExecutablePath, sizeof(l_cExecutablePath));
-    if (l_iReturn < 0)
-    {
-        // Fallback sur le répertoire courant si échec
-        strcpy(l_cExecutablePath, ".");
-    }
-
-    // Construire le chemin complet du fichier de log
-    snprintf(l_cLogPath, sizeof(l_cLogPath), "%s/%s", l_cExecutablePath, s_aCLogPath);
-
+    // Configuration des logs - le chemin complet sera construit automatiquement
     t_logCtx t_LogConfig;
     t_LogConfig.t_bLogToFile = true;
     t_LogConfig.t_bLogToConsole = true;
-    strncpy(t_LogConfig.t_cLogPath, l_cLogPath, sizeof(t_LogConfig.t_cLogPath) - 1);
+    strncpy(t_LogConfig.t_cLogPath, (const char*)s_aCLogPath, sizeof(t_LogConfig.t_cLogPath) - 1);
     t_LogConfig.t_cLogPath[sizeof(t_LogConfig.t_cLogPath) - 1] = '\0';
 
     // initialisation des logs

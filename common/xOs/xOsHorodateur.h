@@ -4,7 +4,7 @@
 //
 // general discloser: copy or share the file is forbidden
 // Written : 14/11/2024
-// Modified: 2025 - Enhanced precision to microseconds
+// Modified: 28/05/2025 - NASA JPL compliance improvements
 // Intellectual property of Christophe Benedetti
 ////////////////////////////////////////////////////////////
 #pragma once
@@ -18,6 +18,11 @@
 #define XOS_HORODATEUR_OK            0x67D09A00
 #define XOS_HORODATEUR_ERROR         0x67D09A01
 #define XOS_HORODATEUR_INVALID       0x67D09A02
+
+#define XOS_HORODATEUR_BUFFER_SIZE   72
+#define XOS_HORODATEUR_MAX_YEAR      9999
+#define XOS_HORODATEUR_MIN_YEAR      1900
+#define XOS_HORODATEUR_MAX_FORMAT_ITERATIONS 10
 
 //////////////////////////////////
 /// @brief Get current formatted timestamp with microsecond precision

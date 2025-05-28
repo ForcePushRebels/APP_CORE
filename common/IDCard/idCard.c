@@ -9,7 +9,6 @@
 #include "idCard.h"
 #include "xNetwork.h"
 #include "networkEncode.h"
-#include "handleNetworkMessage.h"
 #include "xLog.h"
 #include "xTask.h"
 #include <ifaddrs.h>
@@ -18,19 +17,23 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-#ifdef EXPLO_BUILD
-static char s_pcRobotName[] = "Claquette de Christophe";
-#else
-static char s_pcRobotName[] = "Chaussette de Dorian";
-#endif
+static char s_pcRobotName[] = "Robot_zebi_putin_de_merde";
 static char s_pcIpAddr[16] = {0};
-static int s_iRole = 0;
+static RobotType_t s_iRole = 0;
 static bool s_bUseLoopback = true; // boolean to enable/disable the use of loopback
 static xOsTaskCtx s_xTaskHandle = {0};
 
 ///////////////////////////////////////////
 /// findIpAddress
 ///////////////////////////////////////////
+
+int idCardInit(RobotType_t type)
+{
+    s_iRole = type;
+
+    return 0;
+}
+
 static void findIpAddress(void)
 {
     struct ifaddrs *ifaddr, *ifa;
@@ -126,48 +129,12 @@ int createManifest(manifest_t *p_ptManifest)
     return 0;
 }
 
-
-///////////////////////////////////////////
-/// handleIsAnyRobotHere
-///////////////////////////////////////////
-static void isAnyRobotHereHandle(clientCtx *p_ptClient, const network_message_t *p_ptMessage)
-{
-    (void)p_ptMessage; // unused argument avoid warning
-
-    manifest_t l_sManifest = {0};
-    int l_iReturn = 0;                                                          // return value
-    uint8_t l_ucSendBuffer[3 + sizeof(manifest_t)];                             // buffer to send the manifest
-    size_t totalSize = sizeof(uint16_t) + sizeof(uint8_t) + sizeof(manifest_t); // total size of the message
-    NetworkAddress l_tSenderAddr;                                               // sender address
-
-    // create the manifest
-    l_iReturn = createManifest(&l_sManifest);
-    X_ASSERT(l_iReturn == 0);
-
-    // get client id from the message
-    ClientID l_tClientId = networkServerGetClientID(p_ptClient);
-
-    l_iReturn = networkServerSendMessage(l_tClientId, ID_MANIFEST, &l_sManifest, sizeof(manifest_t));
-
-    if (l_iReturn < 0)
-    {
-        X_LOG_TRACE("Failed to send manifest: %s", networkGetErrorString(l_iReturn));
-    }
-    else
-    {
-        X_LOG_TRACE("Successfully sent manifest response (%d bytes)", l_iReturn);
-    }
-}
-
 ///////////////////////////////////////////
 /// idCardNetworkInit
 ///////////////////////////////////////////
 void idCardNetworkInit(void)
 {
     int l_iReturn = 0;
-
-    // Register the message handler for the ID_IS_ANY_ROBOT_HERE message
-    registerMessageHandler(ID_IS_ANY_ROBOT_HERE, isAnyRobotHereHandle);
 
     // Initialiser la gestion des tâches
     l_iReturn = osTaskInit(&s_xTaskHandle);
@@ -182,7 +149,8 @@ void idCardNetworkInit(void)
     s_xTaskHandle.t_ptTaskArg = NULL;
 
     // Ensure the stop flag is correctly reset before creating the task
-    atomic_store(&s_xTaskHandle.a_iStopFlag, OS_TASK_SECURE_FLAG);
+    // Use relaxed ordering for initialization phase
+    atomic_store_explicit(&s_xTaskHandle.a_iStopFlag, OS_TASK_SECURE_FLAG, memory_order_relaxed);
 
     // Créer la tâche
     l_iReturn = osTaskCreate(&s_xTaskHandle);
@@ -203,7 +171,7 @@ void *handleIsAnyRobotHere(void *p_pvArg)
     (void)p_pvArg; // unused argument avoid warning
 
     int l_iReturn = 0;
-    uint8_t l_ucBuffer[64];  // Changed to uint8_t and increased size for binary data
+    char l_pcBuffer[16];
     manifest_t l_sManifest = {0};
     uint8_t l_ucSendBuffer[3 + sizeof(manifest_t)];
 
@@ -216,7 +184,7 @@ void *handleIsAnyRobotHere(void *p_pvArg)
     X_LOG_TRACE("UDP socket created successfully");
 
     // use 0.0.0.0 to listen on all interfaces
-    NetworkAddress l_tAddress = networkMakeAddress("0.0.0.0", 13769);
+    NetworkAddress l_tAddress = networkMakeAddress("127.0.0.1", 13769);
     NetworkAddress l_tSenderAddr;
 
     l_iReturn = networkBind(l_ptSocket, &l_tAddress);
@@ -245,19 +213,18 @@ void *handleIsAnyRobotHere(void *p_pvArg)
     // copy the manifest to the buffer
     memcpy(ptr, &l_sManifest, sizeof(manifest_t));
 
-    while (atomic_load(&s_xTaskHandle.a_iStopFlag) == OS_TASK_SECURE_FLAG)
+    // Cache stop flag check with acquire ordering for loop condition
+    // Flag rarely changes during normal operation, optimize main loop
+    while (atomic_load_explicit(&s_xTaskHandle.a_iStopFlag, memory_order_acquire) == OS_TASK_SECURE_FLAG)
     {
         // wait and receive a datagram
-        l_iReturn = networkReceiveFrom(l_ptSocket, l_ucBuffer, sizeof(l_ucBuffer), &l_tSenderAddr);
+        l_iReturn = networkReceiveFrom(l_ptSocket, l_pcBuffer, sizeof(l_pcBuffer), &l_tSenderAddr);
 
         if (l_iReturn > 0) // check if data has been received
         {
-            X_LOG_TRACE("Received UDP data: %d bytes from %s:%d", 
-                       l_iReturn, l_tSenderAddr.t_cAddress, l_tSenderAddr.t_usPort);
-            
-            if (l_iReturn == 1 && l_ucBuffer[0] == ID_IS_ANY_ROBOT_HERE)
+            if (l_pcBuffer[0] == ID_IS_ANY_ROBOT_HERE)
             {
-                X_LOG_TRACE("Received valid robot discovery request (0x%02X)", l_ucBuffer[0]);
+                X_LOG_TRACE("Received valid robot discovery request");
 
                 size_t totalSize = sizeof(uint16_t) + sizeof(uint8_t) + sizeof(manifest_t);
 
@@ -277,8 +244,7 @@ void *handleIsAnyRobotHere(void *p_pvArg)
             }
             else
             {
-                X_LOG_TRACE("Received unrecognized UDP message: %d bytes, first byte=0x%02X", 
-                           l_iReturn, l_ucBuffer[0]);
+                // NONE
             }
         }
         else if (l_iReturn == NETWORK_TIMEOUT)
@@ -298,4 +264,9 @@ void *handleIsAnyRobotHere(void *p_pvArg)
     networkCloseSocket(l_ptSocket);
 
     return NULL;
+}
+
+RobotType_t idCardGetRole()
+{
+    return s_iRole;
 }

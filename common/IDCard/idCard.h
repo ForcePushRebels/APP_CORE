@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////
 //  IDCard header file
-//  Provides IDCard interface 
+//  Provides IDCard interface
 //
 // general disclosure: copy or share the file is forbidden
 // Written : 19/05/2025
@@ -20,13 +20,23 @@
 #include <arpa/inet.h>
 
 #pragma pack(push, 1)
+typedef enum
+{
+    IDCARD_ROLE_EXPLO,
+    IDCARD_ROLE_INTER
+} RobotType_t;
 typedef struct idCard_t
 {
     char t_pcRobotName[32];
     char t_pcIpAddr[16];
-    int t_iRole;
+    RobotType_t t_iRole;
 } manifest_t;
 #pragma pack(pop)
+
+///////////////////////////////////////////
+/// @brief init the IdCard
+///////////////////////////////////////////
+int idCardInit(RobotType_t type);
 
 ///////////////////////////////////////////
 /// @brief Create manifest for the robot
@@ -34,7 +44,7 @@ typedef struct idCard_t
 /// @param p_ptManifest Pointer to the manifest structure
 /// @return 0 if successful, otherwise an error code
 ///////////////////////////////////////////
-int createManifest(manifest_t* p_ptManifest);
+int createManifest(manifest_t *p_ptManifest);
 
 ///////////////////////////////////////////
 /// @brief Initialise network message handlers for the IDCard
@@ -54,7 +64,11 @@ void idCardNetworkCleanup(void);
 ///////////////////////////////////////////
 /// @brief Handle the ID_IS_ANY_ROBOT_HERE message
 ///////////////////////////////////////////
-void* handleIsAnyRobotHere(void* p_pvArg);
+void *handleIsAnyRobotHere(void *p_pvArg);
 
+///////////////////////////////////////////
+/// @brief Get the role of the robot
+///////////////////////////////////////////
+RobotType_t idCardGetRole();
 
 #endif // IDCARD_H_

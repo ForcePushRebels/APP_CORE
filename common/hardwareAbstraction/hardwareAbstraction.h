@@ -20,7 +20,7 @@
 #include "xAssert.h"
 #include "xTask.h"
 
-#define HARDWARE_ABSTRACTION_MAX_SENSORS 5
+#define HARDWARE_ABSTRACTION_MAX_SENSORS 3
 #define HARDWARE_ABSTRACTION_MAX_MOTORS 2
 
 ////////////////////////////////////////////////
@@ -108,5 +108,15 @@ int SetMotorSpeed(uint8_t p_iMotor, int p_iSpeed);
 /// @return 0 if success, -1 if error
 ////////////////////////////////////////////////////////////
 int ResetMotorEncoders();
+
+////////////////////////////////////////////////////////////
+/// @brief Hardware Abstraction Layer get floor sensor value
+////////////////////////////////////////////////////////////
+int GetFloorSensorValue();
+
+////////////////////////////////////////////////////////////
+/// @brief Hardware Abstraction Layer set floor sensor light
+////////////////////////////////////////////////////////////
+int SetFloorSensorLight(bool p_iLight);
 
 #endif // HARDWARE_ABSTRACTION_H

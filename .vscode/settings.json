@@ -4,6 +4,7 @@
         "xtask.h": "c",
         "hardwareabstraction.h": "c",
         "error.h": "c",
-        "xosmutex.h": "c"
+        "xosmutex.h": "c",
+        "xoshorodateur.h": "c"
     }
 }

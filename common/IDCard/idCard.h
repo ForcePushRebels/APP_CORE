@@ -36,7 +36,7 @@ typedef struct idCard_t
 int idCardInit(RobotType_t type);
 
 ///////////////////////////////////////////
-/// @brief Create a manifest for the robot
+/// @brief Create manifest for the robot
 ///
 /// @param p_ptManifest Pointer to the manifest structure
 /// @return 0 if successful, otherwise an error code
@@ -44,17 +44,17 @@ int idCardInit(RobotType_t type);
 int createManifest(manifest_t *p_ptManifest);
 
 ///////////////////////////////////////////
-/// @brief Initialise les gestionnaires de messages réseau pour l'IDCard
+/// @brief Initialise network message handlers for the IDCard
 ///
-/// Enregistre les handlers pour les messages liés à l'IDCard
-/// Cette fonction doit être appelée après initMessageHandlerSystem()
+/// Registers handlers for messages related to the IDCard
+/// This function must be called after initMessageHandlerSystem()
 ///////////////////////////////////////////
 void idCardNetworkInit(void);
 
 ///////////////////////////////////////////
-/// @brief Nettoie les gestionnaires de messages réseau pour l'IDCard
+/// @brief Clean up network message handlers for the IDCard
 ///
-/// Désenregistre les handlers pour les messages liés à l'IDCard
+/// Unregisters handlers for messages related to the IDCard
 ///////////////////////////////////////////
 void idCardNetworkCleanup(void);
 

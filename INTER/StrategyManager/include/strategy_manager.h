@@ -37,6 +37,10 @@
 
 #include <time.h> // For timer management
 
+#include "../../symbols/geometry.h"
+
+#include "strategy_wrapper.h"
+
 #define STRATEGY_MANAGER_API_VERSION VER(1, 0, 0)
 
 // -- Strategy Manager Compatibility --
@@ -86,6 +90,10 @@ void strategy_manager__askStrat(StrategyManager *);
 
 void strategy_manager__giveIDStrategieToFollow(StrategyManager *, int);
 
+void strategy_manager__addStrategy(StrategyManager *, StrategyWrapper *);
+
+void strategy_manager__setMap(StrategyManager *self, Point *);
+
 	// Movement control
 
 void strategy_manager__startMove(StrategyManager *);
@@ -122,6 +130,6 @@ int strategy_manager__stopTimer(StrategyManager *self);
 
 	// Status update
 
-void strategy_manager__updateStatus(StrategyManager *self);
+void strategy_manager__updateStatus(StrategyManager *self, Status);
 
 #endif /* __STRATEGY_MANAGER_H__ */

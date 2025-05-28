@@ -42,6 +42,7 @@
 #include "../include/strategy_manager.h"
 
 #include "../../symbols/geometry.h"
+#include <strategy_wrapper.h>
 
 #define INTERVENTION_MANAGER_API_VERSION 	VER(1, 0, 0) // current header API version
 
@@ -67,6 +68,9 @@ void intervention_manager__delete(InterventionManager *);
 void intervention_manager__askStrat(InterventionManager *);
 
 void intervention_manager__giveIDStrategieToFollow(InterventionManager *, int);
+
+
+void intervention_manager__addStrategy(InterventionManager *, StrategyWrapper *);
 
 	// Movement control
 

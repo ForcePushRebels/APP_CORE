@@ -27,13 +27,29 @@
 
 #include "../../logger/log.h"
 #include "../../symbols/ret_codes.h"
+#include <geometry.h>
 
 #define LOG_TAG "StrategyManager"
 
+#define config_launcher__giveStrat(listStratName)  // TODO
+
+#define supervisor__giveEndCondition(listEndCondition) // TODO
+
 struct strategy_manager_s
 {
+	// TODO Ajouter à la conception
+	StrategyWrapper **listStrat;
+	// TODO Ajouter à la conception
+	int currentStrategyID; // ID de la stratégie actuellement suivie
+	int listStratLen;
+
 	Status status;
-	time_t Timer;	
+
+	Point *map;
+
+	// TODO Ajouter à la conception
+	// FIXME time_t Timer;
+	struct timespec start_time, end_time;
 };
 
 __attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
@@ -45,20 +61,10 @@ StrategyManager *strategy_manager__create()
 	LOG_DEBUG_MSG(LOG_TAG, ASCII_R2ARROW "entering strategy_manager__create()");
 
 	/* ===== Variables locales ===== */
-	StrategyManager *strategyManager = FAKE_PTR; // ⬅️ À remplacer. malloc/calloc pour la persistence
+	StrategyManager *strategyManager; // ⬅️ À remplacer. malloc/calloc pour la persistence
 
 	/* ===== Logique principale ===== */
-	/*
-		TODO : Allouer dynamiquement un StrategyManager
-		       Initialiser ses champs à des valeurs par défaut
-		       (pointeurs à NULL, compteurs à zéro, etc.)
-		       Exemple :
-		       strategyManager = malloc(sizeof(StrategyManager));
-		       if (strategyManager != NULL) {
-		           strategyManager->Timer = NULL;
-		           ...
-		       }
-	*/
+	strategyManager = malloc(sizeof(StrategyManager)); // ⬅️ Alloue dynamiquement un StrategyManager
 
 	LOG_DEBUG_MSG(LOG_TAG, ASCII_L2ARROW "exiting strategy_manager__create()");
 
@@ -82,19 +88,7 @@ void strategy_manager__delete(StrategyManager *self)
     // Déclare les variables temporaires
 
 	/* ===== Logique principale ===== */
-	/*
-		TODO : Libérer les ressources internes allouées dans le StrategyManager
-		       Exemples :
-		       - Libérer self->Timer s'il est alloué dynamiquement
-		       - Réinitialiser ou nettoyer tout autre champ
-		       - Enfin, libérer self lui-même si nécessaire
-		       Exemple :
-		           if (self->Timer != NULL) {
-		               timer__delete(self->Timer);
-		               self->Timer = NULL;
-		           }
-		           free(self);
-	*/
+	free(self); // ⬅️ Libère la mémoire allouée pour le StrategyManager
 
 	LOG_DEBUG_MSG(LOG_TAG, ASCII_L2ARROW "exiting strategy_manager__delete()");
 
@@ -102,6 +96,16 @@ void strategy_manager__delete(StrategyManager *self)
     // assert(strategyManager == NULL); // ⬅️ À décommenter. Quand le SAFE_FREE() est utilisé
 
 	return; // ⬅️ À conserver. Retour explicite (void)
+}
+
+void strategy_manager__addStrategy(StrategyManager *self, StrategyWrapper *strategyWrapper)
+{	
+	self->listStrat[self->listStratLen++] = strategyWrapper;	
+}
+
+void strategy_manager__setMap(StrategyManager *self, Point * map)
+{	
+	self->map = map;	
 }
 
 __attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
@@ -118,19 +122,8 @@ void strategy_manager__askStrat(StrategyManager *self)
 	LOG_DEBUG_MSG(LOG_TAG, ASCII_R2ARROW "entering strategy_manager__askStrat()");
 
 	/* ===== Logique principale ===== */
-	/*
-		TODO : Indiquer la liste des stratégies disponibles.
-			Le StrategyManager connaît les stratégies préchargées
-			et doit simplement fournir leur identification.
-
-			Exemple (pseudo-code) :
-				static const int availableStrats[] = {0, 1, 2}; // IDs fictifs
-				size_t n = sizeof(availableStrats) / sizeof(availableStrats[0]);
-				for (size_t i = 0; i < n; i++) {
-					stratIds[i] = availableStrats[i];
-				}
-				*count = n;
-	*/
+	char * listStratName;
+	config_launcher__giveStrat(listStratName)  // 📌
 
 	LOG_DEBUG_MSG(LOG_TAG, ASCII_L2ARROW "exiting strategy_manager__askStrat()");
 
@@ -155,20 +148,8 @@ void strategy_manager__giveIDStrategieToFollow(StrategyManager *self, int idStra
     // Déclare les variables temporaires
 
 	/* ===== Logique principale ===== */
-	/*
-		TODO : Enregistrer ou appliquer l'identifiant de stratégie à suivre.
-		       Cette fonction pourrait :
-		       - Mettre à jour un champ interne, ex : self->currentStrategyID = idStrat;
-		       - Valider que l'ID est dans une plage autorisée
-		       - Déclencher une transition d'état ou une préparation stratégique
-
-		       Exemple :
-		           if (idStrat >= 0 && idStrat < STRAT_ID_MAX) {
-		               self->currentStrategyID = idStrat;
-		           } else {
-		               log_error("ID stratégie invalide : %d", idStrat);
-		           }
-	*/
+	self->currentStrategyID = idStrat;
+	supervisor__giveEndCondition(listEndCondition); // 📌
 
 	LOG_DEBUG_MSG(LOG_TAG, ASCII_L2ARROW "exiting strategy_manager__giveIDStrategieToFollow()");
 
@@ -421,13 +402,9 @@ void strategy_manager__computeStrat(StrategyManager *self)
     // Déclare les variables temporaires
 
 	/* ===== Logique principale ===== */
-	/*
-		TODO : Calculer la stratégie à appliquer en fonction des données actuelles.
-		       Cela pourrait impliquer :
-		       - Analyse des capteurs ou états internes
-		       - Choix de la meilleure stratégie selon des règles métier
-		       - Mise à jour des champs internes dans 'self'
-	*/
+	strategy_wrapper__prepare(self->listStrat[self->currentStrategyID]);
+
+	strategy_wrapper__execute(self->listStrat[self->currentStrategyID]);
 
 	LOG_DEBUG_MSG(LOG_TAG, ASCII_L2ARROW "exiting strategy_manager__computeStrat()");
 
@@ -452,12 +429,7 @@ int strategy_manager__startTimer(StrategyManager *self)
 	int ret = RET_NOT_IMPL_INT; // ⬅️ "Rater-vite". Initialisé par un code d'erreur (prog défensive)
 
 	/* ===== Logique principale ===== */
-    /*
-        TODO : Démarrer le timer associé à self->Timer.
-               Exemple d’appel possible :
-                   int ret = timer_start(self->Timer);
-                   return ret;
-    */
+    ret = clock_gettime(CLOCK_MONOTONIC, &self->start_time);
 
 	LOG_DEBUG_MSG(LOG_TAG, ASCII_L2ARROW "exiting strategy_manager__startTimer()");
 
@@ -482,12 +454,7 @@ int strategy_manager__stopTimer(StrategyManager *self)
 	int ret = RET_NOT_IMPL_INT; // ⬅️ "Rater-vite". Initialisé par un code d'erreur (prog défensive)
 
 	/* ===== Logique principale ===== */
-    /*
-        TODO : Arrêter le timer associé à self->Timer.
-               Exemple :
-                   ret = timer_stop(self->Timer);
-                   return ret;
-    */
+	clock_gettime(CLOCK_MONOTONIC, &self->end_time);
 
 	LOG_DEBUG_MSG(LOG_TAG, ASCII_L2ARROW "exiting strategy_manager__stopTimer()");
 
@@ -498,7 +465,7 @@ int strategy_manager__stopTimer(StrategyManager *self)
 }
 
 __attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
-void strategy_manager__updateStatus(StrategyManager *self)
+void strategy_manager__updateStatus(StrategyManager *self, Status status)
 {
 	/* ===== Préconditions ===== */
 	// Vérifie les invariants avant logique
@@ -507,19 +474,15 @@ void strategy_manager__updateStatus(StrategyManager *self)
 
 	UNUSED(self); // ⬅️ À retirer. Dès que 'self' est utilisé en dehors des assert()
 
+	UNUSED(status); // ⬅️ À retirer. Dès que 'status' est utilisé en dehors des assert()
+
 	LOG_DEBUG_MSG(LOG_TAG, ASCII_R2ARROW "entering strategy_manager__updateStatus()");
 
 	/* ===== Variables locales ===== */
     // Déclare les variables temporaires
 
 	/* ===== Logique principale ===== */
-    /*
-        TODO : Mettre à jour le statut interne de la stratégie.
-               Cela peut inclure :
-               - Analyse des états internes
-               - Mise à jour de flags ou codes de statut dans self
-               - Déclenchement d'événements ou notifications si besoin
-    */
+	self->status = status;
    
 	LOG_DEBUG_MSG(LOG_TAG, ASCII_L2ARROW "exiting strategy_manager__updateStatus()");
 

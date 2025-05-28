@@ -19,6 +19,7 @@
 
 #include <assert.h>
 #include <stdlib.h>
+#include <math.h>
 
 #include "../../helpers/util_macros.h"
 #define INTERVENTION_MANAGER_IMPL_VERSION VER(1, 0, 0)
@@ -26,16 +27,47 @@
 
 #include "../../logger/log.h"
 #include "../../symbols/ret_codes.h"
+#include <strategy_wrapper.h>
 
 #define LOG_TAG "InterventionManager"
+
+// Void macros
+#define pilot__turn(angle, max_speed, relative) // TODO
+#define pilot__continuousAdvance(max_speed) // TODO
+#define pilot__stop(decelerationFactor) // TODO
+
+#define geo_positionner__getMap() ((Point){.x=0, .y=0}) // TODO
+#define geo_positionner__sendTrace() // TODO
+
+#define sensor_manager__startMonitoring(roleRobot); // TODO
+#define sensor_manager__stopMonitoring() // TODO
 
 struct intervention_manager_s
 {
 	StrategyManager *strategyManager;
+	
 	int interventionPriority;
-	Point pathPoints[10];
-	Position listZI[10];
+	
+	Point *map;
+
+	Point **pathPoints;
+	int currentPointIdx;
+	int nextPointIdx;
+	int angleToNextPoint;
+	int distanceToNextPoint;
+
+	Position *listZI;
 };
+
+static void intervention_manager__computeStrat(InterventionManager *self);
+static int intervention_manager__startTimer(InterventionManager *self);
+static int intervention_manager__stopTimer(InterventionManager *self);
+static void intervention_manager__updateStatus(InterventionManager *self, Status status);
+static int intervention_manager__computeAngleToPoint(InterventionManager *self);
+static int intervention_manager__computeDistanceToPoint(InterventionManager *self);
+static Position* intervention_manager__generatePathOfPoints(InterventionManager *self);
+static void intervention_manager__retrieveNextPoint(InterventionManager *self);
+static int intervention_manager__updateTrace(InterventionManager *self);
 
 __attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
 InterventionManager *intervention_manager__create()
@@ -46,20 +78,12 @@ InterventionManager *intervention_manager__create()
 	LOG_DEBUG_MSG(LOG_TAG, ASCII_R2ARROW "entering intervention_manager__create()");
 
 	/* ===== Variables locales ===== */
-	InterventionManager *interventionManager = FAKE_PTR;
+	InterventionManager *interventionManager;
 
 	/* ===== Logique principale ===== */
-	/*
-		TODO : Allouer dynamiquement un InterventionManager
-		       Initialiser ses champs à des valeurs par défaut
-		       (pointeurs à NULL, compteurs à zéro, etc.)
-		       Exemple :
-		       interventionManager = malloc(sizeof(InterventionManager));
-		       if (interventionManager != NULL) {
-		           interventionManager->Timer = NULL;
-		           ...
-		       }
-	*/
+	interventionManager = malloc(sizeof(InterventionManager));
+
+	interventionManager->strategyManager = strategy_manager__create();
 
 	LOG_DEBUG_MSG(LOG_TAG, ASCII_L2ARROW "exiting intervention_manager__create()");
 
@@ -83,24 +107,9 @@ void intervention_manager__delete(InterventionManager *self)
 	// Déclare les variables temporaires
 
 	/* ===== Logique principale ===== */
-	/*
-		TODO : Libérer les ressources internes allouées dans le InterventionManager
-			   Exemples :
-			   - Libérer le strategyManager
-			   - Libérer self->Timer s'il est alloué dynamiquement  
-			   - Réinitialiser ou nettoyer tout autre champ
-			   - Enfin, libérer self lui-même si nécessaire
-			   Exemple :  
-				   if (self->strategyManager != NULL) {
-					   strategy_manager__delete(self->strategyManager);
-					   self->strategyManager = NULL;
-				   }
-				   if (self->Timer != NULL) {
-					   timer__delete(self->Timer);
-					   self->Timer = NULL;
-				   }
-				   free(self);
-	*/
+	strategy_manager__delete(self->strategyManager); // ⬅️ Libère la mémoire allouée pour le StrategyManager
+
+	free(self); // ⬅️ Libère la mémoire allouée pour l'InterventionManager
 
 	LOG_DEBUG_MSG(LOG_TAG, ASCII_L2ARROW "exiting intervention_manager__delete()");
 
@@ -110,6 +119,39 @@ void intervention_manager__delete(InterventionManager *self)
 	return; // ⬅️ À conserver. Retour explicite (void)
 }
 
+// TODO Ajouter à la conception
+void intervention_manager__followPath(InterventionManager *self) {
+
+	intervention_manager__retrieveNextPoint(self);
+
+	intervention_manager__computeAngleToPoint(self);
+
+	int max_speed, relative;
+
+	if(self->angleToNextPoint == M_PI_2)
+	{
+		pilot__turn(-M_PI_2, max_speed, relative); // 📌
+	}
+
+	if(self->angleToNextPoint == -M_PI_2)
+	{
+		pilot__turn(M_PI_2, max_speed, relative); // 📌
+	}
+
+	intervention_manager__computeDistanceToPoint(self);
+
+	pilot__continuousAdvance(max_speed); // 📌
+
+	intervention_manager__updateTrace(self);
+
+	geo_positionner__sendTrace(); // 📌
+}
+
+void intervention_manager__addStrategy(InterventionManager *self, StrategyWrapper *strategyWrapper) {
+	strategy_manager__addStrategy(self->strategyManager, strategyWrapper);
+}
+
+// @Override
 __attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
 void intervention_manager__askStrat(InterventionManager *self)
 {
@@ -118,6 +160,7 @@ void intervention_manager__askStrat(InterventionManager *self)
 	return; // ⬅️ À conserver. Retour explicite (void)
 }
 
+// @Override
 __attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
 void intervention_manager__giveIDStrategieToFollow(InterventionManager *self, int idStrat)
 {
@@ -126,6 +169,7 @@ void intervention_manager__giveIDStrategieToFollow(InterventionManager *self, in
 	return; // ⬅️ À conserver. Retour explicite (void)
 }
 
+// @Override
 __attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
 void intervention_manager__startMove(InterventionManager *self)
 {
@@ -134,6 +178,7 @@ void intervention_manager__startMove(InterventionManager *self)
 	return; // ⬅️ À conserver. Retour explicite (void)
 }
 
+// @Override
 __attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
 void intervention_manager__endMove(InterventionManager *self)
 {
@@ -142,26 +187,30 @@ void intervention_manager__endMove(InterventionManager *self)
 	return; // ⬅️ À conserver. Retour explicite (void)
 }
 
+// @Override
 __attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
 bool intervention_manager__alertWallNear(InterventionManager *self)
 {
 	return strategy_manager__alertWallNear(self->strategyManager);
 }
 
+// @Override
 __attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
 void intervention_manager__alertEndConditionReach(InterventionManager *self)
 {
-	strategy_manager__alertEndConditionReach(self->strategyManager);
+	intervention_manager__stopInter(self);
 
 	return; // ⬅️ À conserver. Retour explicite (void)
 }
 
+// @Override
 __attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
 int intervention_manager__getStatus(InterventionManager *self)
 {
 	return strategy_manager__getStatus(self->strategyManager);
 }
 
+// @Override
 __attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
 void intervention_manager__reportStatus(InterventionManager *self, MoveReason pilotStatus)
 {
@@ -170,6 +219,7 @@ void intervention_manager__reportStatus(InterventionManager *self, MoveReason pi
 	return; // ⬅️ À conserver. Retour explicite (void)
 }
 
+// @Override
 __attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
 void intervention_manager__interlockManuMode(InterventionManager *self)
 {
@@ -194,13 +244,7 @@ void intervention_manager__sendPointsSelection(InterventionManager *self, Positi
 	// Déclare les variables temporaires
 
 	/* ===== Logique principale ===== */
-	/*
-		TODO : Envoyer la sélection de points à la stratégie.
-		       Cela pourrait impliquer :
-		       - Copier les points dans un champ interne
-		       - Notifier le strategyManager de la nouvelle sélection
-		       - Mettre à jour l'état ou le statut interne
-	*/
+	self->listZI = listPoints;
 
 	LOG_DEBUG_MSG(LOG_TAG, ASCII_L2ARROW "exiting intervention_manager__sendPointsSelection()");
 
@@ -224,14 +268,20 @@ void intervention_manager__startInter(InterventionManager *self)
 	// Déclare les variables temporaires
 
 	/* ===== Logique principale ===== */
-	/*
-		TODO : Démarrer l'intervention.
-		       Cela pourrait impliquer :
-		       - Générer le chemin de points
-		       - Démarrer la surveillance des capteurs
-		       - Démarrer le chronomètre interne
-		       - Mettre à jour l'état ou le statut interne
-	*/
+	intervention_manager__updateStatus(self, MISSION_EN_COURS);
+
+	Point map = geo_positionner__getMap(); // 📌
+
+	strategy_manager__setMap(self->strategyManager, &map);
+
+	intervention_manager__computeStrat(self);
+
+	intervention_manager__generatePathOfPoints(self);
+
+	intervention_manager__startTimer(self);
+
+	int roleRobot;
+	sensor_manager__startMonitoring(roleRobot); // 📌
 
 	LOG_DEBUG_MSG(LOG_TAG, ASCII_L2ARROW "exiting intervention_manager__startInter()");
 
@@ -255,14 +305,14 @@ void intervention_manager__stopInter(InterventionManager *self)
 	// Déclare les variables temporaires
 
 	/* ===== Logique principale ===== */
-	/*
-		TODO : Arrêter l'intervention en cours.
-		       Cela pourrait impliquer :
-		       - Envoyer une commande d'arrêt au Pilot
-		       - Arrêter la surveillance des capteurs
-		       - Arrêter le chronomètre interne
-		       - Mettre à jour l'état ou le statut interne
-	*/
+	int decelerationFactor;
+	pilot__stop(decelerationFactor); // 📌
+
+	intervention_manager__updateStatus(self, FIN_DE_MISSION);
+
+	sensor_manager__stopMonitoring(); // 📌
+
+	intervention_manager__stopTimer(self);
 
 	LOG_DEBUG_MSG(LOG_TAG, ASCII_L2ARROW "exiting intervention_manager__stopInter()");
 
@@ -300,65 +350,46 @@ int intervention_manager__getTimeInter(InterventionManager *self)
 	return timeInter; // ⬅️ Retourne le temps d'intervention calculé
 }
 
+// @Override
 __attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
 static void intervention_manager__computeStrat(InterventionManager *self)
 {
-	/* ===== Préconditions ===== */
-    assert(self != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
-
-	UNUSED(self); // ⬅️ À retirer. Dès que 'self' est utilisé en dehors des assert()
-
-	LOG_DEBUG_MSG(LOG_TAG, ASCII_R2ARROW "entering intervention_manager__computeStrat()");
-
-	/* ===== Variables locales ===== */
-    // Déclare les variables temporaires
-
-	/* ===== Logique principale ===== */
-	/*
-		TODO : Calculer la stratégie à appliquer en fonction des données actuelles.
-		       Cela pourrait impliquer :
-		       - Analyse des capteurs ou états internes
-		       - Choix de la meilleure stratégie selon des règles métier
-		       - Mise à jour des champs internes dans 'self'
-	*/
-
-	LOG_DEBUG_MSG(LOG_TAG, ASCII_L2ARROW "exiting intervention_manager__computeStrat()");
-
-	/* ===== Postconditions ===== */
-	// Vérifie les invariants après logique
+	strategy_manager__computeStrat(self->strategyManager);
 
 	return; // ⬅️ À conserver. Retour explicite (void)
 }
 
+// @Override
 __attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
 static int intervention_manager__startTimer(InterventionManager *self)
 {
 	return strategy_manager__startTimer(self->strategyManager);
 }
 
+// @Override
 __attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
 static int intervention_manager__stopTimer(InterventionManager *self)
 {
 	return strategy_manager__stopTimer(self->strategyManager);
 }
 
+// @Override
 __attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
-static void intervention_manager__updateStatus(InterventionManager *self)
+static void intervention_manager__updateStatus(InterventionManager *self, Status status)
 {
-	strategy_manager__updateStatus(self->strategyManager);
+	strategy_manager__updateStatus(self->strategyManager, status);
 
 	return; // ⬅️ À conserver. Retour explicite (void)
 }
 
 
 __attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
-static int computeAngleToPoint(InterventionManager *self, Point point)
+static int intervention_manager__computeAngleToPoint(InterventionManager *self)
 {
 	/* ===== Préconditions ===== */
 	assert(self != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
 
 	UNUSED(self); // ⬅️ À retirer. Dès que 'self' est utilisé en dehors des assert()
-	UNUSED(point); // ⬅️ À retirer dès que 'point' est utilisé dans la logique
 
 	LOG_DEBUG_MSG(LOG_TAG, ASCII_R2ARROW "entering computeAngleToPoint()");
 
@@ -366,14 +397,10 @@ static int computeAngleToPoint(InterventionManager *self, Point point)
 	int ret = RET_NOT_IMPL_INT; // ⬅️ "Rater-vite". Initialisé par un code d'erreur (prog défensive)
 
 	/* ===== Logique principale ===== */
-	/*
-		TODO : Calculer l'angle de rotation nécessaire pour aligner le robot sur le prochain point.
-		       Exemple de calcul :
-		       angle = atan2(point.y - self->currentPosition.y,
-		                     point.x - self->currentPosition.x);
-		       Note : Assurez-vous que les coordonnées sont correctement orientées
-		             selon votre système de coordonnées.
-	*/
+	self->angleToNextPoint = atan2(self->pathPoints[self->nextPointIdx]->y - self->pathPoints[self->currentPointIdx]->y, \
+					self->pathPoints[self->nextPointIdx]->x - self->pathPoints[self->currentPointIdx]->x);
+	// Note : Assurez-vous que les coordonnées sont correctement orientées
+	// 		selon votre système de coordonnées.
 
 	LOG_DEBUG_MSG(LOG_TAG, ASCII_L2ARROW "exiting computeAngleToPoint()");
 
@@ -384,13 +411,12 @@ static int computeAngleToPoint(InterventionManager *self, Point point)
 }
 
 __attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
-static int computeDistanceToPoint(InterventionManager *self, Point point)
+static int intervention_manager__computeDistanceToPoint(InterventionManager *self)
 {
 	/* ===== Préconditions ===== */
 	assert(self != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
 
 	UNUSED(self); // ⬅️ À retirer. Dès que 'self' est utilisé en dehors des assert()
-	UNUSED(point); // ⬅️ À retirer dès que 'point' est utilisé dans la logique
 
 	LOG_DEBUG_MSG(LOG_TAG, ASCII_R2ARROW "entering computeDistanceToPoint()");
 
@@ -415,7 +441,7 @@ static int computeDistanceToPoint(InterventionManager *self, Point point)
 }
 
 __attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
-static Position* generatePathOfPoints(InterventionManager *self)
+static Position* intervention_manager__generatePathOfPoints(InterventionManager *self)
 {
 	/* ===== Préconditions ===== */
 	assert(self != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
@@ -445,7 +471,7 @@ static Position* generatePathOfPoints(InterventionManager *self)
 }
 
 __attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
-static void retrieveNextPoint(InterventionManager *self)
+static void intervention_manager__retrieveNextPoint(InterventionManager *self)
 {
 	/* ===== Préconditions ===== */
 	assert(self != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
@@ -455,16 +481,15 @@ static void retrieveNextPoint(InterventionManager *self)
 	LOG_DEBUG_MSG(LOG_TAG, ASCII_R2ARROW "entering retrieveNexPoint()");
 	
 	/* ===== Variables locales ===== */
-	// Déclare les variables temporaires
-	
+	int pathPointsLen;	
 	/* ===== Logique principale ===== */
-	/*
-		TODO : Récupérer le prochain point de la liste de points.
-		       Cela pourrait impliquer :
-		       - Vérifier s'il reste des points dans la liste
-		       - Mettre à jour l'état interne pour indiquer le point courant
-		       - Notifier le strategyManager ou d'autres composants si nécessaire
-	*/
+	pathPointsLen = sizeof(self->pathPoints) / sizeof(Point);
+	if(self->currentPointIdx >= pathPointsLen)
+	{
+		return;
+	}
+
+	self->currentPointIdx = self->nextPointIdx; // FIXME
 
 	LOG_DEBUG_MSG(LOG_TAG, ASCII_L2ARROW "exiting retrieveNexPoint()");
 	/* ===== Postconditions ===== */
@@ -474,7 +499,7 @@ static void retrieveNextPoint(InterventionManager *self)
 }
 
 __attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
-static int updateTrace(InterventionManager *self)
+static int intervention_manager__updateTrace(InterventionManager *self)
 {
 	/* ===== Préconditions ===== */
 	// Vérifie les invariants avant logique

@@ -17,45 +17,14 @@
 #include "math.h"
 
 /* **************************************************** Private macros *************************************************** */
+#define MAP_DEBUG 0
+
 #define MAP_WIDTH 10
 #define MAP_HEIGHT 10
 
 #define MAP_CELL_SIZE_MM 100
 
 /* ************************************************ Private type definition ********************************************** */
-
-typedef enum
-{
-    MAP_CELL_EMPTY = 0,
-    MAP_CELL_WALL = 1,
-    MAP_CELL_INTEREST_AREA = 2,
-    MAP_CELL_UNKNOWN = 3
-} map_cell_type_t;
-
-typedef struct
-{
-    map_cell_type_t type : 8;
-    union
-    {
-        struct
-        {
-            uint8_t empty_field; // not used
-        } empty;
-        struct
-        {
-            uint8_t wall_intensity; // 0 to 255: 0 is no wall, 255 is a wall
-        } wall;
-        struct
-        {
-            uint8_t area_id;
-        } interest_area;
-        struct
-        {
-            uint8_t unknown_field; // not used
-        } unknown;
-    };
-
-} map_cell_t;
 
 typedef struct
 {
@@ -94,7 +63,8 @@ float sensor_angles_rad[3] = {
 
 /* ********************************************** Private functions definitions ****************************************** */
 
-void print_map()
+#if MAP_DEBUG
+static void print_map()
 {
     printf("=== MAP DISPLAY ===\n");
 
@@ -155,6 +125,7 @@ void print_map()
 
     printf("Legend: '.' = empty, numbers = wall intensity (0-255)\n");
 }
+#endif
 
 /* ********************************************** Public functions definitions ******************************************* */
 
@@ -173,12 +144,12 @@ int map_engine_explo_ask_current_map()
 
 size_t map_engine_get_map_size()
 {
-    return MAP_WIDTH * MAP_HEIGHT;
+    return sizeof(map_engine.map);
 }
 
-int map_engine_get_map(uint8_t *map)
+int map_engine_get_map(map_cell_t *map)
 {
-    (void)map;
+    memcpy(map, map_engine.map, sizeof(map_engine.map));
     return MAP_ENGINE_OK;
 }
 
@@ -250,7 +221,9 @@ int map_engine_update_vision(uint16_t *sensor_data, uint8_t sensor_count)
         // X_LOG_TRACE("Grid: %d, %d, %d", grid_x, grid_y, map_engine.map[grid_x][grid_y].wall.wall_intensity);
     }
 
+#if MAP_DEBUG
     print_map();
+#endif
 
     return MAP_ENGINE_OK;
 }

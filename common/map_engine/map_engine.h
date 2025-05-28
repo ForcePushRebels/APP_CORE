@@ -27,6 +27,38 @@
 // clang-format on
 
 /* ************************************************** Public types definition ******************************************** */
+typedef enum
+{
+    MAP_CELL_EMPTY = 0,
+    MAP_CELL_WALL = 1,
+    MAP_CELL_INTEREST_AREA = 2,
+    MAP_CELL_UNKNOWN = 3
+} map_cell_type_t;
+
+typedef struct
+{
+    map_cell_type_t type : 8;
+    union
+    {
+        struct
+        {
+            uint8_t empty_field; // not used
+        } empty;
+        struct
+        {
+            uint8_t wall_intensity; // 0 to 255: 0 is no wall, 255 is a wall
+        } wall;
+        struct
+        {
+            uint8_t area_id;
+        } interest_area;
+        struct
+        {
+            uint8_t unknown_field; // not used
+        } unknown;
+    };
+
+} map_cell_t;
 
 /* *********************************************** Public functions declarations ***************************************** */
 
@@ -53,7 +85,7 @@ size_t map_engine_get_map_size();
  * @param map The map to get
  * @return MAP_ENGINE_OK if successful, MAP_ENGINE_ERROR_NO_MAP_AVAILABLE otherwise
  */
-int map_engine_get_map(uint8_t *map);
+int map_engine_get_map(map_cell_t *map);
 
 /**
  * @brief Get the discovery percent

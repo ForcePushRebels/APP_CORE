@@ -28,7 +28,7 @@ typedef struct
     xOsMutexCtx mutex;         // Mutex pour la sécurité des threads
     xOsTaskCtx task;           // Contexte de la tâche
     bool running;              // Drapeau d'exécution de la tâche
-    bool is_left_wheel;        // Indique si c'est la roue gauche
+    bool is_left_wheel;        // Drapeau pour indiquer si c'est la roue gauche
 } wheel_position_control_t;
 
 // Variables globales
@@ -179,8 +179,9 @@ static void* wheel_position_control_task(void* arg)
 
         double right_wheel_speed = 0.0, left_wheel_speed = 0.0;
 
+
         // Phase d'accélération
-        if (!acc_done) {
+        if (!acc_done && !control->motion_finished) {
             start_decc = false;
             decc_done = false;
             mutexLock(&g_speed_mutex);
@@ -224,17 +225,26 @@ static void* wheel_position_control_task(void* arg)
             if (abs_remaining > CORRECTION_MARGIN_TICKS) {
                 // Appliquer une petite vitesse de correction
                 double correction = (remaining_ticks > 0) ? CORRECTION_SPEED : -CORRECTION_SPEED;
-                motor_control_set_left_speed(correction);
-                motor_control_set_right_speed(correction);
+                // Appliquer la correction à la roue appropriée
+                if (control->is_left_wheel) {
+                    motor_control_set_left_speed(correction);
+                } else {
+                    motor_control_set_right_speed(correction);
+                }
                 X_LOG_TRACE("Phase correction - remaining_ticks: %d, correction: %.2f", remaining_ticks, correction);
             } else {
                 // Arrêt final si on est dans la marge de correction
-                motor_control_stop();
+                if (control->is_left_wheel) {
+                    motor_control_set_left_speed(0.0);
+                } else {
+                    motor_control_set_right_speed(0.0);
+                }
                 control->motion_finished = true;
+                // Réinitialiser les drapeaux pour le prochain mouvement
                 acc_done = false;
                 start_decc = false;
                 decc_done = false;
-                X_LOG_TRACE("Mouvement terminé - position finale atteinte");
+                X_LOG_TRACE("Mouvement terminé - position finale atteinte pour roue %s", control->is_left_wheel ? "gauche" : "droite");
             }
         }
 
@@ -266,10 +276,6 @@ static void* wheel_position_control_task(void* arg)
             motor_control_set_right_speed(right_wheel_speed);
 
         }
-        
-        X_LOG_TRACE("Position de roue %s: %d ticks, Cible: %d ticks, Vitesse: %.2f rad/s",
-                    control->is_left_wheel ? "gauche" : "droite",
-                    control->current_ticks, control->target_ticks, g_common_target_speed);
         
         mutexUnlock(&control->mutex);
         xTimerDelay(REGULATION_PERIOD_MS);
@@ -418,7 +424,7 @@ static void wheel_position_control_init(wheel_position_control_t* control)
     control->motion_finished = true;
     control->should_stop = false;
     control->running = false;
-    control->is_left_wheel = false;
+    control->is_left_wheel = false; // Default value, actual setting should be done elsewhere
 
     // Initialiser le mutex
     if (mutexCreate(&control->mutex) != MUTEX_OK) 
@@ -492,8 +498,6 @@ int16_t position_control_init(void)
     X_LOG_TRACE("Contrôle moteur initialisé avec succès");
 
     // Initialiser les deux contrôleurs de roue
-    g_left_wheel.is_left_wheel = true;
-    g_right_wheel.is_left_wheel = false;
     wheel_position_control_init(&g_left_wheel);
     wheel_position_control_init(&g_right_wheel);
     

@@ -21,28 +21,8 @@
 int xTimerCreate(xOsTimerCtx *p_ptTimer, uint32_t p_ulPeriod, uint8_t p_ucMode)
 {
     X_ASSERT(p_ptTimer != NULL);
-    X_ASSERT(p_ulPeriod > 0);
-    X_ASSERT(p_ucMode <= XOS_TIMER_MODE_PERIODIC);
-
-    // Enhanced input validation for security
-    if (p_ptTimer == NULL)
-    {
-        X_LOG_TRACE("xTimerCreate: NULL timer pointer");
-        return XOS_TIMER_INVALID;
-    }
-    
-    if (p_ulPeriod < XOS_TIMER_MIN_PERIOD_MS || p_ulPeriod > XOS_TIMER_MAX_PERIOD_MS)
-    {
-        X_LOG_TRACE("xTimerCreate: Invalid period %u ms (must be between %d and %d)", 
-                    p_ulPeriod, XOS_TIMER_MIN_PERIOD_MS, XOS_TIMER_MAX_PERIOD_MS);
-        return XOS_TIMER_INVALID;
-    }
-    
-    if (p_ucMode > XOS_TIMER_MODE_PERIODIC)
-    {
-        X_LOG_TRACE("xTimerCreate: Invalid timer mode %u", p_ucMode);
-        return XOS_TIMER_INVALID;
-    }
+    X_ASSERT(p_ulPeriod > XOS_TIMER_MIN_PERIOD_MS && p_ulPeriod < XOS_TIMER_MAX_PERIOD_MS);
+    X_ASSERT(p_ucMode == XOS_TIMER_MODE_PERIODIC || p_ucMode == XOS_TIMER_MODE_ONESHOT);
 
     // Clear the structure
     XOS_MEMORY_SANITIZE(p_ptTimer, sizeof(xOsTimerCtx));
@@ -69,12 +49,6 @@ int xTimerCreate(xOsTimerCtx *p_ptTimer, uint32_t p_ulPeriod, uint8_t p_ucMode)
 int xTimerStart(xOsTimerCtx *p_ptTimer)
 {
     X_ASSERT(p_ptTimer != NULL);
-
-    if (p_ptTimer == NULL)
-    {
-        X_LOG_TRACE("xTimerStart: NULL timer pointer");
-        return XOS_TIMER_INVALID;
-    }
 
     int l_iResult;
 
@@ -105,12 +79,6 @@ int xTimerStart(xOsTimerCtx *p_ptTimer)
 
     // Convert period from milliseconds to nanoseconds with overflow protection
     uint64_t l_ulPeriodNs;
-    if (p_ptTimer->t_ulPeriod > (UINT64_MAX / 1000000ULL))
-    {
-        mutexUnlock(&p_ptTimer->t_tMutex);
-        X_LOG_TRACE("xTimerStart: Period overflow in nanosecond conversion");
-        return XOS_TIMER_ERROR;
-    }
     l_ulPeriodNs = (uint64_t)p_ptTimer->t_ulPeriod * 1000000ULL;
 
     // Calculate next trigger time with overflow protection
@@ -149,12 +117,6 @@ int xTimerStop(xOsTimerCtx *p_ptTimer)
 {
     X_ASSERT(p_ptTimer != NULL);
 
-    if (p_ptTimer == NULL)
-    {
-        X_LOG_TRACE("xTimerStop: NULL timer pointer");
-        return XOS_TIMER_INVALID;
-    }
-
     int l_iResult;
 
     // Lock mutex for thread safety
@@ -184,12 +146,6 @@ int xTimerStop(xOsTimerCtx *p_ptTimer)
 int xTimerExpired(xOsTimerCtx *p_ptTimer)
 {
     X_ASSERT(p_ptTimer != NULL);
-
-    if (p_ptTimer == NULL)
-    {
-        X_LOG_TRACE("xTimerExpired: NULL timer pointer");
-        return XOS_TIMER_INVALID;
-    }
 
     int l_iResult;
     int l_iReturn;
@@ -284,13 +240,13 @@ int xTimerExpired(xOsTimerCtx *p_ptTimer)
 ////////////////////////////////////////////////////////////
 /// xTimerGetCurrentMs
 ////////////////////////////////////////////////////////////
-uint64_t xTimerGetCurrentMs(void)
+inline uint64_t xTimerGetCurrentMs(void)
 {
     struct timespec l_tNow;
     if (clock_gettime(CLOCK_MONOTONIC, &l_tNow) != 0)
     {
         X_LOG_TRACE("xTimerGetCurrentMs: clock_gettime failed with errno %d", errno);
-        return 0; // Return 0 on error
+        return 0; 
     }
     return (uint64_t)((l_tNow.tv_sec * 1000ULL) + (l_tNow.tv_nsec / 1000000ULL));
 }
@@ -336,19 +292,6 @@ int xTimerProcessElapsedPeriods(xOsTimerCtx *p_ptTimer, void (*p_pfCallback)(voi
 {
     X_ASSERT(p_ptTimer != NULL);
     X_ASSERT(p_pfCallback != NULL);
-
-    // Enhanced input validation
-    if (p_ptTimer == NULL)
-    {
-        X_LOG_TRACE("xTimerProcessElapsedPeriods: NULL timer pointer");
-        return XOS_TIMER_INVALID;
-    }
-    
-    if (p_pfCallback == NULL)
-    {
-        X_LOG_TRACE("xTimerProcessElapsedPeriods: NULL callback function");
-        return XOS_TIMER_INVALID;
-    }
 
     int l_iResult;
     int l_iPeriodCount = 0;

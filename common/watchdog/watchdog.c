@@ -22,6 +22,7 @@
 #include "watchdog.h"
 #include "xLog.h"
 #include "xAssert.h"
+#include "xTimer.h"
 
 //  Global variables with atomic initialization
 static watchdog_t g_watchdog;
@@ -36,7 +37,6 @@ static struct sigevent s_tSignalEvent;
 static int validateTimeout(int p_iTimeout);
 static int validateWatchdogState(void);
 static void cleanupWatchdogResources(void);
-static inline uint64_t getCurrentTimeMs(void);
 
 ////////////////////////////////////////////////////////////
 /// watchdog_thread
@@ -51,7 +51,7 @@ void* watchdog_thread(void *arg)
         return (void*)(intptr_t)WATCHDOG_ERROR_INVALID_PARAM;
     }
     
-    X_LOG_TRACE(" Watchdog thread started - MAXIMUM PERFORMANCE MODE");
+    X_LOG_TRACE(" Watchdog thread started");
 
     // Cache values locally for ultra-fast performance
     unsigned long l_ulCachedTimeout = atomic_load_explicit(&l_pWatchdog->a_ulTimeout, memory_order_acquire);
@@ -107,13 +107,15 @@ void* watchdog_thread(void *arg)
 static void timer_handler(union sigval sv)
 {
     watchdog_t *l_pWatchdog = (watchdog_t *)sv.sival_ptr;
-    if (!l_pWatchdog) {
+    if (!l_pWatchdog) 
+    {
         X_LOG_TRACE(" Timer handler called with NULL context");
         return;
     }
 
     // Check if still initialized with fast acquire ordering
-    if (!atomic_load_explicit(&g_is_initialized, memory_order_acquire)) {
+    if (!atomic_load_explicit(&g_is_initialized, memory_order_acquire)) 
+    {
         return;
     }
 
@@ -125,10 +127,13 @@ static void timer_handler(union sigval sv)
     uintptr_t l_handlerAddr = atomic_load_explicit(&g_expiry_handler, memory_order_acquire);
     void (*l_pHandler)(void) = (void(*)(void))l_handlerAddr;
     
-    if (l_pHandler != NULL) {
+    if (l_pHandler != NULL) 
+    {
         l_pHandler();
-    } else {
-        X_LOG_TRACE(" WATCHDOG TIMEOUT - REAL TIME ERROR - ULTRA-FAST RESPONSE");
+    } 
+    else 
+    {
+        X_LOG_TRACE(" WATCHDOG TIMEOUT - REAL TIME ERROR");
         exit(EXIT_FAILURE);
     }
 }
@@ -139,13 +144,15 @@ static void timer_handler(union sigval sv)
 int watchdog_init(int timeout_ms)
 {
     // Check if already initialized with fast acquire ordering
-    if (atomic_load_explicit(&g_is_initialized, memory_order_acquire)) {
+    if (atomic_load_explicit(&g_is_initialized, memory_order_acquire)) 
+    {
         X_LOG_TRACE(" Watchdog already initialized");
         return WATCHDOG_ERROR_ALREADY_INIT;
     }
 
     int l_iValidation = validateTimeout(timeout_ms);
-    if (l_iValidation != WATCHDOG_SUCCESS) {
+    if (l_iValidation != WATCHDOG_SUCCESS) 
+    {
         return l_iValidation;
     }
 
@@ -170,7 +177,8 @@ int watchdog_init(int timeout_ms)
     s_tSignalEvent.sigev_notify_attributes = NULL;
 
     // Timer creation with error checking
-    if (timer_create(CLOCK_MONOTONIC, &s_tSignalEvent, &g_timer_id) != 0) {
+    if (timer_create(CLOCK_MONOTONIC, &s_tSignalEvent, &g_timer_id) != 0) 
+    {
         X_LOG_TRACE(" Failed to create timer: %s", strerror(errno));
         return WATCHDOG_ERROR_TIMER_CREATE;
     }
@@ -180,7 +188,8 @@ int watchdog_init(int timeout_ms)
 
     // Create and configure the watchdog thread
     unsigned long l_ulReturn = osTaskInit(&g_watchdog.task_ctx);
-    if (l_ulReturn != OS_TASK_SUCCESS) {
+    if (l_ulReturn != OS_TASK_SUCCESS) 
+    {
         X_LOG_TRACE(" Failed to initialize watchdog task: %s (code: 0x%lx)", 
                    osTaskGetErrorString(l_ulReturn), l_ulReturn);
         cleanupWatchdogResources();
@@ -194,7 +203,8 @@ int watchdog_init(int timeout_ms)
     g_watchdog.task_ctx.t_ptTaskArg = &g_watchdog;
     
     l_ulReturn = osTaskCreate(&g_watchdog.task_ctx);
-    if (l_ulReturn != OS_TASK_SUCCESS) {
+    if (l_ulReturn != OS_TASK_SUCCESS) 
+    {
         X_LOG_TRACE(" Failed to create watchdog thread: %s (code: 0x%lx)", 
                    osTaskGetErrorString(l_ulReturn), l_ulReturn);
         cleanupWatchdogResources();
@@ -206,7 +216,8 @@ int watchdog_init(int timeout_ms)
     atomic_store_explicit(&g_is_initialized, 1, memory_order_release);
     
     // Activate the watchdog immediately
-    if (watchdog_ping() != WATCHDOG_SUCCESS) {
+    if (watchdog_ping() != WATCHDOG_SUCCESS) 
+    {
         X_LOG_TRACE(" Failed to start watchdog timer");
         atomic_store_explicit(&g_watchdog.a_iTerminate, 1, memory_order_release);
         osTaskEnd(&g_watchdog.task_ctx);
@@ -215,7 +226,7 @@ int watchdog_init(int timeout_ms)
         return WATCHDOG_ERROR_TIMER_SET;
     }
 
-    X_LOG_TRACE(" POSIX timer watchdog initialized (timeout=%ums) - MAXIMUM PERFORMANCE", l_ulActualTimeout);
+    X_LOG_TRACE(" POSIX timer watchdog initialized (timeout=%ums)", l_ulActualTimeout);
     return WATCHDOG_SUCCESS;
 }
 
@@ -225,7 +236,8 @@ int watchdog_init(int timeout_ms)
 void watchdog_stop(void)
 {
     // Check if initialized with fast acquire ordering
-    if (!atomic_load_explicit(&g_is_initialized, memory_order_acquire)) {
+    if (!atomic_load_explicit(&g_is_initialized, memory_order_acquire)) 
+    {
         return;
     }
 
@@ -239,23 +251,28 @@ void watchdog_stop(void)
     struct itimerspec l_tIts;
     XOS_MEMORY_SANITIZE(&l_tIts, sizeof(struct itimerspec));
 
-    if (timer_settime(g_timer_id, 0, &l_tIts, NULL) != 0) {
+    if (timer_settime(g_timer_id, 0, &l_tIts, NULL) != 0) 
+    {
         X_LOG_TRACE(" Failed to stop timer: %s", strerror(errno));
     }
     
     // Wait for thread termination with cached state
     int l_iIsRunning = atomic_load_explicit(&g_watchdog.a_iIsRunning, memory_order_acquire);
-    if (l_iIsRunning) {
-        for (int i = 0; i < WATCHDOG_MAX_STOP_ITERATIONS; i++) {
+    if (l_iIsRunning) 
+    {
+        for (int i = 0; i < WATCHDOG_MAX_STOP_ITERATIONS; i++) 
+        {
             l_iIsRunning = atomic_load_explicit(&g_watchdog.a_iIsRunning, memory_order_relaxed);
-            if (!l_iIsRunning) {
+            if (!l_iIsRunning) 
+            {
                 break; // Thread terminated naturally
             }
             usleep(WATCHDOG_SLEEP_INTERVAL_MS * 1000); // 100ms
         }
         
         // If the thread is still running, force termination
-        if (l_iIsRunning) {
+        if (l_iIsRunning) 
+        {
             X_LOG_TRACE(" Forcing watchdog thread termination");
             osTaskEnd(&g_watchdog.task_ctx);
         }
@@ -264,7 +281,7 @@ void watchdog_stop(void)
     // Clean up all resources
     cleanupWatchdogResources();
     
-    X_LOG_TRACE(" Watchdog stopped - ULTRA-FAST shutdown");
+    X_LOG_TRACE(" Watchdog stopped");
 }
 
 ////////////////////////////////////////////////////////////
@@ -273,18 +290,20 @@ void watchdog_stop(void)
 int watchdog_ping(void)
 {
     // Ultra-fast initialization check with acquire ordering
-    if (!atomic_load_explicit(&g_is_initialized, memory_order_acquire)) {
+    if (!atomic_load_explicit(&g_is_initialized, memory_order_acquire)) 
+    {
         return WATCHDOG_ERROR_NOT_INIT;
     }
 
     // Validate watchdog state
     int l_iValidation = validateWatchdogState();
-    if (l_iValidation != WATCHDOG_SUCCESS) {
+    if (l_iValidation != WATCHDOG_SUCCESS) 
+    {
         return l_iValidation;
     }
 
     // Get current timestamp for tracking
-    uint64_t l_ulCurrentTime = getCurrentTimeMs();
+    uint64_t l_ulCurrentTime = xTimerGetCurrentMs();
     atomic_store_explicit(&g_watchdog.a_ulTimerArmed, l_ulCurrentTime, memory_order_relaxed);
 
     struct itimerspec l_tIts;
@@ -298,7 +317,8 @@ int watchdog_ping(void)
     l_tIts.it_interval.tv_nsec = 0;
 
     //Arm/rearm the timer - direct timer operation
-    if (timer_settime(g_timer_id, 0, &l_tIts, NULL) != 0) {
+    if (timer_settime(g_timer_id, 0, &l_tIts, NULL) != 0) 
+    {
         X_LOG_TRACE(" Failed to set timer: %s", strerror(errno));
         return WATCHDOG_ERROR_TIMER_SET;
     }
@@ -313,7 +333,8 @@ int watchdog_ping(void)
 ////////////////////////////////////////////////////////////
 bool watchdog_has_expired(void)
 {
-    if (!atomic_load_explicit(&g_is_initialized, memory_order_acquire)) {
+    if (!atomic_load_explicit(&g_is_initialized, memory_order_acquire)) 
+    {
         return false;
     }
 
@@ -325,7 +346,7 @@ bool watchdog_has_expired(void)
 ////////////////////////////////////////////////////////////
 void watchdog_set_expiry_handler(void (*callback)(void))
 {
-    // : Ultra-fast atomic store of callback pointer
+    // atomic store of callback pointer
     uintptr_t l_handlerAddr = (uintptr_t)callback;
     atomic_store_explicit(&g_expiry_handler, l_handlerAddr, memory_order_release);
 }
@@ -335,7 +356,6 @@ void watchdog_set_expiry_handler(void (*callback)(void))
 ////////////////////////////////////////////////////////////
 const char* watchdog_get_error_string(int error_code)
 {
-    // Rule 1: Simple control structures - single switch
     switch (error_code)
     {
         case WATCHDOG_SUCCESS:              return "Success";
@@ -352,28 +372,18 @@ const char* watchdog_get_error_string(int error_code)
 }
 
 ////////////////////////////////////////////////////////////
-/// getCurrentTimeMs -  Helper
-////////////////////////////////////////////////////////////
-static inline uint64_t getCurrentTimeMs(void)
-{
-    struct timespec l_ts;
-    if (clock_gettime(CLOCK_MONOTONIC, &l_ts) != 0) {
-        return 0;
-    }
-    return (uint64_t)(l_ts.tv_sec * 1000) + (uint64_t)(l_ts.tv_nsec / 1000000);
-}
-
-////////////////////////////////////////////////////////////
-/// validateTimeout - NO CHANGE NEEDED
+/// validateTimeout 
 ////////////////////////////////////////////////////////////
 static int validateTimeout(int p_iTimeout)
 {
-    if (p_iTimeout < 0) {
+    if (p_iTimeout < 0) 
+    {
         return WATCHDOG_ERROR_INVALID_PARAM;
     }
     
     if (p_iTimeout > 0 && 
-        (p_iTimeout < WATCHDOG_MIN_TIMEOUT_MS || p_iTimeout > WATCHDOG_MAX_TIMEOUT_MS)) {
+        (p_iTimeout < WATCHDOG_MIN_TIMEOUT_MS || p_iTimeout > WATCHDOG_MAX_TIMEOUT_MS)) 
+    {
         return WATCHDOG_ERROR_INVALID_PARAM;
     }
     
@@ -385,8 +395,9 @@ static int validateTimeout(int p_iTimeout)
 ////////////////////////////////////////////////////////////
 static int validateWatchdogState(void)
 {
-    // : Check if watchdog structure is in valid state with acquire ordering
-    if (!atomic_load_explicit(&g_is_initialized, memory_order_acquire)) {
+    // Check if watchdog structure is in valid state with acquire ordering
+    if (!atomic_load_explicit(&g_is_initialized, memory_order_acquire)) 
+    {
         return WATCHDOG_ERROR_NOT_INIT;
     }
     
@@ -394,7 +405,7 @@ static int validateWatchdogState(void)
 }
 
 ////////////////////////////////////////////////////////////
-/// cleanupWatchdogResources - 
+/// cleanupWatchdogResources  
 ////////////////////////////////////////////////////////////
 static void cleanupWatchdogResources(void)
 {
@@ -403,8 +414,6 @@ static void cleanupWatchdogResources(void)
         X_LOG_TRACE(" Failed to delete timer: %s", strerror(errno));
     }
 
-    // : No more mutex to destroy!
-    
     // Securely clear the watchdog structure
     XOS_MEMORY_SANITIZE(&g_watchdog, sizeof(watchdog_t));
 }

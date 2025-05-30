@@ -7,8 +7,6 @@
 // Intellectual property of Christophe Benedetti
 ////////////////////////////////////////////////////////////
 
-// Enable secure functions (C11 Annex K)
-#define __STDC_WANT_LIB_EXT1__ 1
 
 #include "xLog.h"
 #include "xAssert.h"
@@ -66,15 +64,8 @@ int xLogInit(t_logCtx *p_ptConfig)
     
     // Fixed bounds buffers
     char l_cConfigPath[XOS_LOG_PATH_SIZE] = {0};
-#ifdef __STDC_LIB_EXT1__
-    if (strncpy_s(l_cConfigPath, sizeof(l_cConfigPath), p_ptConfig->t_cLogPath, sizeof(l_cConfigPath) - 1) != 0)
-    {
-        return XOS_LOG_SECURITY_ERROR;
-    }
-#else
     strncpy(l_cConfigPath, p_ptConfig->t_cLogPath, sizeof(l_cConfigPath) - 1);
     l_cConfigPath[sizeof(l_cConfigPath) - 1] = '\0';
-#endif
 
     // Early return if already initialized - use acquire ordering for proper synchronization
     if (atomic_load_explicit(&s_eLogState, memory_order_acquire) == XOS_LOG_STATE_INITIALIZED)
@@ -143,13 +134,8 @@ int xLogInit(t_logCtx *p_ptConfig)
         }
         
         // Construct full path securely with fixed bounds
-#ifdef __STDC_LIB_EXT1__
-        int l_iSnprintfRet = snprintf_s(l_cFullLogPath, sizeof(l_cFullLogPath), sizeof(l_cFullLogPath) - 1, "%s/%s", 
-                                        l_cExecutablePath, l_cOriginalFileName);
-#else
         int l_iSnprintfRet = snprintf(l_cFullLogPath, sizeof(l_cFullLogPath), "%s/%s", 
                                       l_cExecutablePath, l_cOriginalFileName);
-#endif
         
         // Check for formatting errors
         if (l_iSnprintfRet < 0)
@@ -214,34 +200,24 @@ int xLogWrite(const char *p_ptkcFile, uint32_t p_ulLine, const char *p_ptkcForma
 
     // Store dereferenced values once for security
     const uint32_t l_ulLineNumber = p_ulLine;
-    
+
     // Fixed bounds buffer for format string copy
     char l_cFormatCopy[XOS_LOG_MSG_SIZE] = {0};
-#ifdef __STDC_LIB_EXT1__
-    if (strncpy_s(l_cFormatCopy, sizeof(l_cFormatCopy), p_ptkcFormat, sizeof(l_cFormatCopy) - 1) != 0)
-    {
-        return XOS_LOG_SECURITY_ERROR;
-    }
-#else
     strncpy(l_cFormatCopy, p_ptkcFormat, sizeof(l_cFormatCopy) - 1);
     l_cFormatCopy[sizeof(l_cFormatCopy) - 1] = '\0';
-#endif
 
     // Cache log state check with acquire ordering - early return optimization
-    // State rarely changes during normal operation, so cache it locally
     int l_iLogState = atomic_load_explicit(&s_eLogState, memory_order_acquire);
     if (l_iLogState != XOS_LOG_STATE_INITIALIZED)
     {
         return XOS_LOG_NOT_INIT;
     }
 
-    // Initialize buffers with fixed bounds
     char l_cTimestamp[XOS_LOG_TIMESTAMP_SIZE] = {0};
     char l_cUserMsg[XOS_LOG_MSG_SIZE] = {0};
     char l_cFullMsg[XOS_LOG_FULL_MSG_SIZE] = {0};
     char l_cSafeFileName[XOS_LOG_BASENAME_SIZE] = {0};
 
-    // Get timestamp securely - single dereference
     const char *l_pcTimestampPtr = xHorodateurGetString();
     if (l_pcTimestampPtr != NULL)
     {
@@ -254,10 +230,8 @@ int xLogWrite(const char *p_ptkcFile, uint32_t p_ulLine, const char *p_ptkcForma
         l_cTimestamp[sizeof(l_cTimestamp) - 1] = '\0';
     }
 
-    // Extract and sanitize filename with single dereference
     if (p_ptkcFile != NULL)
     {
-        // Fixed bounds buffer for file path copy
         char l_cFileCopy[XOS_LOG_PATH_SIZE] = {0};
         strncpy(l_cFileCopy, p_ptkcFile, sizeof(l_cFileCopy) - 1);
         l_cFileCopy[sizeof(l_cFileCopy) - 1] = '\0';
@@ -296,12 +270,8 @@ int xLogWrite(const char *p_ptkcFile, uint32_t p_ulLine, const char *p_ptkcForma
     // Format user message securely with fixed bounds
     va_list args;
     va_start(args, p_ptkcFormat);
-#ifdef __STDC_LIB_EXT1__
-    int l_iVsnprintfRet = vsnprintf_s(l_cUserMsg, sizeof(l_cUserMsg), sizeof(l_cUserMsg) - 1, l_cFormatCopy, args);
-#else
     int l_iVsnprintfRet = vsnprintf(l_cUserMsg, sizeof(l_cUserMsg) - 1, l_cFormatCopy, args);
     l_cUserMsg[sizeof(l_cUserMsg) - 1] = '\0';
-#endif
     va_end(args);
     
     // Check for formatting errors
@@ -315,14 +285,9 @@ int xLogWrite(const char *p_ptkcFile, uint32_t p_ulLine, const char *p_ptkcForma
     sanitizeLogContent(l_cUserMsg, sizeof(l_cUserMsg));
 
     // Format complete log message with fixed bounds
-#ifdef __STDC_LIB_EXT1__
-    int l_iSnprintfRet = snprintf_s(l_cFullMsg, sizeof(l_cFullMsg), sizeof(l_cFullMsg) - 1, "%s | %s:%u | %s\n",
-                                   l_cTimestamp, l_cSafeFileName, l_ulLineNumber, l_cUserMsg);
-#else
     int l_iSnprintfRet = snprintf(l_cFullMsg, sizeof(l_cFullMsg) - 1, "%s | %s:%u | %s\n",
                                  l_cTimestamp, l_cSafeFileName, l_ulLineNumber, l_cUserMsg);
     l_cFullMsg[sizeof(l_cFullMsg) - 1] = '\0';
-#endif
     
     // Check for formatting errors
     if (l_iSnprintfRet < 0)

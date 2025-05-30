@@ -1,10 +1,9 @@
 ////////////////////////////////////////////////////////////
-//  xOsSecureMemory header file - NASA JPL Compliant
+//  xOsSecureMemory header file 
 //  Secure memory sanitization and protection macros
 //
 // general discloser: copy or share the file is forbidden
 // Written : 28/05/2025
-// NASA JPL Power of 10 Rules Compliant
 // Intellectual property of Christophe Benedetti
 ////////////////////////////////////////////////////////////
 

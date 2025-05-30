@@ -1,10 +1,10 @@
 ////////////////////////////////////////////////////////////
-//  mutex source file - NASA JPL 10 Rules Compliant
+//  mutex source file 
 //  implements mutex functions
 //
 // general discloser: copy or share the file is forbidden
 // Written : 14/11/2024
-// Modified: 28/05/2025 - NASA JPL compliance improvements
+// Modified: 28/05/2025 - Security improvements
 // Intellectual property of Christophe Benedetti
 ////////////////////////////////////////////////////////////
 

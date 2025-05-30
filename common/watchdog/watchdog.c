@@ -1,11 +1,10 @@
 ////////////////////////////////////////////////////////////
-//  Watchdog src file - NASA JPL 10 Rules Compliant LOCKLESS
-//  Provides ultra-fast lockless watchdog support using POSIX timer
+//  Watchdog src file 
+//  Provides ultra-fast  watchdog support using POSIX timer
 //
 // general disclosure: copy or share the file is forbidden
 // Written : 02/05/2025
-// Modified: 28/05/2025 - NASA JPL compliance improvements
-// Modified: XX/XX/2025 - LOCKLESS optimization for maximum performance
+// Modified: 28/05/2025 - Security improvements , optimization for maximum performance²
 // Intellectual property of Christophe Benedetti
 ////////////////////////////////////////////////////////////
 
@@ -24,10 +23,10 @@
 #include "xLog.h"
 #include "xAssert.h"
 
-// LOCKLESS Global variables with atomic initialization
+//  Global variables with atomic initialization
 static watchdog_t g_watchdog;
 static atomic_int g_is_initialized = ATOMIC_VAR_INIT(0);
-static atomic_uintptr_t g_expiry_handler = ATOMIC_VAR_INIT(0); // LOCKLESS callback storage
+static atomic_uintptr_t g_expiry_handler = ATOMIC_VAR_INIT(0); //  callback storage
 
 // Private variables for POSIX timers
 static timer_t g_timer_id;
@@ -48,11 +47,11 @@ void* watchdog_thread(void *arg)
     
     watchdog_t *l_pWatchdog = (watchdog_t *)arg;
     if (!l_pWatchdog) {
-        X_LOG_TRACE("LOCKLESS Watchdog thread started with NULL context");
+        X_LOG_TRACE(" Watchdog thread started with NULL context");
         return (void*)(intptr_t)WATCHDOG_ERROR_INVALID_PARAM;
     }
     
-    X_LOG_TRACE("LOCKLESS Watchdog thread started - MAXIMUM PERFORMANCE MODE");
+    X_LOG_TRACE(" Watchdog thread started - MAXIMUM PERFORMANCE MODE");
 
     // Cache values locally for ultra-fast performance
     unsigned long l_ulCachedTimeout = atomic_load_explicit(&l_pWatchdog->a_ulTimeout, memory_order_acquire);
@@ -69,7 +68,7 @@ void* watchdog_thread(void *arg)
         // ULTRA-FAST ping - no mutex, pure atomic operation
         int l_iRet = watchdog_ping();
         if (l_iRet != WATCHDOG_SUCCESS) {
-            X_LOG_TRACE("LOCKLESS Watchdog ping failed in thread: %s (code: 0x%x)", 
+            X_LOG_TRACE(" Watchdog ping failed in thread: %s (code: 0x%x)", 
                       watchdog_get_error_string(l_iRet), l_iRet);
         }
         
@@ -98,7 +97,7 @@ void* watchdog_thread(void *arg)
     // Signal thread termination
     atomic_store_explicit(&l_pWatchdog->a_iIsRunning, 0, memory_order_release);
     
-    X_LOG_TRACE("LOCKLESS Watchdog thread terminated - ULTRA-FAST shutdown");
+    X_LOG_TRACE(" Watchdog thread terminated - ULTRA-FAST shutdown");
     return (void*)(intptr_t)WATCHDOG_SUCCESS;
 }
 
@@ -109,7 +108,7 @@ static void timer_handler(union sigval sv)
 {
     watchdog_t *l_pWatchdog = (watchdog_t *)sv.sival_ptr;
     if (!l_pWatchdog) {
-        X_LOG_TRACE("LOCKLESS Timer handler called with NULL context");
+        X_LOG_TRACE(" Timer handler called with NULL context");
         return;
     }
 
@@ -129,7 +128,7 @@ static void timer_handler(union sigval sv)
     if (l_pHandler != NULL) {
         l_pHandler();
     } else {
-        X_LOG_TRACE("LOCKLESS WATCHDOG TIMEOUT - REAL TIME ERROR - ULTRA-FAST RESPONSE");
+        X_LOG_TRACE(" WATCHDOG TIMEOUT - REAL TIME ERROR - ULTRA-FAST RESPONSE");
         exit(EXIT_FAILURE);
     }
 }
@@ -141,7 +140,7 @@ int watchdog_init(int timeout_ms)
 {
     // Check if already initialized with fast acquire ordering
     if (atomic_load_explicit(&g_is_initialized, memory_order_acquire)) {
-        X_LOG_TRACE("LOCKLESS Watchdog already initialized");
+        X_LOG_TRACE(" Watchdog already initialized");
         return WATCHDOG_ERROR_ALREADY_INIT;
     }
 
@@ -172,7 +171,7 @@ int watchdog_init(int timeout_ms)
 
     // Timer creation with error checking
     if (timer_create(CLOCK_MONOTONIC, &s_tSignalEvent, &g_timer_id) != 0) {
-        X_LOG_TRACE("LOCKLESS Failed to create timer: %s", strerror(errno));
+        X_LOG_TRACE(" Failed to create timer: %s", strerror(errno));
         return WATCHDOG_ERROR_TIMER_CREATE;
     }
     
@@ -182,7 +181,7 @@ int watchdog_init(int timeout_ms)
     // Create and configure the watchdog thread
     unsigned long l_ulReturn = osTaskInit(&g_watchdog.task_ctx);
     if (l_ulReturn != OS_TASK_SUCCESS) {
-        X_LOG_TRACE("LOCKLESS Failed to initialize watchdog task: %s (code: 0x%lx)", 
+        X_LOG_TRACE(" Failed to initialize watchdog task: %s (code: 0x%lx)", 
                    osTaskGetErrorString(l_ulReturn), l_ulReturn);
         cleanupWatchdogResources();
         return WATCHDOG_ERROR_THREAD_FAILED;
@@ -196,7 +195,7 @@ int watchdog_init(int timeout_ms)
     
     l_ulReturn = osTaskCreate(&g_watchdog.task_ctx);
     if (l_ulReturn != OS_TASK_SUCCESS) {
-        X_LOG_TRACE("LOCKLESS Failed to create watchdog thread: %s (code: 0x%lx)", 
+        X_LOG_TRACE(" Failed to create watchdog thread: %s (code: 0x%lx)", 
                    osTaskGetErrorString(l_ulReturn), l_ulReturn);
         cleanupWatchdogResources();
         return WATCHDOG_ERROR_THREAD_CREATE;
@@ -208,7 +207,7 @@ int watchdog_init(int timeout_ms)
     
     // Activate the watchdog immediately
     if (watchdog_ping() != WATCHDOG_SUCCESS) {
-        X_LOG_TRACE("LOCKLESS Failed to start watchdog timer");
+        X_LOG_TRACE(" Failed to start watchdog timer");
         atomic_store_explicit(&g_watchdog.a_iTerminate, 1, memory_order_release);
         osTaskEnd(&g_watchdog.task_ctx);
         cleanupWatchdogResources();
@@ -216,7 +215,7 @@ int watchdog_init(int timeout_ms)
         return WATCHDOG_ERROR_TIMER_SET;
     }
 
-    X_LOG_TRACE("LOCKLESS POSIX timer watchdog initialized (timeout=%ums) - MAXIMUM PERFORMANCE", l_ulActualTimeout);
+    X_LOG_TRACE(" POSIX timer watchdog initialized (timeout=%ums) - MAXIMUM PERFORMANCE", l_ulActualTimeout);
     return WATCHDOG_SUCCESS;
 }
 
@@ -241,7 +240,7 @@ void watchdog_stop(void)
     XOS_MEMORY_SANITIZE(&l_tIts, sizeof(struct itimerspec));
 
     if (timer_settime(g_timer_id, 0, &l_tIts, NULL) != 0) {
-        X_LOG_TRACE("LOCKLESS Failed to stop timer: %s", strerror(errno));
+        X_LOG_TRACE(" Failed to stop timer: %s", strerror(errno));
     }
     
     // Wait for thread termination with cached state
@@ -257,7 +256,7 @@ void watchdog_stop(void)
         
         // If the thread is still running, force termination
         if (l_iIsRunning) {
-            X_LOG_TRACE("LOCKLESS Forcing watchdog thread termination");
+            X_LOG_TRACE(" Forcing watchdog thread termination");
             osTaskEnd(&g_watchdog.task_ctx);
         }
     }
@@ -265,7 +264,7 @@ void watchdog_stop(void)
     // Clean up all resources
     cleanupWatchdogResources();
     
-    X_LOG_TRACE("LOCKLESS Watchdog stopped - ULTRA-FAST shutdown");
+    X_LOG_TRACE(" Watchdog stopped - ULTRA-FAST shutdown");
 }
 
 ////////////////////////////////////////////////////////////
@@ -300,7 +299,7 @@ int watchdog_ping(void)
 
     //Arm/rearm the timer - direct timer operation
     if (timer_settime(g_timer_id, 0, &l_tIts, NULL) != 0) {
-        X_LOG_TRACE("LOCKLESS Failed to set timer: %s", strerror(errno));
+        X_LOG_TRACE(" Failed to set timer: %s", strerror(errno));
         return WATCHDOG_ERROR_TIMER_SET;
     }
 
@@ -326,7 +325,7 @@ bool watchdog_has_expired(void)
 ////////////////////////////////////////////////////////////
 void watchdog_set_expiry_handler(void (*callback)(void))
 {
-    // LOCKLESS: Ultra-fast atomic store of callback pointer
+    // : Ultra-fast atomic store of callback pointer
     uintptr_t l_handlerAddr = (uintptr_t)callback;
     atomic_store_explicit(&g_expiry_handler, l_handlerAddr, memory_order_release);
 }
@@ -353,7 +352,7 @@ const char* watchdog_get_error_string(int error_code)
 }
 
 ////////////////////////////////////////////////////////////
-/// getCurrentTimeMs - LOCKLESS Helper
+/// getCurrentTimeMs -  Helper
 ////////////////////////////////////////////////////////////
 static inline uint64_t getCurrentTimeMs(void)
 {
@@ -382,11 +381,11 @@ static int validateTimeout(int p_iTimeout)
 }
 
 ////////////////////////////////////////////////////////////
-/// validateWatchdogState - LOCKLESS
+/// validateWatchdogState - 
 ////////////////////////////////////////////////////////////
 static int validateWatchdogState(void)
 {
-    // LOCKLESS: Check if watchdog structure is in valid state with acquire ordering
+    // : Check if watchdog structure is in valid state with acquire ordering
     if (!atomic_load_explicit(&g_is_initialized, memory_order_acquire)) {
         return WATCHDOG_ERROR_NOT_INIT;
     }
@@ -395,16 +394,16 @@ static int validateWatchdogState(void)
 }
 
 ////////////////////////////////////////////////////////////
-/// cleanupWatchdogResources - LOCKLESS
+/// cleanupWatchdogResources - 
 ////////////////////////////////////////////////////////////
 static void cleanupWatchdogResources(void)
 {
     // Delete the timer if created
     if (timer_delete(g_timer_id) != 0) {
-        X_LOG_TRACE("LOCKLESS Failed to delete timer: %s", strerror(errno));
+        X_LOG_TRACE(" Failed to delete timer: %s", strerror(errno));
     }
 
-    // LOCKLESS: No more mutex to destroy!
+    // : No more mutex to destroy!
     
     // Securely clear the watchdog structure
     XOS_MEMORY_SANITIZE(&g_watchdog, sizeof(watchdog_t));

@@ -21,7 +21,7 @@ typedef struct server_ctx_t serverCtx;
 typedef struct client_ctx_t clientCtx;
 
 // Message handler function type
-typedef void (*MessageHandler)(clientCtx *p_pttClient, const network_message_t *p_pttTimeComponentessage);
+typedef void (*MessageHandler)(clientCtx *p_pttClient, const network_message_t *p_pttMessage);
 
 // Server configuration
 typedef struct

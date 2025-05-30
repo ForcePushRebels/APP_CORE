@@ -41,8 +41,11 @@
 
 #include "../include/strategy_manager.h"
 
-#include "../../symbols/geometry.h"
-#include <strategy_wrapper.h>
+#include "strategy_wrapper.h"
+
+#include "map_engine.h"
+#include "pilot.h"
+#include "sensorManager.h"
 
 #define INTERVENTION_MANAGER_API_VERSION 	VER(1, 0, 0) // current header API version
 
@@ -59,7 +62,7 @@ typedef struct intervention_manager_s InterventionManager; // To force using the
 
 	// Constructor and destructor
 
-InterventionManager * intervention_manager__create(void);
+InterventionManager *intervention_manager__create(void);
 
 void intervention_manager__delete(InterventionManager *);
 
@@ -70,7 +73,7 @@ void intervention_manager__askStrat(InterventionManager *);
 void intervention_manager__giveIDStrategieToFollow(InterventionManager *, int);
 
 
-void intervention_manager__addStrategy(InterventionManager *, StrategyWrapper *);
+void intervention_manager__addStrategyWrapper(InterventionManager *, StrategyWrapper *);
 
 	// Movement control
 
@@ -95,7 +98,7 @@ void intervention_manager__reportStatus(InterventionManager *, MoveReason);
 void intervention_manager__interlockManuMode(InterventionManager *);
  
 	// Points selection
-void intervention_manager__sendPointsSelection(InterventionManager *self, Position *);
+void intervention_manager__sendPointsSelection(InterventionManager *self, Point **);
 
 	// Intervention control
 void intervention_manager__startInter(InterventionManager *self);

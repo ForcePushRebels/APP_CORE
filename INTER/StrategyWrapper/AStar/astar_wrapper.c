@@ -11,33 +11,71 @@ typedef struct {
 #define GRID_SIZE 10
 int grid[GRID_SIZE][GRID_SIZE];  // 0 for empty, 1 for obstacle
 
-struct astar_wrapper_s
-{
-	StrategyWrapper *strategyWrapper;
-};
+static float GridHeuristic(void* fromNode, void* toNode, void* context);
+static const ASPathNodeSource PathNodeSource;
 
 AStarWrapper *astar_wrapper__create()
 {	
 	AStarWrapper *self = malloc(sizeof(AStarWrapper));
 
-	self->strategyWrapper = strategy_wrapper__create("AStar");
+	self = strategy_wrapper__create("AStar");
 	
-	strategy_wrapper__bindPrepare(self->strategyWrapper, AStar__prepare);
+	strategy_wrapper__bindPrepare(self, astar_wrapper__prepare);
 	
-	strategy_wrapper__bindExecute(self->strategyWrapper, AStar__execute);
+	strategy_wrapper__bindExecute(self, astar_wrapper__execute);
 	
 	return self;
 }
 
-int astar_wrapper__delete(AStarWrapper *self) {
+//@Override
+void astar_wrapper__delete(AStarWrapper *self) {
 
-	strategy_wrapper__delete(self->strategyWrapper);
+	strategy_wrapper__delete(self);
 	
 	return 1;
 }
 
+//@Override
+int astar_wrapper__prepare(mat_t *mat) {
+	// Initialize the grid with a static maze (0 = empty, 1 = obstacle)
+	for (int i = 0; i < GRID_SIZE; i++) {
+		for (int j = 0; j < GRID_SIZE; j++) {
+			if(mat[i][j].type == MAP_CELL_WALL) {
+				grid[i][j] = 1;
+			}
+		}	
+	}
+
+	return 0;
+}
+
+//@Override
+int astar_wrapper__execute(seq_t *seq, Point *initial, Point *final) {
+
+	GridNode start = {initial->x, initial->y};
+	GridNode goal = {final->x, final->y};
+
+	// Find the path
+	ASPath path = ASPathCreate(&PathNodeSource, NULL, &start, &goal);
+
+	// Check if path exists
+	size_t pathCount = ASPathGetCount(path);
+	if (pathCount > 0) {
+		for (size_t i = 0; i < pathCount; i++) {
+			GridNode* node = (GridNode*)ASPathGetNode(path, i);
+			seq[i][0] = node->x;
+			seq[i][1] = node->y;
+		}
+	}
+
+	// Clean up
+	ASPathDestroy(path);
+
+	return 0;
+}
+
 // Node neighbor function
-void GridNodeNeighbors(ASNeighborList neighbors, void* node, void* context) {
+static void GridNodeNeighbors(ASNeighborList neighbors, void* node, void* context) {
     GridNode* currentNode = (GridNode*)node;
     int dx[] = {0, 1, 0, -1};  // Right, Down, Left, Up
     int dy[] = {1, 0, -1, 0};
@@ -58,7 +96,7 @@ void GridNodeNeighbors(ASNeighborList neighbors, void* node, void* context) {
 }
 
 // Manhattan distance heuristic
-float GridHeuristic(void* fromNode, void* toNode, void* context) {
+static float GridHeuristic(void* fromNode, void* toNode, void* context) {
     GridNode* from = (GridNode*)fromNode;
     GridNode* to = (GridNode*)toNode;
     return (float)(abs(to->x - from->x) + abs(to->y - from->y));
@@ -72,36 +110,3 @@ static const ASPathNodeSource PathNodeSource = {
     NULL,
     NULL
 };
-
-void AStar__prepare(int (* map_ptr)[10]) {
-	// Initialize the grid with a static maze (0 = empty, 1 = obstacle)
-	
-	for (int i = 0; i < GRID_SIZE; i++) {
-		for (int j = 0; j < GRID_SIZE; j++) {
-			printf("map_ptr[%d][%d] = %d\n", i, j, map_ptr[i][j]);
-			grid[i][j] = map_ptr[i][j];
-		}
-	}
-}
-
-void AStar__execute(int (*map_ptr)[2]) {
-
-	GridNode start = {0, 0};
-	GridNode goal = {9, 9};
-
-	// Find the path
-	ASPath path = ASPathCreate(&PathNodeSource, NULL, &start, &goal);
-
-	// Check if path exists
-	size_t pathCount = ASPathGetCount(path);
-	if (pathCount > 0) {
-		for (size_t i = 0; i < pathCount; i++) {
-			GridNode* node = (GridNode*)ASPathGetNode(path, i);
-			map_ptr[i][0] = node->x;
-			map_ptr[i][1] = node->y;
-		}
-	}
-
-	// Clean up
-	ASPathDestroy(path);
-}

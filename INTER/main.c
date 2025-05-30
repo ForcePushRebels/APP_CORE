@@ -21,7 +21,8 @@
 #include "handleNetworkMessage.h"
 #include "idCard.h"
 #include "sensorManager.h"
-
+#include "StrategyManager/include/intervention_manager.h"
+#include "AStar/astar_wrapper.h"
 
 static const uint8_t s_aCLogPath[] = "inter.log";
 
@@ -80,7 +81,7 @@ static void l_fWatchdogExpiryHandler(void)
 
 int main()
 {
-    int l_iReturn = 0;
+	int l_iReturn = 0;
 
     t_logCtx t_LogConfig;
     t_LogConfig.t_bLogToFile = true;
@@ -91,67 +92,12 @@ int main()
     l_iReturn = xLogInit(&t_LogConfig);
     X_ASSERT(l_iReturn == XOS_LOG_OK);
 
-    // init hardware abstraction
-    l_iReturn = hardwareAbstractionInit();
-    X_ASSERT(l_iReturn == 0);
+	InterventionManager *inter = intervention_manager__create();
 
-    // init watchdog
-    l_iReturn = watchdog_init(300);
-    X_ASSERT(l_iReturn == WATCHDOG_SUCCESS);
-    watchdog_set_expiry_handler(l_fWatchdogExpiryHandler);
+	AStarWrapper *astar = astar_wrapper__create();
+	intervention_manager__addStrategyWrapper(inter, astar);
+	intervention_manager__giveIDStrategieToFollow(inter, 0);
+	intervention_manager__startInter(inter);
 
-    // Initialisation du système de handlers de messages
-    initMessageHandlerSystem();
-
-    // init server
-    l_iReturn = networkServerInit();
-    X_ASSERT(l_iReturn == SERVER_OK);
-
-    ServerConfig l_tServerConfig = networkServerCreateDefaultConfig();
-    l_tServerConfig.t_usPort = 8080;
-    l_tServerConfig.t_pcBindAddress = "127.0.0.1";
-    l_tServerConfig.t_iMaxClients = 10;
-    l_tServerConfig.t_iBacklog = 5;
-    l_tServerConfig.t_bUseTimeout = false;
-    l_tServerConfig.t_iReceiveTimeout = 0;
-
-    l_iReturn = networkServerConfigure(&l_tServerConfig);
-    X_ASSERT(l_iReturn == SERVER_OK);
-
-    // Définir le gestionnaire de messages
-    networkServerSetMessageHandler(handleNetworkMessage);
-
-    // Configurer et initialiser la découverte UDP
-    idCardNetworkInit();
-
-
-    // init sensor manager
-    l_iReturn = sensorManagerInit();
-    X_ASSERT(l_iReturn == SENSOR_MANAGER_OK);
-
-    // start monitoring
-    l_iReturn = startMonitoring();
-    X_ASSERT(l_iReturn == SENSOR_MANAGER_OK);
-
-    // start server
-    l_iReturn = networkServerStart();
-    X_ASSERT(l_iReturn == SERVER_OK);
-    
-    // main loop
-    while (1)
-    {
-        // Envoyer le signal SOS en morse
-        sendMorseSOS();
-        
-        // Pour envoyer des mises à jour périodiques, on devra attendre d'avoir un client connecté
-        // et utiliser serverSendMessage à ce moment-là.
-    }
-    
-    // Ce code ne sera jamais atteint, mais pour être complet:
-    cleanupMessageHandlerSystem();
-    idCardNetworkCleanup();
-    networkServerStop();
-    networkServerCleanup();
-    
     return 0;
 }

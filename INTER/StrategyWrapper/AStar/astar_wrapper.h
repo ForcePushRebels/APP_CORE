@@ -3,14 +3,19 @@
 
 #include "strategy_wrapper.h"
 
-typedef struct astar_wrapper_s AStarWrapper;
+//@Alias
+typedef StrategyWrapper AStarWrapper;
 
+//@Override
 AStarWrapper *astar_wrapper__create(void);
 
-void AStar_Wrapper__delete();
+//@Override
+void astar_wrapper__delete(AStarWrapper *);
 
-void AStar__prepare(int (* map_ptr)[10]);
+//@Override
+int astar_wrapper__prepare(mat_t *);
 
-void AStar__execute(int (*map_ptr)[2]);
+//@Override
+int astar_wrapper__execute(seq_t *, Point*, Point*);
 
 #endif /* __ASTAR_WRAPPER__ */

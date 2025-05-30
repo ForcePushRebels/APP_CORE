@@ -36,10 +36,9 @@
 #include <stdbool.h> // For boolean pseudo-type
 
 #include <time.h> // For timer management
+#include <map_engine.h>
 
-#include "../../symbols/geometry.h"
-
-#include "strategy_wrapper.h"
+#include "../../StrategyWrapper/strategy_wrapper.h"
 
 #define STRATEGY_MANAGER_API_VERSION VER(1, 0, 0)
 
@@ -90,9 +89,11 @@ void strategy_manager__askStrat(StrategyManager *);
 
 void strategy_manager__giveIDStrategieToFollow(StrategyManager *, int);
 
-void strategy_manager__addStrategy(StrategyManager *, StrategyWrapper *);
+void strategy_manager__addStrategyWrapper(StrategyManager *, StrategyWrapper *);
 
-void strategy_manager__setMap(StrategyManager *self, Point *);
+void strategy_manager__setMap(StrategyManager *);
+
+int strategy_manager__getTimeElapsed(StrategyManager *);
 
 	// Movement control
 
@@ -120,16 +121,16 @@ void strategy_manager__interlockManuMode(StrategyManager *);
 
 	// Strategy computation
 
-void strategy_manager__computeStrat(StrategyManager *self);
+void strategy_manager__computeStrat(StrategyManager *, seq_t *);
 
 	// Timer management
 
-int strategy_manager__startTimer(StrategyManager *self);
+int strategy_manager__startTimer(StrategyManager *);
 
-int strategy_manager__stopTimer(StrategyManager *self);
+int strategy_manager__stopTimer(StrategyManager *);
 
 	// Status update
 
-void strategy_manager__updateStatus(StrategyManager *self, Status);
+void strategy_manager__updateStatus(StrategyManager *, Status);
 
 #endif /* __STRATEGY_MANAGER_H__ */

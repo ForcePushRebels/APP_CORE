@@ -12,6 +12,15 @@
 #include "idCard.h"
 
 static sensorManager_t s_tSensorManager;
+////////////////////////////////////////////////////////////
+
+#include "sensorManager.h"
+#include "idCard.h"
+#include "map_engine.h"
+#include "idCard.h"
+
+static sensorManager_t s_tSensorManager;
+
 
 #define SENSOR_MANAGER_TASK_PERIOD 100
 #define SENSOR_OBSTACLE_THRESHOLD 150

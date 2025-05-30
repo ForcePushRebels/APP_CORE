@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-PATO-ESEO
 
 /**
- * @file intervention_manager.c
+ * @file strategy_wrapper.c
  * @brief Source file for the Intervention Manager module.
  *
  * @author
@@ -24,18 +24,20 @@
 #include "../../helpers/util_macros.h"
 #include "strategy_wrapper.h"
 
-#include "../../logger/log.h"
+#include "xLog.h"
 #include "../../symbols/ret_codes.h"
+#include <map_engine.h>
 
 #define LOG_TAG "StrategyWrapper"
 
+/* Constructor */
 __attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
 StrategyWrapper *strategy_wrapper__create(char * name)
 {
 	/* ===== Préconditions ===== */
 	assert(true); // ⬅️ À conserver. Indique explicitement qu'il n'y a pas de précondition
 
-	LOG_DEBUG_MSG(LOG_TAG, ASCII_R2ARROW "entering intervention_manager__create()");
+	X_LOG_TRACE("entering strategy_wrapper__create()");
 
 	/* ===== Variables locales ===== */
 	StrategyWrapper *strategyWrapper;
@@ -45,7 +47,7 @@ StrategyWrapper *strategy_wrapper__create(char * name)
 	
 	strategyWrapper->name = name;
 
-	LOG_DEBUG_MSG(LOG_TAG, ASCII_L2ARROW "exiting intervention_manager__create()");
+	X_LOG_TRACE("exiting strategy_wrapper__create()");
 
 	/* ===== Postconditions ===== */
     // assert(interventionManager != NULL); // ⬅️ À décommenter. Pour les plus téméraires
@@ -53,26 +55,36 @@ StrategyWrapper *strategy_wrapper__create(char * name)
 	return strategyWrapper;
 }
 
-void strategy_wrapper__bindPrepare(StrategyWrapper *self, PrepFuncSign ptr)
+/* Binders */
+
+void strategy_wrapper__bindMap(StrategyWrapper *self, mat_t *map_ptr)
 {
-	self->prepare = ptr;
+	self->map = map_ptr;
 }
 
-void strategy_wrapper__bindExecute(StrategyWrapper *self, ExecFuncSign ptr)
+void strategy_wrapper__bindPrepare(StrategyWrapper *self, prep_func_cb *prep_func_ptr)
 {
-	self->execute = ptr;
+	self->prepare = prep_func_ptr;
 }
 
-void strategy_wrapper__prepare(StrategyWrapper *self)
+void strategy_wrapper__bindExecute(StrategyWrapper *self, exec_func_cb *exec_func_ptr)
 {
-	self->prepare();
+	self->execute = exec_func_ptr;
 }
 
-void strategy_wrapper__execute(StrategyWrapper *self)
+/* Callbacks */
+
+void strategy_wrapper__prepare(StrategyWrapper *self, mat_t *map)
 {
-	self->execute();
+	self->prepare(map);
 }
 
+void strategy_wrapper__execute(StrategyWrapper *self, seq_t *way, Point *initial, Point *final)
+{
+	self->execute(way, initial, final);
+}
+
+/* Destructor */
 __attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
 void strategy_wrapper__delete(StrategyWrapper *self)
 {
@@ -81,7 +93,7 @@ void strategy_wrapper__delete(StrategyWrapper *self)
 
 	UNUSED(self); // ⬅️ À retirer. Dès que 'self' est utilisé en dehors des assert()
 
-	LOG_DEBUG_MSG(LOG_TAG, ASCII_R2ARROW "entering intervention_manager__delete()");
+	X_LOG_TRACE("entering strategy_wrapper__delete()");
 
 	/* ===== Variables locales ===== */
 	// Déclare les variables temporaires
@@ -89,7 +101,7 @@ void strategy_wrapper__delete(StrategyWrapper *self)
 	/* ===== Logique principale ===== */
 	free(self); // ⬅️ Libère la mémoire allouée pour l'InterventionManager
 
-	LOG_DEBUG_MSG(LOG_TAG, ASCII_L2ARROW "exiting intervention_manager__delete()");
+	X_LOG_TRACE("exiting strategy_wrapper__delete()");
 
 	/* ===== Postconditions ===== */
     // assert(interventionManager == NULL); // ⬅️ À décommenter. Quand le SAFE_FREE() est utilisé

@@ -148,10 +148,83 @@ size_t map_engine_get_map_size()
     return sizeof(map_engine.map);
 }
 
-int map_engine_get_map(map_cell_t *map)
+int map_engine_get_map(map_cell_t (*map)[10])
 {
-    memcpy(map, map_engine.map, sizeof(map_engine.map));
-    return MAP_ENGINE_OK;
+	map_cell_t tmp[10][10] = {
+		{
+			{ MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_EMPTY, .empty = {0} },
+			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} }
+		},
+		{
+			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_EMPTY, .empty = {0} },
+			{ MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_EMPTY, .empty = {0} },
+			{ MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+			{ MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_EMPTY, .empty = {0} },
+			{ MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} }
+		},
+		{
+			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+			{ MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+			{ MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+			{ MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} }
+		},
+		{
+			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_EMPTY, .empty = {0} },
+			{ MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+			{ MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+			{ MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+			{ MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} }
+		},
+		{
+			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_EMPTY, .empty = {0} },
+			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+			{ MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+			{ MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+			{ MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} }
+		},
+		{
+			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_EMPTY, .empty = {0} },
+			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_EMPTY, .empty = {0} },
+			{ MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_EMPTY, .empty = {0} },
+			{ MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+			{ MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} }
+		},
+		{
+			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_EMPTY, .empty = {0} },
+			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_EMPTY, .empty = {0} },
+			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+			{ MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} }
+		},
+		{
+			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_EMPTY, .empty = {0} },
+			{ MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_EMPTY, .empty = {0} },
+			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+			{ MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} }
+		},
+		{
+			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+			{ MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} }
+		},
+		{
+			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+			{ MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_EMPTY, .empty = {0} }
+		}
+	};
+	
+    memcpy(*map, tmp, sizeof(tmp));
+	return MAP_ENGINE_OK;
 }
 
 int map_engine_get_discovery_percent()

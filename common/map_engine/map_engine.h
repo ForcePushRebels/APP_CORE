@@ -85,7 +85,7 @@ size_t map_engine_get_map_size();
  * @param map The map to get
  * @return MAP_ENGINE_OK if successful, MAP_ENGINE_ERROR_NO_MAP_AVAILABLE otherwise
  */
-int map_engine_get_map(map_cell_t *map);
+int map_engine_get_map(map_cell_t (*map)[10]);
 
 /**
  * @brief Get the discovery percent

@@ -57,7 +57,7 @@ int xTimerCreate(xOsTimerCtx *p_ptTimer, uint32_t p_ulPeriod, uint8_t p_ucMode)
     if (l_iResult != MUTEX_OK)
     {
         X_LOG_TRACE("xTimerCreate: Failed to create mutex");
-        return XOS_TIMER_MUTEX_ERROR;
+        return l_iResult;
     }
 
     return XOS_TIMER_OK;
@@ -83,7 +83,7 @@ int xTimerStart(xOsTimerCtx *p_ptTimer)
     if (l_iResult != MUTEX_OK)
     {
         X_LOG_TRACE("xTimerStart: Failed to lock mutex");
-        return XOS_TIMER_MUTEX_ERROR;
+        return l_iResult;
     }
 
     // Validate timer period before starting
@@ -136,7 +136,7 @@ int xTimerStart(xOsTimerCtx *p_ptTimer)
     if (l_iResult != MUTEX_OK)
     {
         X_LOG_TRACE("xTimerStart: Failed to unlock mutex");
-        return XOS_TIMER_MUTEX_ERROR;
+        return l_iResult;
     }
 
     return XOS_TIMER_OK;
@@ -162,7 +162,7 @@ int xTimerStop(xOsTimerCtx *p_ptTimer)
     if (l_iResult != MUTEX_OK)
     {
         X_LOG_TRACE("xTimerStop: Failed to lock mutex");
-        return XOS_TIMER_MUTEX_ERROR;
+        return l_iResult;
     }
 
     p_ptTimer->t_ucActive = 0;
@@ -172,7 +172,7 @@ int xTimerStop(xOsTimerCtx *p_ptTimer)
     if (l_iResult != MUTEX_OK)
     {
         X_LOG_TRACE("xTimerStop: Failed to unlock mutex");
-        return XOS_TIMER_MUTEX_ERROR;
+        return l_iResult;
     }
 
     return XOS_TIMER_OK;
@@ -199,7 +199,7 @@ int xTimerExpired(xOsTimerCtx *p_ptTimer)
     if (l_iResult != MUTEX_OK)
     {
         X_LOG_TRACE("xTimerExpired: Failed to lock mutex");
-        return XOS_TIMER_MUTEX_ERROR;
+        return l_iResult;
     }
 
     if (!p_ptTimer->t_ucActive)
@@ -275,7 +275,7 @@ int xTimerExpired(xOsTimerCtx *p_ptTimer)
     if (l_iResult != MUTEX_OK)
     {
         X_LOG_TRACE("xTimerExpired: Failed to unlock mutex");
-        return XOS_TIMER_MUTEX_ERROR;
+        return l_iResult;
     }
 
     return l_iReturn;
@@ -358,7 +358,7 @@ int xTimerProcessElapsedPeriods(xOsTimerCtx *p_ptTimer, void (*p_pfCallback)(voi
     if (l_iResult != MUTEX_OK)
     {
         X_LOG_TRACE("xTimerProcessElapsedPeriods: Failed to lock mutex");
-        return XOS_TIMER_MUTEX_ERROR;
+        return l_iResult;
     }
 
     if (!p_ptTimer->t_ucActive)
@@ -424,7 +424,7 @@ int xTimerProcessElapsedPeriods(xOsTimerCtx *p_ptTimer, void (*p_pfCallback)(voi
             if (l_iResult != MUTEX_OK)
             {
                 X_LOG_TRACE("xTimerProcessElapsedPeriods: Failed to unlock mutex before callback");
-                return XOS_TIMER_MUTEX_ERROR;
+                return l_iResult;
             }
 
             // Execute callback with error handling
@@ -436,7 +436,7 @@ int xTimerProcessElapsedPeriods(xOsTimerCtx *p_ptTimer, void (*p_pfCallback)(voi
             if (l_iResult != MUTEX_OK)
             {
                 X_LOG_TRACE("xTimerProcessElapsedPeriods: Failed to re-lock mutex after callback");
-                return XOS_TIMER_MUTEX_ERROR;
+                return l_iResult;
             }
 
             // Check if timer was stopped during callback
@@ -475,7 +475,7 @@ int xTimerProcessElapsedPeriods(xOsTimerCtx *p_ptTimer, void (*p_pfCallback)(voi
     if (l_iResult != MUTEX_OK)
     {
         X_LOG_TRACE("xTimerProcessElapsedPeriods: Failed to unlock mutex");
-        return XOS_TIMER_MUTEX_ERROR;
+        return l_iResult;
     }
 
     return l_iPeriodCount;

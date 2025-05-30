@@ -17,12 +17,12 @@
 #include "xOsMutex.h"
 
 // Timer error codes
-#define XOS_TIMER_OK 0x9A84B10
-#define XOS_TIMER_ERROR 0x9A84B11
-#define XOS_TIMER_INVALID 0x9A84B12
-#define XOS_TIMER_TIMEOUT 0x9A84B13
-#define XOS_TIMER_NOT_INIT 0x9A84B14
-#define XOS_TIMER_MUTEX_ERROR 0x9A84B15
+#define XOS_TIMER_OK            0x9A84B10
+#define XOS_TIMER_ERROR         0x9A84B11
+#define XOS_TIMER_INVALID       0x9A84B12
+#define XOS_TIMER_TIMEOUT       0x9A84B13
+#define XOS_TIMER_NOT_INIT      0x9A84B14
+
 
 // Timer modes
 #define XOS_TIMER_MODE_ONESHOT 0

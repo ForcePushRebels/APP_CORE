@@ -11,6 +11,9 @@
 // Définition de la marge de correction en ticks
 #define CORRECTION_MARGIN_TICKS 5
 
+// Activer/désactiver la correction du débordement des encodeurs
+#define CORRECTION 0
+
 // Variable de position globale
 static Position_t g_robot_position = {0, 0, 0.0f};
 static xOsMutexCtx g_position_mutex;
@@ -79,17 +82,31 @@ static int32_t angle_to_ticks(double angle_rad)
     // Calculer la rotation de roue pour l'angle souhaité
     // Pour une propulsion différentielle, la rotation de roue est:
     // rotation_roue = (angle * distance_roues) / rayon_roue
-    double wheel_distance = WHEEL_DISTANCE_CM / 2.0;
-    double wheel_rotation_rad = (angle_rad * wheel_distance) / WHEEL_DIAMETER_CM;
+    double wheel_rotation_rad = ((WHEEL_DISTANCE_CM / 2.0) * angle_rad);
     
     // Convertir les radians en ticks d'encodeur
     // Multiplier par 10 pour corriger l'échelle
-    int32_t ticks = (int32_t)(wheel_rotation_rad * ENCODER_TICKS_REV / (2.0 * M_PI));
+    int32_t ticks = (int32_t)((wheel_rotation_rad) / (WHEEL_PERIMETER_CM/ENCODER_TICKS_REV));
     
     X_LOG_TRACE("Conversion d'angle: angle=%.2f rad, rotation_roue=%.2f rad, ticks=%d",
                 angle_rad, wheel_rotation_rad, ticks);
     
     return ticks;
+}
+/*
+// Fonction utilitaire pour calculer le delta d'encodeur en tenant compte du débordement
+static int32_t calculate_encoder_delta(uint16_t current, uint16_t previous) {
+    // Gestion du débordement
+    if (current < previous && (previous - current) > 32768) {
+        // Débordement vers le haut
+        return (int32_t)((65536 - previous) + current);
+    } else if (current > previous && (current - previous) > 32768) {
+        // Débordement vers le bas
+        return -(int32_t)((65536 - current) + previous);
+    } else {
+        // Pas de débordement
+        return (int32_t)current - (int32_t)previous;
+    }
 }
 
 // --- Fonctions internes ---
@@ -119,22 +136,22 @@ static void update_robot_position(int32_t left_ticks, int32_t right_ticks)
     g_robot_position.x_mm += (int32_t)(linear_mm * cos(g_robot_position.angle_rad));
     g_robot_position.y_mm += (int32_t)(linear_mm * sin(g_robot_position.angle_rad));
     
-    X_LOG_TRACE("Position mise à jour - X: %d mm, Y: %d mm, Angle: %.2f rad",
-                g_robot_position.x_mm, g_robot_position.y_mm, g_robot_position.angle_rad);
+    //X_LOG_TRACE("Position mise à jour - X: %d mm, Y: %d mm, Angle: %.2f rad",
+    //            g_robot_position.x_mm, g_robot_position.y_mm, g_robot_position.angle_rad);
     
     mutexUnlock(&g_position_mutex);
 }
-
+*/
 static void* wheel_position_control_task(void* arg) 
 {
     wheel_position_control_t* control = (wheel_position_control_t*)arg;
     if (!control) 
     {
-        X_LOG_TRACE("Tâche de contrôle de position de roue: Pointeur de contrôle invalide");
+        //X_LOG_TRACE("Tâche de contrôle de position de roue: Pointeur de contrôle invalide");
         return (void*)OS_TASK_EXIT_FAILURE;
     }
 
-    X_LOG_TRACE("Tâche de contrôle de position de roue démarrée");
+    //X_LOG_TRACE("Tâche de contrôle de position de roue démarrée");
     while (control->running) 
     {
         mutexLock(&control->mutex);
@@ -152,12 +169,12 @@ static void* wheel_position_control_task(void* arg)
         uint16_t encoder_values[2] = {0, 0};
         GetMotorEncoderValues(encoder_values);
         
-        // Calculer les deltas des encodeurs
-        int32_t left_delta = encoder_values[0] - g_left_wheel.current_ticks;
-        int32_t right_delta = encoder_values[1] - g_right_wheel.current_ticks;
+        // Calculer les deltas des encodeurs en tenant compte du débordement
+        //int32_t left_delta = calculate_encoder_delta(encoder_values[0], g_left_wheel.current_ticks);
+        //int32_t right_delta = calculate_encoder_delta(encoder_values[1], g_right_wheel.current_ticks);
         
         // Mettre à jour la position du robot
-        update_robot_position(left_delta, right_delta);
+        //update_robot_position(left_delta, right_delta);
         
         // Mettre à jour les ticks actuels
         g_left_wheel.current_ticks = encoder_values[0];
@@ -170,7 +187,7 @@ static void* wheel_position_control_task(void* arg)
         // Calculer le nombre de ticks pendant la rampe de décélération
         int32_t nb_decc_tick = calculate_ramp_tick(control->max_speed, DECELERATION_COEF);
 
-        X_LOG_TRACE("nb_decc_tick: %d, %d", nb_decc_tick,abs(control->target_ticks) - nb_decc_tick);
+        //X_LOG_TRACE("nb_decc_tick: %d, %d", nb_decc_tick,abs(control->target_ticks) - nb_decc_tick);
         // Variables pour le contrôle de la phase d'accélération
         static bool acc_done = false;
         static bool start_decc = false;
@@ -201,13 +218,13 @@ static void* wheel_position_control_task(void* arg)
         }
         // Phase de décélération
         else if ((abs(control->current_ticks) >= (abs(control->target_ticks) - nb_decc_tick) || start_decc) && !decc_done) {
-            X_LOG_TRACE("Phase décélération - current_ticks: %d, target_ticks: %d, nb_decc_tick: %d, start_decc: %d, condition1: %d, condition2: %d",
-                abs(control->current_ticks),
-                abs(control->target_ticks),
-                nb_decc_tick,
-                start_decc,
-                abs(control->current_ticks) >= (abs(control->target_ticks) - nb_decc_tick),
-                start_decc);
+            //X_LOG_TRACE("Phase décélération - current_ticks: %d, target_ticks: %d, nb_decc_tick: %d, start_decc: %d, condition1: %d, condition2: %d",
+            //    abs(control->current_ticks),
+            //    abs(control->target_ticks),
+            //    nb_decc_tick,
+            //    start_decc,
+            //    abs(control->current_ticks) >= (abs(control->target_ticks) - nb_decc_tick),
+            //    start_decc);
             mutexLock(&g_speed_mutex);
             g_common_target_speed -= (DECELERATION_COEF * REGULATION_PERIOD_MS / 1000.0);
             if (g_common_target_speed < MIN_SPEED_RAD_S) {
@@ -222,29 +239,64 @@ static void* wheel_position_control_task(void* arg)
             int32_t remaining_ticks = control->target_ticks - control->current_ticks;
             int32_t abs_remaining = abs(remaining_ticks);
 
-            if (abs_remaining > CORRECTION_MARGIN_TICKS) {
+            if (abs_remaining > CORRECTION_MARGIN_TICKS && CORRECTION) {
                 // Appliquer une petite vitesse de correction
                 double correction = (remaining_ticks > 0) ? CORRECTION_SPEED : -CORRECTION_SPEED;
-                // Appliquer la correction à la roue appropriée
-                if (control->is_left_wheel) {
-                    motor_control_set_left_speed(correction);
-                } else {
-                    motor_control_set_right_speed(correction);
+                switch (g_current_move_type) {
+                case FORWARD:
+                    // Appliquer la correction à la roue appropriée
+                    if (control->is_left_wheel) {
+                        motor_control_set_left_speed(correction);
+                    } else {
+                        motor_control_set_right_speed(correction);
+                    }
+                    // Les deux roues tournent dans le même sens
+                    break;
+                    
+                case LEFT:
+                    // Roue gauche en arrière, roue droite en avant
+                    // Appliquer la correction à la roue appropriée
+                    if (control->is_left_wheel) {
+                        motor_control_set_left_speed(-correction);
+                        X_LOG_TRACE("Correction LEFT - Roue gauche: current=%d, target=%d, remaining=%d, correction=%.2f, speed=%.2f", 
+                            control->current_ticks, control->target_ticks, remaining_ticks, correction, -correction);
+                    } else {
+                        motor_control_set_right_speed(correction);
+                        X_LOG_TRACE("Correction LEFT - Roue droite: current=%d, target=%d, remaining=%d, correction=%.2f, speed=%.2f", 
+                            control->current_ticks, control->target_ticks, remaining_ticks, correction, correction);
+                    }
+                    break;
+                    
+                case RIGHT:
+                    // Roue gauche en avant, roue droite en arrière
+                    // Appliquer la correction à la roue appropriée
+                    if (control->is_left_wheel) {
+                        motor_control_set_left_speed(correction);
+                        X_LOG_TRACE("Correction RIGHT - Roue gauche: current=%d, target=%d, remaining=%d, correction=%.2f, speed=%.2f", 
+                            control->current_ticks, control->target_ticks, remaining_ticks, correction, correction);
+                    } else {
+                        motor_control_set_right_speed(-correction);
+                        X_LOG_TRACE("Correction RIGHT - Roue droite: current=%d, target=%d, remaining=%d, correction=%.2f, speed=%.2f", 
+                            control->current_ticks, control->target_ticks, remaining_ticks, correction, -correction);
+                    }
+                    break;
                 }
-                X_LOG_TRACE("Phase correction - remaining_ticks: %d, correction: %.2f", remaining_ticks, correction);
             } else {
                 // Arrêt final si on est dans la marge de correction
                 if (control->is_left_wheel) {
                     motor_control_set_left_speed(0.0);
+                    X_LOG_TRACE("Arrêt final - Roue gauche: current=%d, target=%d, remaining=%d", 
+                        control->current_ticks, control->target_ticks, remaining_ticks);
                 } else {
                     motor_control_set_right_speed(0.0);
+                    X_LOG_TRACE("Arrêt final - Roue droite: current=%d, target=%d, remaining=%d", 
+                        control->current_ticks, control->target_ticks, remaining_ticks);
                 }
                 control->motion_finished = true;
                 // Réinitialiser les drapeaux pour le prochain mouvement
                 acc_done = false;
                 start_decc = false;
                 decc_done = false;
-                X_LOG_TRACE("Mouvement terminé - position finale atteinte pour roue %s", control->is_left_wheel ? "gauche" : "droite");
             }
         }
 
@@ -281,7 +333,7 @@ static void* wheel_position_control_task(void* arg)
         xTimerDelay(REGULATION_PERIOD_MS);
     }
 
-    X_LOG_TRACE("Tâche de contrôle de position de roue arrêtée");
+    //X_LOG_TRACE("Tâche de contrôle de position de roue arrêtée");
     return (void*)OS_TASK_EXIT_SUCCESS;
 }
 

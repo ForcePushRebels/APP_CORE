@@ -161,7 +161,7 @@ int GetMotorEncoderValues(uint16_t *p_ptIMotors)
         int l_iValue = mrpiz_motor_encoder_get(t_HardwareAbstraction.t_iMotors[i]);
         if (l_iValue != -1)
         {
-            p_ptIMotors[i] = (uint16_t)l_iValue;
+            p_ptIMotors[i] = (int16_t)l_iValue;
         }
 
         else

@@ -456,17 +456,17 @@ static int removeClient(clientCtx *p_ptClient)
 ///////////////////////////////////////////
 /// networkServerGetClientAddress
 ///////////////////////////////////////////
-bool networkServerGetClientAddress(ClientID p_tClientId, char *p_pcBuffer, int p_iSize)
+bool networkServerGetClientAddress(ClientID p_tClientId, char *p_ptcBuffer, int p_iSize)
 {
     clientCtx *l_ptClient = findClientById(p_tClientId);
-    if (l_ptClient == NULL || p_pcBuffer == NULL || p_iSize <= 0)
+    if (l_ptClient == NULL || p_ptcBuffer == NULL || p_iSize <= 0)
     {
         return false;
     }
 
     // copy the address to the buffer
-    strncpy(p_pcBuffer, l_ptClient->t_tAddress.t_cAddress, p_iSize - 1);
-    p_pcBuffer[p_iSize - 1] = '\0';
+    strncpy(p_ptcBuffer, l_ptClient->t_tAddress.t_cAddress, p_iSize - 1);
+    p_ptcBuffer[p_iSize - 1] = '\0';
 
     return true;
 }
@@ -784,16 +784,20 @@ static void *serverThreadFunc(void *p_pvArg)
     // get the task context to check the stop flag
     xOsTaskCtx *p_ptTaskCtx = &p_ptServer->t_tTask;
 
+    // Cache stop flag for better performance - flag rarely changes during normal operation
+    int l_iStopFlag = atomic_load_explicit(&p_ptTaskCtx->a_iStopFlag, memory_order_acquire);
+    
     // main loop of the server
-    while (p_ptServer->t_bRunning &&
-           atomic_load(&p_ptTaskCtx->a_iStopFlag) != OS_TASK_STOP_REQUEST)
+    while (p_ptServer->t_bRunning && l_iStopFlag != OS_TASK_STOP_REQUEST)
     {
         // wait for a client connection with timeout
         int l_iActivity = networkWaitForActivity(p_ptServer->t_ptSocket, SERVER_ACCEPT_TIMEOUT);
 
+        // Refresh stop flag periodically with relaxed ordering for performance
+        l_iStopFlag = atomic_load_explicit(&p_ptTaskCtx->a_iStopFlag, memory_order_relaxed);
+        
         // check if the server should stop
-        if (!p_ptServer->t_bRunning ||
-            atomic_load(&p_ptTaskCtx->a_iStopFlag) == OS_TASK_STOP_REQUEST)
+        if (!p_ptServer->t_bRunning || l_iStopFlag == OS_TASK_STOP_REQUEST)
         {
             break;
         }
@@ -913,10 +917,20 @@ static void *clientThreadFunc(void *p_pvArg)
                 p_ptClient->t_tAddress.t_usPort,
                 p_ptClient->t_tId);
 
+    // Cache stop flag for better performance in main client loop
+    int l_iClientStopFlag = atomic_load_explicit(&p_ptClient->t_tTask.a_iStopFlag, memory_order_acquire);
+    int l_iLoopCounter = 0;  // Simple counter for periodic flag refresh
+
     // main loop of the client
-    while (p_ptClient->t_bConnected && p_ptServer->t_bRunning &&
-           atomic_load(&p_ptClient->t_tTask.a_iStopFlag) != OS_TASK_STOP_REQUEST)
+    while (p_ptClient->t_bConnected && p_ptServer->t_bRunning && 
+           l_iClientStopFlag != OS_TASK_STOP_REQUEST)
     {
+        // Periodically refresh stop flag every 10 iterations for better performance
+        if (++l_iLoopCounter >= 10) {
+            l_iLoopCounter = 0;
+            l_iClientStopFlag = atomic_load_explicit(&p_ptClient->t_tTask.a_iStopFlag, memory_order_relaxed);
+        }
+        
         // STEP 1: First receive the size (2 bytes) - FIXED: use complete receive
         p_iReceived = networkReceiveComplete(p_ptClient->t_ptSocket, p_aucBuffer, sizeof(uint16_t));
 

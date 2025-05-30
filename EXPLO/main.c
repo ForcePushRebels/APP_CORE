@@ -336,7 +336,7 @@ int main()
     // Configuration des logs - le chemin complet sera construit automatiquement
     t_logCtx t_LogConfig;
     t_LogConfig.t_bLogToFile = true;
-    t_LogConfig.t_bLogToConsole = false;
+    t_LogConfig.t_bLogToConsole = true;
     strncpy(t_LogConfig.t_cLogPath, (const char*)s_aCLogPath, sizeof(t_LogConfig.t_cLogPath) - 1);
     t_LogConfig.t_cLogPath[sizeof(t_LogConfig.t_cLogPath) - 1] = '\0';
 
@@ -398,7 +398,7 @@ int main()
 
     // Initialisation du pilotage
     l_iReturn = pilot_init(); // Exemple: (max_speed, rayon_roue_m, entraxe_m)
-    X_ASSERT(l_iReturn == 0);
+    X_ASSERT(l_iReturn == PILOT_OK);
     X_LOG_TRACE("Pilot initialized");
 
     // start server

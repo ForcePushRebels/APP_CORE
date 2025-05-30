@@ -1,13 +1,15 @@
+////////////////////////////////////////////////////////////
+//  pilot.c
+//  implementation of the pilot module
+//
+// general discloser: copy or share the file is forbidden
+// Written : 23/05/2025
+// Modified: 30/05/2025 - Fixed security issues
+////////////////////////////////////////////////////////////
+
 #include "pilot.h"
-#include "xTask.h"
-#include "xTimer.h"
-#include "xOsMutex.h"
 #include "xLog.h"
-#include <stdlib.h>
-#include <string.h>
-#include <math.h>
-#include <stdatomic.h>
-#include "positionControl.h"
+
 
 /////////////////////////////////
 /// @brief Pilot global variables
@@ -504,14 +506,17 @@ int32_t pilot_shutdown(void)
 {
     int32_t l_iret = PILOT_OK;
     atomic_store_explicit(&g_pilot.pilotTask.a_iStopFlag, OS_TASK_STOP_REQUEST , memory_order_relaxed);
-    if (osTaskStop(&g_pilot.pilotTask, 2) != 0)
+    
+    l_iret = osTaskStop(&g_pilot.pilotTask, 2);
+    if (l_iret != OS_TASK_SUCCESS)
     {
         X_LOG_TRACE("pilot_shutdown: osTaskStop failed");
-        l_iret = PILOT_ERROR_INVALID_ARGUMENT;
     }
+    
     mutexDestroy(&g_pilot.moveQueue.mutex);
     mutexDestroy(&g_pilot.evtQueue.mutex);
     XOS_MEMORY_SANITIZE(&g_pilot, sizeof(g_pilot));
+    
     return l_iret;
 }
 

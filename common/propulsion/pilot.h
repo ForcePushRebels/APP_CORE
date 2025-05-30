@@ -2,14 +2,18 @@
 // Module: pilot
 // Description: Module de pilotage des moteurs
 //
+// general discloser: copy or share the file is forbidden
 // Written : 23/05/2025
-// Updated : 30/05/2025
+// Updated : 30/05/2025 - Fixed security issues
 ////////////////////////////////////////////////////////////
 #ifndef PILOT_H
 #define PILOT_H
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+#include <math.h>
 
 #include "motorControl.h"
 #include "hardwareAbstraction.h"
@@ -17,16 +21,16 @@
 #include "xOsMutex.h"
 #include "xTask.h"
 #include "xTimer.h"
+#include "positionControl.h"
+
 
 /////////////////////////////////
 /// @brief Error codes
 /////////////////////////////////
 #define PILOT_OK                        0x43412000  
-#define PILOT_ERROR_INVALID_ARGUMENT    0x43412001 
-#define PILOT_ERROR_INVALID_STATE       0x43412002 
-#define PILOT_ERROR_INVALID_EVENT       0x43412003 
-#define PILOT_ERROR_INVALID_MOVE        0x43412004 
-#define PILOT_ERROR_INVALID_TRANSITION  0x43412005 
+
+
+
 
 /////////////////////////////////
 /// @brief Action function

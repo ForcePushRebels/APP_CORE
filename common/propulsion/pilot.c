@@ -32,7 +32,7 @@ static xOsTaskCtx g_pilotTask;
 static bool g_running = false;
 
 // --- Prototypes internes ---
-static void *pilot_task(void *arg);
+static void *pilot_task();
 static void move_queue_init(MoveQueue *q);
 static bool move_queue_push(MoveQueue *q, Move *m);
 static bool move_queue_pop(MoveQueue *q, Move *m);
@@ -43,18 +43,18 @@ static bool event_queue_pop(EventQueue *q, PilotEvent *evt);
 static void pilot_post_event(PilotEvent evt);
 
 // --- Table de transitions ---
-void pilot_action_computeAdvance(void *arg);
-void pilot_action_computeContinuousAdvance(void *arg);
-void pilot_action_computeTurn(void *arg);
-void pilot_action_computeGoTo(void *arg);
-void pilot_action_startMoves(void *arg);
-void pilot_action_handleMove(void *arg);
-void pilot_action_computeStop(void *arg);
-void pilot_action_endMove(void *arg);
-void pilot_action_nextMove(void *arg);
-void pilot_action_check_next_move(void *arg);
-void pilot_action_updatePosition(void *arg);
-void pilot_action_emergencyStop(void *arg);
+void pilot_action_computeAdvance();
+void pilot_action_computeContinuousAdvance();
+void pilot_action_computeTurn();
+void pilot_action_computeGoTo();
+void pilot_action_startMoves();
+void pilot_action_handleMove();
+void pilot_action_computeStop();
+void pilot_action_endMove();
+void pilot_action_nextMove();
+void pilot_action_check_next_move();
+void pilot_action_updatePosition();
+void pilot_action_emergencyStop();
 
 pilot_transition_t pilot_transitions[PILOT_STATE_COUNT][PILOT_EVT_COUNT] = {
     [PILOT_STATE_WAIT_MOVE] = {
@@ -184,9 +184,8 @@ static void pilot_post_event(PilotEvent evt)
 }
 
 // --- Thread principal Pilot ---
-static void *pilot_task(void *arg)
+static void *pilot_task()
 {
-    (void)arg;
     g_running = true;
     while (g_running)
     {
@@ -204,10 +203,7 @@ static void *pilot_task(void *arg)
             g_state = t->next_state;
             X_LOG_TRACE("pilot_task: after action, new state=%d", g_state);
 
-            if (g_state == PILOT_STATE_COMPUTE_MOVE) {
-                X_LOG_TRACE("pilot_task: posting PILOT_EVT_START_MOVES");
-                pilot_post_event(PILOT_EVT_START_MOVES);
-            }
+            
         }
         else
         {
@@ -219,27 +215,27 @@ static void *pilot_task(void *arg)
 
 
 // --- Actions de la machine à états (exemples à compléter) ---
-void pilot_action_computeAdvance(void *arg)
+void pilot_action_computeAdvance()
 {
     X_LOG_TRACE("pilot_action_computeAdvance");
     pilot_post_event(PILOT_EVT_START_MOVES);
 }
-void pilot_action_computeContinuousAdvance(void *arg)
+void pilot_action_computeContinuousAdvance()
 {
     X_LOG_TRACE("pilot_action_computeContinuousAdvance");
-    // pilot_post_event(PILOT_EVT_START_MOVES);
+    pilot_post_event(PILOT_EVT_START_MOVES);
 }
-void pilot_action_computeTurn(void *arg)
+void pilot_action_computeTurn()
 {
     X_LOG_TRACE("pilot_action_computeTurn");
-    // pilot_post_event(PILOT_EVT_START_MOVES);
+    pilot_post_event(PILOT_EVT_START_MOVES);
 }
-void pilot_action_computeGoTo(void *arg)
+void pilot_action_computeGoTo()
 {
     X_LOG_TRACE("pilot_action_computeGoTo");
-    // pilot_post_event(PILOT_EVT_START_MOVES);
+    pilot_post_event(PILOT_EVT_START_MOVES);
 }
-void pilot_action_startMoves(void *arg)
+void pilot_action_startMoves()
 {
     int sz = move_queue_size(&g_moveQueue);
     X_LOG_TRACE("pilot_action_startMoves: move_queue_size=%d", sz);
@@ -263,12 +259,12 @@ void pilot_action_startMoves(void *arg)
         X_LOG_TRACE("pilot_action_startMoves: queue empty, nothing to do");
     }
 }
-void pilot_action_emergencyStop(void *arg)
+void pilot_action_emergencyStop()
 {
     X_LOG_TRACE("pilot_action_emergencyStop");
     position_control_stop();
 }
-void pilot_action_endMove(void *arg)
+void pilot_action_endMove()
 {
     X_LOG_TRACE("pilot_action_endMove");
     if (position_control_is_motion_finished())
@@ -281,12 +277,12 @@ void pilot_action_endMove(void *arg)
         X_LOG_TRACE("pilot_action_endMove: motion NOT finished");
     }
 }
-void pilot_action_nextMove(void *arg)
+void pilot_action_nextMove()
 {
     X_LOG_TRACE("pilot_action_nextMove");
     pilot_action_startMoves(NULL);
 }
-void pilot_action_check_next_move(void *arg)
+void pilot_action_check_next_move()
 {
     X_LOG_TRACE("pilot_action_check_next_move");
     if (move_queue_size(&g_moveQueue) > 0)
@@ -300,7 +296,7 @@ void pilot_action_check_next_move(void *arg)
         pilot_post_event(PILOT_EVT_END_ALL_MOVES);
     }
 }
-void pilot_action_updatePosition(void *arg)
+void pilot_action_updatePosition()
 {
     Position_t pos;
     if (position_control_get_position(&pos) == 0)
@@ -311,17 +307,16 @@ void pilot_action_updatePosition(void *arg)
         X_LOG_TRACE("pilot_action_updatePosition: x=%.1f, y=%.1f, theta=%.2f", pos.x_mm, pos.y_mm, pos.angle_rad);
     }
 }
-void pilot_action_computeStop(void *arg)
+void pilot_action_computeStop()
 {
     X_LOG_TRACE("pilot_action_computeStop");
     position_control_stop();
 }
 
 // --- Interface publique ---
-int32_t pilot_init(int max_speed, double wheel_radius_m, double wheel_base_m)
+int32_t pilot_init()
 {
     memset(&g_pilot, 0, sizeof(g_pilot));
-    g_pilot.targetSpeed = max_speed;
     move_queue_init(&g_moveQueue);
     event_queue_init(&g_eventQueue);
 
@@ -395,8 +390,10 @@ void pilot_goTo(double x, double y, int max_speed)
     move_queue_push(&g_moveQueue, &move);
     pilot_post_event(PILOT_EVT_GOTO);
 }
-void pilot_stop(double decelerationFactor)
+void pilot_stop()
 {
+    X_LOG_TRACE("pilot_stop called ");
+
     pilot_post_event(PILOT_EVT_STOP);
 }
 

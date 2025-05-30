@@ -288,17 +288,23 @@ void testPositionControl(void)
 void testPilot(void)
 {
     static bool command_sent = false;
+    static uint64_t start_time = 0;
+    static bool stop_sent = false;
 
-    // // Afficher la position courante
-    // Position pos = pilot_getPosition();
-    // X_LOG_TRACE("Pilot position: x=%.1f mm, y=%.1f mm, theta=%.2f rad", pos.x, pos.y, pos.theta);
-
-    // N'envoie la commande qu'une seule fois
     if (!command_sent)
     {
         X_LOG_TRACE("Pilot test: Advance 1000mm");
-        pilot_advance(1000, 2.0); // 500mm à 2 rad/s
+        pilot_advance(1000, 2.0);
         command_sent = true;
+        start_time = xTimerGetCurrentMs();
+    }
+
+    // Arrêter le robot après 3 secondes
+    if (command_sent && !stop_sent && (xTimerGetCurrentMs() - start_time > 3000))
+    {
+        X_LOG_TRACE("Pilot test: STOP");
+        pilot_stop(); // 1.0 = facteur de décélération (à adapter selon ton API)
+        stop_sent = true;
     }
 }
 
@@ -370,7 +376,7 @@ int main()
     X_LOG_TRACE("Position control initialized");
 
     // Initialisation du pilotage
-    l_iReturn = pilot_init(10, 0.03, 0.15); // Exemple: (max_speed, rayon_roue_m, entraxe_m)
+    l_iReturn = pilot_init(); // Exemple: (max_speed, rayon_roue_m, entraxe_m)
     X_ASSERT(l_iReturn == 0);
     X_LOG_TRACE("Pilot initialized");
 

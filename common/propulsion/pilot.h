@@ -87,7 +87,7 @@ typedef struct {
 
 // --- Interface publique ---
 // Initialisation/Destruction
-int32_t pilot_init(int max_speed, double wheel_radius_m, double wheel_base_m);
+int32_t pilot_init();
 void pilot_shutdown(void);
 
 // Commandes de mouvement
@@ -95,7 +95,7 @@ void pilot_advance(double distance_mm, float max_speed);
 void pilot_continuousAdvance(int max_speed);
 void pilot_turn(double angle_rad, int max_speed, bool relative);
 void pilot_goTo(double x, double y, int max_speed);
-void pilot_stop(double decelerationFactor);
+void pilot_stop();
 
 // Accesseurs
 Position pilot_getPosition(void);
@@ -104,18 +104,6 @@ int pilot_getDistanceMeter(void);
 void pilot_resetDistanceMeter(void);
 void pilot_setAcceleration(double linearAcceleration, double angularAcceleration);
 
-// --- Fonctions internes (privées) ---
-int pilot_computeAdvance(double distance_mm, int max_speed);
-int pilot_computeTurn(double angle_rad, int speed, bool relative);
-int pilot_computeStop(double acceleration);
-int pilot_computeGoTo(double x, double y, int speed);
-void pilot_addMove(double distance_mm, Direction direction, int max_speed);
-void pilot_startMoves(void);
-void pilot_nextMove(void);
-void pilot_endMove(int reason);
-void pilot_setMotorSpeed(double speed_rad_s, Direction direction);
-void pilot_handleMove(void);
-void pilot_updatePosition(void);
 
 // --- Table de transitions (à définir dans pilot.c) ---
 extern pilot_transition_t pilot_transitions[PILOT_STATE_COUNT][PILOT_EVT_COUNT];

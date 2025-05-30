@@ -202,17 +202,20 @@ static void *pilot_task()
             }
             g_state = t->next_state;
             X_LOG_TRACE("pilot_task: after action, new state=%d", g_state);
-
-            
         }
         else
         {
+            if ((g_state == PILOT_STATE_MOVING || g_state == PILOT_STATE_MOVE_IN_PROGRESS) &&
+                position_control_is_motion_finished())
+            {
+                X_LOG_TRACE("pilot_task: Detected motion finished, posting END_MOVE");
+                pilot_post_event(PILOT_EVT_END_MOVE);
+            }
             xTimerDelay(10);
         }
     }
     return NULL;
 }
-
 
 // --- Actions de la machine à états (exemples à compléter) ---
 void pilot_action_computeAdvance()

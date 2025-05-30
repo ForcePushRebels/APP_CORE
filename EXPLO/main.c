@@ -287,24 +287,45 @@ void testPositionControl(void)
 }
 void testPilot(void)
 {
-    static bool command_sent = false;
-    static uint64_t start_time = 0;
-    static bool stop_sent = false;
+    static int phase = 0;
+    static uint64_t phase_start_time = 0;
 
-    if (!command_sent)
+    uint64_t now = xTimerGetCurrentMs();
+
+    switch (phase)
     {
+    case 0:
         X_LOG_TRACE("Pilot test: Advance 1000mm");
         pilot_advance(1000, 2.0);
-        command_sent = true;
-        start_time = xTimerGetCurrentMs();
-    }
+        phase_start_time = now;
+        phase = 1;
+        break;
 
-    // Arrêter le robot après 3 secondes
-    if (command_sent && !stop_sent && (xTimerGetCurrentMs() - start_time > 3000))
-    {
-        X_LOG_TRACE("Pilot test: STOP");
-        pilot_stop(); // 1.0 = facteur de décélération (à adapter selon ton API)
-        stop_sent = true;
+    case 1:
+        // Stop après 3 secondes
+        if (now - phase_start_time > 3000)
+        {
+            X_LOG_TRACE("Pilot test: STOP");
+            pilot_stop();
+            phase_start_time = now;
+            phase = 2;
+        }
+        break;
+
+    case 2:
+        // Attendre 2 secondes à l'arrêt, puis repartir
+        if (now - phase_start_time > 2000)
+        {
+            X_LOG_TRACE("Pilot test: Advance 500mm");
+            pilot_advance(500, 1.5);
+            phase_start_time = now;
+            phase = 3;
+        }
+        break;
+
+    case 3:
+        // Tu peux ajouter d'autres phases ici si besoin
+        break;
     }
 }
 

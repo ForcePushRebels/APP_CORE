@@ -29,6 +29,7 @@
 
 #include "map_engine.h"
 
+// chemin des logs avec l'executable en chemin de l'executable
 static const uint8_t s_aCLogPath[] = "explo.log";
 int start = 0;
 // Définition des durées pour le code morse (en millisecondes)
@@ -305,12 +306,14 @@ int main()
 {
     int l_iReturn = 0;
 
+    // Configuration des logs - le chemin complet sera construit automatiquement
     t_logCtx t_LogConfig;
-    t_LogConfig.t_bLogToFile = false;
-    t_LogConfig.t_bLogToConsole = true;
-    memcpy(t_LogConfig.t_cLogPath, s_aCLogPath, sizeof(s_aCLogPath));
+    t_LogConfig.t_bLogToFile = true;
+    t_LogConfig.t_bLogToConsole = false;
+    strncpy(t_LogConfig.t_cLogPath, (const char*)s_aCLogPath, sizeof(t_LogConfig.t_cLogPath) - 1);
+    t_LogConfig.t_cLogPath[sizeof(t_LogConfig.t_cLogPath) - 1] = '\0';
 
-    // initiatlisation des logs
+    // initialisation des logs
     l_iReturn = xLogInit(&t_LogConfig);
     X_ASSERT(l_iReturn == XOS_LOG_OK);
 
@@ -387,10 +390,10 @@ int main()
         // testMotors();
 
         // Envoyer le signal SOS en morse
-        //sendMorseSOS();
+        // sendMorseSOS();
         testPilot(); // <-- Active cette ligne pour tester le pilotage
         // xTimerDelay(100); // Ajoute un petit délai pour éviter de saturer le CPU
-        //testPositionControl();
+        // testPositionControl();
         // Pour envoyer des mises à jour périodiques, on devra attendre d'avoir un client connecté
         // et utiliser serverSendMessage à ce moment-là.
     }

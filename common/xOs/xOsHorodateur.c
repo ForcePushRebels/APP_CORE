@@ -1,94 +1,253 @@
 ////////////////////////////////////////////////////////////
-//  horodateur source file
+//  horodateur source file 
 //  implements timestamp functions
 //
 // general discloser: copy or share the file is forbidden
 // Written : 14/11/2024
-// Modified: 2025 - Enhanced precision to microseconds
+// Modified: 28/05/2025 - Security improvements
 // Intellectual property of Christophe Benedetti
 ////////////////////////////////////////////////////////////
 
 #include "xOsHorodateur.h"
+#include "xOsMemory.h"
 #include "xAssert.h"
 #include <time.h>
 #include <string.h>
 #include <stdio.h>
 
-#define XOS_HORODATEUR_BUFFER_SIZE 72   
 
-// Thread-local buffer: each thread has its own buffer
 static __thread char s_cTimeBuffer[XOS_HORODATEUR_BUFFER_SIZE];
 
+// Forward declarations
+static int validateTimeComponents(const struct tm *p_pttTimeComponent);
+static int formatTimestamp(char *p_ptcBuffer, size_t p_iBufferSize, 
+                                const struct tm *p_pttTimeComponent, long p_lMicroseconds);
+static int getSystemTime(struct timespec *p_pttTimespec);
+
 ////////////////////////////////////////////////////////////
-/// xHorodateurGetString - Enhanced with microsecond precision
+/// xHorodateurGetString 
 ////////////////////////////////////////////////////////////
 const char* xHorodateurGetString(void)
 {
-    struct timespec ts;
-    struct tm tm_result;
-
-    // Get current high-resolution time
-    if (clock_gettime(CLOCK_REALTIME, &ts) != 0) 
+    struct timespec l_tTimespec = {0};
+    struct tm l_tTmResult = {0};
+    
+    int l_iRet = getSystemTime(&l_tTimespec);
+    if (l_iRet != XOS_HORODATEUR_OK)
     {
         return NULL;
     }
-
+    
     // Convert to local time in thread-safe manner
-    if (localtime_r(&ts.tv_sec, &tm_result) == NULL) 
+    struct tm *l_ptTmPtr = localtime_r(&l_tTimespec.tv_sec, &l_tTmResult);
+    if (l_ptTmPtr == NULL)
     {
         return NULL;
     }
-
-    // Format complete timestamp in one call: YYYY-MM-DD HH:MM:SS.microseconds
-    // Convert nanoseconds to microseconds (divide by 1000)
-    int written = snprintf(s_cTimeBuffer, XOS_HORODATEUR_BUFFER_SIZE,
-                          "%04d-%02d-%02d %02d:%02d:%02d.%06ld",
-                          tm_result.tm_year + 1900,
-                          tm_result.tm_mon + 1,
-                          tm_result.tm_mday,
-                          tm_result.tm_hour,
-                          tm_result.tm_min,
-                          tm_result.tm_sec,
-                          ts.tv_nsec / 1000);  // nanoseconds to microseconds
-
-    if (written < 0 || written >= XOS_HORODATEUR_BUFFER_SIZE) 
+    
+    X_ASSERT(l_ptTmPtr == &l_tTmResult);
+    
+    // Validate time components
+    l_iRet = validateTimeComponents(&l_tTmResult);
+    if (l_iRet != XOS_HORODATEUR_OK)
     {
         return NULL;
     }
-
+    
+    long l_lMicroseconds = l_tTimespec.tv_nsec / 1000L;
+    
+    l_iRet = formatTimestamp(s_cTimeBuffer, sizeof(s_cTimeBuffer), 
+                                  &l_tTmResult, l_lMicroseconds);
+    if (l_iRet != XOS_HORODATEUR_OK)
+    {
+        return NULL;
+    }
+    
     return s_cTimeBuffer;
 }
 
 ////////////////////////////////////////////////////////////
-/// xHorodateurGet
+/// getSystemTime 
 ////////////////////////////////////////////////////////////
-uint32_t xHorodateurGet(void)
+static int getSystemTime(struct timespec *p_pttTimespec)
 {
-    struct timespec ts;
-    // Get current time
-    if (clock_gettime(CLOCK_REALTIME, &ts) != 0) 
+    X_ASSERT(p_pttTimespec != NULL);
+    
+    if (p_pttTimespec == NULL)
     {
-        X_ASSERT(0); // Critical error
-        return 0;
+        return XOS_HORODATEUR_INVALID;
     }
-    // Return seconds part (Unix timestamp)
-    return (uint32_t)ts.tv_sec;
+    
+    // Clear structure first
+    XOS_MEMORY_SANITIZE(p_pttTimespec, sizeof(*p_pttTimespec));
+    
+    int l_iClockRet = clock_gettime(CLOCK_REALTIME, p_pttTimespec);
+    if (l_iClockRet != 0)
+    {
+        return XOS_HORODATEUR_ERROR;
+    }
+    
+    X_ASSERT(p_pttTimespec->tv_sec > 0);
+    X_ASSERT(p_pttTimespec->tv_nsec >= 0 && p_pttTimespec->tv_nsec < 1000000000L);
+    
+    return XOS_HORODATEUR_OK;
 }
 
 ////////////////////////////////////////////////////////////
-/// xHorodateurGetMicroseconds - High-resolution timestamp
+/// validateTimeComponents 
 ////////////////////////////////////////////////////////////
-uint64_t xHorodateurGetMicroseconds(void)
+static int validateTimeComponents(const struct tm *p_pttTimeComponent)
 {
-    struct timespec ts;
-    // Get current high-resolution time
-    if (clock_gettime(CLOCK_REALTIME, &ts) != 0) 
+    X_ASSERT(p_pttTimeComponent != NULL);
+    
+    if (p_pttTimeComponent == NULL)
     {
-        X_ASSERT(0); // Critical error
+        return XOS_HORODATEUR_INVALID;
+    }
+    
+    int l_iYear = p_pttTimeComponent->tm_year + 1900;
+    int l_iMonth = p_pttTimeComponent->tm_mon + 1;
+    int l_iDay = p_pttTimeComponent->tm_mday;
+    int l_iHour = p_pttTimeComponent->tm_hour;
+    int l_iMin = p_pttTimeComponent->tm_min;
+    int l_iSec = p_pttTimeComponent->tm_sec;
+    
+    // Validate ranges
+    if (l_iYear < XOS_HORODATEUR_MIN_YEAR || l_iYear > XOS_HORODATEUR_MAX_YEAR)
+    {
+        return XOS_HORODATEUR_INVALID;
+    }
+    
+    if (l_iMonth < 1 || l_iMonth > 12)
+    {
+        return XOS_HORODATEUR_INVALID;
+    }
+    
+    if (l_iDay < 1 || l_iDay > 31)
+    {
+        return XOS_HORODATEUR_INVALID;
+    }
+    
+    if (l_iHour < 0 || l_iHour > 23)
+    {
+        return XOS_HORODATEUR_INVALID;
+    }
+    
+    if (l_iMin < 0 || l_iMin > 59)
+    {
+        return XOS_HORODATEUR_INVALID;
+    }
+    
+    if (l_iSec < 0 || l_iSec > 60)  // 60 for leap seconds
+    {
+        return XOS_HORODATEUR_INVALID;
+    }
+    
+    return XOS_HORODATEUR_OK;
+}
+
+////////////////////////////////////////////////////////////
+/// formatTimestamp 
+////////////////////////////////////////////////////////////
+static int formatTimestamp(char *p_ptcBuffer, size_t p_iBufferSize, 
+                                const struct tm *p_pttTimeComponent, long p_lMicroseconds)
+{   
+    X_ASSERT(p_ptcBuffer != NULL);
+    X_ASSERT(p_pttTimeComponent != NULL);
+    X_ASSERT(p_iBufferSize > 0);
+    
+    if (p_ptcBuffer == NULL || p_pttTimeComponent == NULL || p_iBufferSize == 0)
+    {
+        return XOS_HORODATEUR_INVALID;
+    }
+    
+    // Clear buffer first
+    XOS_MEMORY_SANITIZE(p_ptcBuffer, p_iBufferSize);
+    
+    int l_iYear = p_pttTimeComponent->tm_year + 1900;
+    int l_iMonth = p_pttTimeComponent->tm_mon + 1;
+    int l_iDay = p_pttTimeComponent->tm_mday;
+    int l_iHour = p_pttTimeComponent->tm_hour;
+    int l_iMin = p_pttTimeComponent->tm_min;
+    int l_iSec = p_pttTimeComponent->tm_sec;
+    
+    // Validate microseconds
+    if (p_lMicroseconds < 0 || p_lMicroseconds >= 1000000L)
+    {
+        p_lMicroseconds = 0;  // Fallback to 0
+    }
+    
+    // Format timestamp: YYYY-MM-DD HH:MM:SS.microseconds
+    int l_iWritten = snprintf(p_ptcBuffer, p_iBufferSize,
+                             "%04d-%02d-%02d %02d:%02d:%02d.%06ld",
+                             l_iYear, l_iMonth, l_iDay,
+                             l_iHour, l_iMin, l_iSec,
+                             p_lMicroseconds);
+    
+    if (l_iWritten < 0 || (size_t)l_iWritten >= p_iBufferSize)
+    {
+        // Clear buffer on error
+        XOS_MEMORY_SANITIZE(p_ptcBuffer, p_iBufferSize);
+        return XOS_HORODATEUR_ERROR;
+    }
+    
+    X_ASSERT(l_iWritten == 26);  // Expected: "YYYY-MM-DD HH:MM:SS.microseconds"
+    
+    return XOS_HORODATEUR_OK;
+}
+
+////////////////////////////////////////////////////////////
+/// xHorodateurGet 
+////////////////////////////////////////////////////////////
+uint32_t xHorodateurGet(void)
+{
+    struct timespec l_tTimespec = {0};
+    
+    int l_iRet = getSystemTime(&l_tTimespec);
+    if (l_iRet != XOS_HORODATEUR_OK)
+    {
+        X_ASSERT(0);
         return 0;
     }
     
-    // Convert to microseconds since Unix epoch
-    // seconds * 1,000,000 + nanoseconds / 1,000
-    return ((uint64_t)ts.tv_sec * 1000000ULL) + ((uint64_t)ts.tv_nsec / 1000ULL);
+    X_ASSERT(l_tTimespec.tv_sec > 0);
+    
+    time_t l_tSeconds = l_tTimespec.tv_sec;
+    
+    // Validate range for uint32_t
+    if (l_tSeconds < 0 || l_tSeconds > UINT32_MAX)
+    {
+        X_ASSERT(0);  
+        return 0;
+    }
+    
+    return (uint32_t)l_tSeconds;
+}
+
+////////////////////////////////////////////////////////////
+/// xHorodateurGetMicroseconds 
+////////////////////////////////////////////////////////////
+uint64_t xHorodateurGetMicroseconds(void)
+{
+    struct timespec l_tTimespec = {0};
+    
+    int l_iRet = getSystemTime(&l_tTimespec);
+    if (l_iRet != XOS_HORODATEUR_OK)
+    {
+        X_ASSERT(0);
+        return 0;
+    }
+    
+    X_ASSERT(l_tTimespec.tv_sec >= 0);
+    X_ASSERT(l_tTimespec.tv_nsec >= 0 && l_tTimespec.tv_nsec < 1000000000L);
+    
+    uint64_t l_ullSeconds = (uint64_t)l_tTimespec.tv_sec;
+    uint64_t l_ullNanoseconds = (uint64_t)l_tTimespec.tv_nsec;
+    
+    // Convert to microseconds: seconds * 1,000,000 + nanoseconds / 1,000
+    uint64_t l_ullMicroseconds = (l_ullSeconds * 1000000ULL) + (l_ullNanoseconds / 1000ULL);
+    
+    X_ASSERT(l_ullMicroseconds > 0);
+    
+    return l_ullMicroseconds;
 }

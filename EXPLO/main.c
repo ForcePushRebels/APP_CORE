@@ -313,11 +313,11 @@ void testPilot(void)
         break;
 
     case 2:
-        // Attendre 2 secondes à l'arrêt, puis repartir
+        // Attendre 2 secondes à l'arrêt, puis rotation
         if (now - phase_start_time > 2000)
         {
-            X_LOG_TRACE("Pilot test: Advance 500mm");
-            pilot_advance(500, 1.5);
+            X_LOG_TRACE("Pilot test: Turn 90 deg left");
+            pilot_turn(M_PI/2, 1.0, true); // Tourner de 90° à gauche (relatif)
             phase_start_time = now;
             phase = 3;
         }

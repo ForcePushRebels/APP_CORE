@@ -99,11 +99,11 @@ static bool move_queue_push(MoveQueue *q, Move *m)
         q->tail = (q->tail + 1) % 16;
         q->count++;
         ok = true;
-        X_LOG_TRACE("move_queue_push: count=%d, move=[distance=%.2f, angle=%.2f, speed=%d]", q->count, m->distance_mm, m->angle_rad, m->max_speed);
+        // // X_LOG_TRACE("move_queue_push: count=%d, move=[distance=%.2f, angle=%.2f, speed=%d]", q->count, m->distance_mm, m->angle_rad, m->max_speed);
     }
     else
     {
-        X_LOG_TRACE("move_queue_push: queue FULL!");
+        // X_LOG_TRACE("move_queue_push: queue FULL!");
     }
     mutexUnlock(&q->mutex);
     return ok;
@@ -118,11 +118,11 @@ static bool move_queue_pop(MoveQueue *q, Move *m)
         q->head = (q->head + 1) % 16;
         q->count--;
         ok = true;
-        X_LOG_TRACE("move_queue_pop: count=%d, move=[distance=%.2f, angle=%.2f, speed=%d]", q->count, m->distance_mm, m->angle_rad, m->max_speed);
+        // X_LOG_TRACE("move_queue_pop: count=%d, move=[distance=%.2f, angle=%.2f, speed=%d]", q->count, m->distance_mm, m->angle_rad, m->max_speed);
     }
     else
     {
-        X_LOG_TRACE("move_queue_pop: queue EMPTY!");
+        // X_LOG_TRACE("move_queue_pop: queue EMPTY!");
     }
     mutexUnlock(&q->mutex);
     return ok;
@@ -149,11 +149,11 @@ static bool event_queue_push(EventQueue *q, PilotEvent evt)
         q->events[q->tail] = evt;
         q->tail = (q->tail + 1) % 16;
         q->count++;
-        X_LOG_TRACE("event_queue_push: count=%d, evt=%d", q->count, evt);
+        // X_LOG_TRACE("event_queue_push: count=%d, evt=%d", q->count, evt);
     }
     else
     {
-        X_LOG_TRACE("event_queue_push: queue FULL!");
+        // X_LOG_TRACE("event_queue_push: queue FULL!");
     }
     mutexUnlock(&q->mutex);
     return ok;
@@ -168,18 +168,18 @@ static bool event_queue_pop(EventQueue *q, PilotEvent *evt)
         q->head = (q->head + 1) % 16;
         q->count--;
         ok = true;
-        X_LOG_TRACE("event_queue_pop: count=%d, evt=%d", q->count, *evt);
+        // X_LOG_TRACE("event_queue_pop: count=%d, evt=%d", q->count, *evt);
     }
     else
     {
-        X_LOG_TRACE("event_queue_pop: queue EMPTY!");
+        // X_LOG_TRACE("event_queue_pop: queue EMPTY!");
     }
     mutexUnlock(&q->mutex);
     return ok;
 }
 static void pilot_post_event(PilotEvent evt)
 {
-    X_LOG_TRACE("pilot_post_event: evt=%d", evt);
+    // X_LOG_TRACE("pilot_post_event: evt=%d", evt);
     event_queue_push(&g_eventQueue, evt);
 }
 
@@ -189,26 +189,26 @@ static void *pilot_task()
     g_running = true;
     while (g_running)
     {
-        X_LOG_TRACE("pilot_task running, state=%d", g_state);
+        // X_LOG_TRACE("pilot_task running, state=%d", g_state);
         PilotEvent evt;
         if (event_queue_pop(&g_eventQueue, &evt))
         {
-            X_LOG_TRACE("pilot_task: event popped: %d in state %d", evt, g_state);
+            // X_LOG_TRACE("pilot_task: event popped: %d in state %d", evt, g_state);
             pilot_transition_t *t = &pilot_transitions[g_state][evt];
             if (t->action)
             {
-                X_LOG_TRACE("pilot_task: calling action for evt=%d, state=%d", evt, g_state);
+                // X_LOG_TRACE("pilot_task: calling action for evt=%d, state=%d", evt, g_state);
                 t->action(NULL);
             }
             g_state = t->next_state;
-            X_LOG_TRACE("pilot_task: after action, new state=%d", g_state);
+            // X_LOG_TRACE("pilot_task: after action, new state=%d", g_state);
         }
         else
         {
             if ((g_state == PILOT_STATE_MOVING || g_state == PILOT_STATE_MOVE_IN_PROGRESS) &&
                 position_control_is_motion_finished())
             {
-                X_LOG_TRACE("pilot_task: Detected motion finished, posting END_MOVE");
+                // X_LOG_TRACE("pilot_task: Detected motion finished, posting END_MOVE");
                 pilot_post_event(PILOT_EVT_END_MOVE);
             }
             xTimerDelay(10);
@@ -220,82 +220,82 @@ static void *pilot_task()
 // --- Actions de la machine à états (exemples à compléter) ---
 void pilot_action_computeAdvance()
 {
-    X_LOG_TRACE("pilot_action_computeAdvance");
+    // X_LOG_TRACE("pilot_action_computeAdvance");
     pilot_post_event(PILOT_EVT_START_MOVES);
 }
 void pilot_action_computeContinuousAdvance()
 {
-    X_LOG_TRACE("pilot_action_computeContinuousAdvance");
+    // X_LOG_TRACE("pilot_action_computeContinuousAdvance");
     pilot_post_event(PILOT_EVT_START_MOVES);
 }
 void pilot_action_computeTurn()
 {
-    X_LOG_TRACE("pilot_action_computeTurn");
+    // X_LOG_TRACE("pilot_action_computeTurn");
     pilot_post_event(PILOT_EVT_START_MOVES);
 }
 void pilot_action_computeGoTo()
 {
-    X_LOG_TRACE("pilot_action_computeGoTo");
+    // X_LOG_TRACE("pilot_action_computeGoTo");
     pilot_post_event(PILOT_EVT_START_MOVES);
 }
 void pilot_action_startMoves()
 {
     int sz = move_queue_size(&g_moveQueue);
-    X_LOG_TRACE("pilot_action_startMoves: move_queue_size=%d", sz);
+    // X_LOG_TRACE("pilot_action_startMoves: move_queue_size=%d", sz);
     if (sz > 0)
     {
         Move move;
         move_queue_pop(&g_moveQueue, &move);
         if (move.angle_rad != 0.0)
         {
-            X_LOG_TRACE("pilot_action_startMoves: angle_rad=%.6f, distance_mm=%.2f", move.angle_rad, move.distance_mm);
+            // X_LOG_TRACE("pilot_action_startMoves: angle_rad=%.6f, distance_mm=%.2f", move.angle_rad, move.distance_mm);
             position_control_turn(move.angle_rad, (float)move.max_speed);
         }
         else
         {
-            X_LOG_TRACE("pilot_action_startMoves: advance distance_mm=%.2f, speed=%d", move.distance_mm, move.max_speed);
+            // X_LOG_TRACE("pilot_action_startMoves: advance distance_mm=%.2f, speed=%d", move.distance_mm, move.max_speed);
             position_control_advance(move.distance_mm, move.max_speed);
         }
     }
     else
     {
-        X_LOG_TRACE("pilot_action_startMoves: queue empty, nothing to do");
+        // X_LOG_TRACE("pilot_action_startMoves: queue empty, nothing to do");
     }
 }
 void pilot_action_emergencyStop()
 {
-    X_LOG_TRACE("pilot_action_emergencyStop");
+    // X_LOG_TRACE("pilot_action_emergencyStop");
     position_control_stop();
 }
 void pilot_action_endMove()
 {
-    X_LOG_TRACE("pilot_action_endMove");
+    // X_LOG_TRACE("pilot_action_endMove");
     if (position_control_is_motion_finished())
     {
-        X_LOG_TRACE("pilot_action_endMove: motion finished, posting CHECK_NEXT_MOVE");
+        // X_LOG_TRACE("pilot_action_endMove: motion finished, posting CHECK_NEXT_MOVE");
         pilot_post_event(PILOT_EVT_CHECK_NEXT_MOVE);
     }
     else
     {
-        X_LOG_TRACE("pilot_action_endMove: motion NOT finished");
+        // X_LOG_TRACE("pilot_action_endMove: motion NOT finished");
     }
 }
 void pilot_action_nextMove()
 {
-    X_LOG_TRACE("pilot_action_nextMove");
+    // X_LOG_TRACE("pilot_action_nextMove");
     pilot_action_startMoves(NULL);
 }
 void pilot_action_check_next_move()
 {
-    X_LOG_TRACE("pilot_action_check_next_move");
+    // X_LOG_TRACE("pilot_action_check_next_move");
     if (move_queue_size(&g_moveQueue) > 0)
     {
-        X_LOG_TRACE("pilot_action_check_next_move: moves left, posting NEXT_MOVE");
+        // X_LOG_TRACE("pilot_action_check_next_move: moves left, posting NEXT_MOVE");
         pilot_post_event(PILOT_EVT_NEXT_MOVE);
     }
     else
     {
-        X_LOG_TRACE("pilot_action_check_next_move: no moves left, posting END_ALL_MOVES");
+        // X_LOG_TRACE("pilot_action_check_next_move: no moves left, posting END_ALL_MOVES");
         pilot_post_event(PILOT_EVT_END_ALL_MOVES);
     }
 }
@@ -307,12 +307,12 @@ void pilot_action_updatePosition()
         g_pilot.position.x = pos.x_mm;
         g_pilot.position.y = pos.y_mm;
         g_pilot.position.theta = pos.angle_rad;
-        X_LOG_TRACE("pilot_action_updatePosition: x=%.1f, y=%.1f, theta=%.2f", pos.x_mm, pos.y_mm, pos.angle_rad);
+        // X_LOG_TRACE("pilot_action_updatePosition: x=%.1f, y=%.1f, theta=%.2f", pos.x_mm, pos.y_mm, pos.angle_rad);
     }
 }
 void pilot_action_computeStop()
 {
-    X_LOG_TRACE("pilot_action_computeStop");
+    // X_LOG_TRACE("pilot_action_computeStop");
     position_control_stop();
 }
 
@@ -343,7 +343,7 @@ void pilot_shutdown(void)
 // Commandes de mouvement (exemples)
 void pilot_advance(double distance_mm, float max_speed)
 {
-    X_LOG_TRACE("pilot_advance called: %f mm, %d", distance_mm, max_speed);
+    // X_LOG_TRACE("pilot_advance called: %f mm, %d", distance_mm, max_speed);
 
     Move move = {
         .distance_mm = distance_mm,
@@ -368,7 +368,7 @@ void pilot_continuousAdvance(int max_speed)
 void pilot_turn(double angle_rad, int max_speed, bool relative)
 {
 
-    X_LOG_TRACE("pilot_turn called: %f rad, %d, %d", angle_rad, max_speed, relative);
+    // X_LOG_TRACE("pilot_turn called: %f rad, %d, %d", angle_rad, max_speed, relative);
 
     Move move = {
         .distance_mm = 0.0,
@@ -395,7 +395,7 @@ void pilot_goTo(double x, double y, int max_speed)
 }
 void pilot_stop()
 {
-    X_LOG_TRACE("pilot_stop called ");
+    // X_LOG_TRACE("pilot_stop called ");
 
     pilot_post_event(PILOT_EVT_STOP);
 }

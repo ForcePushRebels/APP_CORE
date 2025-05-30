@@ -121,7 +121,7 @@ static void motor_regulator_init(motor_regulator_t* reg)
     reg->error = 0.0f;
     reg->last_error = 0.0f;
     reg->integral_error = 0.0f;
-    uint16_t tab[2] = {0, 0};
+    int32_t tab[2] = {0, 0};
     GetMotorEncoderValues(tab);
     reg->encoder_last = tab[reg->motor_id];
     reg->last_update_ms = xTimerGetCurrentMs();
@@ -184,7 +184,7 @@ static void* motor_regulator_task(void* arg)
         }
 
         // Read encoder with temporary ID copy
-        uint16_t tab[2] = {0, 0};
+        int32_t tab[2] = {0, 0};
         GetMotorEncoderValues(tab);
         int encoder_now = tab[reg->motor_id];
         uint64_t now_ms = xTimerGetCurrentMs();

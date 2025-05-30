@@ -182,7 +182,7 @@ void testHardwareAbstraction(void) {
             SetMotorSpeed(1, 50);  // Moteur droit à 50%
             
             // Lire les encodeurs
-            uint16_t motor_ids[2] = {0, 1};
+            int32_t motor_ids[2] = {0, 1};
             if (GetMotorEncoderValues(motor_ids) == 0) {
                 X_LOG_TRACE("Encoder values - Left: %d, Right: %d", motor_ids[0], motor_ids[1]);
             }
@@ -266,8 +266,8 @@ void testPositionControl(void) {
     }
     if(start == 0)
     {
-        //position_control_advance(100, 2.0);
-        position_control_turn(-M_PI/2, 1.0);
+        position_control_advance(50, 2.0);
+        //position_control_turn(-M_PI, 1.0);
         start = 1;
     }
     

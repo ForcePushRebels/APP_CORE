@@ -166,7 +166,7 @@ static void* wheel_position_control_task(void* arg)
         }
 
         // Obtenir les positions actuelles des encodeurs
-        uint16_t encoder_values[2] = {0, 0};
+        int32_t encoder_values[2] = {0, 0};
         GetMotorEncoderValues(encoder_values);
         
         // Calculer les deltas des encodeurs en tenant compte du débordement
@@ -193,6 +193,7 @@ static void* wheel_position_control_task(void* arg)
         static bool start_decc = false;
         static bool decc_done = false;
         static double step_acc = ACCELERATION_COEF * REGULATION_PERIOD_MS / 1000.0;
+        static double step_decc = DECELERATION_COEF * REGULATION_PERIOD_MS / 1000.0;
 
         double right_wheel_speed = 0.0, left_wheel_speed = 0.0;
 
@@ -212,6 +213,8 @@ static void* wheel_position_control_task(void* arg)
 
             // Vérifier si on a parcouru la moitié des ticks
             if (abs_remaining <= (abs(control->target_ticks - control->current_ticks) / 2)) {
+                //probleme
+                X_LOG_TRACE("Moitie - start decceleration")
                 acc_done = true;
                 start_decc = true;
             }
@@ -226,7 +229,7 @@ static void* wheel_position_control_task(void* arg)
             //    abs(control->current_ticks) >= (abs(control->target_ticks) - nb_decc_tick),
             //    start_decc);
             mutexLock(&g_speed_mutex);
-            g_common_target_speed -= (DECELERATION_COEF * REGULATION_PERIOD_MS / 1000.0);
+            g_common_target_speed -= step_decc;
             if (g_common_target_speed < MIN_SPEED_RAD_S) {
                 g_common_target_speed = 0.0;
                 decc_done = true;
@@ -257,7 +260,7 @@ static void* wheel_position_control_task(void* arg)
                     // Roue gauche en arrière, roue droite en avant
                     // Appliquer la correction à la roue appropriée
                     if (control->is_left_wheel) {
-                        motor_control_set_left_speed(-correction);
+                        motor_control_set_left_speed(correction);
                         X_LOG_TRACE("Correction LEFT - Roue gauche: current=%d, target=%d, remaining=%d, correction=%.2f, speed=%.2f", 
                             control->current_ticks, control->target_ticks, remaining_ticks, correction, -correction);
                     } else {
@@ -275,7 +278,7 @@ static void* wheel_position_control_task(void* arg)
                         X_LOG_TRACE("Correction RIGHT - Roue gauche: current=%d, target=%d, remaining=%d, correction=%.2f, speed=%.2f", 
                             control->current_ticks, control->target_ticks, remaining_ticks, correction, correction);
                     } else {
-                        motor_control_set_right_speed(-correction);
+                        motor_control_set_right_speed(correction);
                         X_LOG_TRACE("Correction RIGHT - Roue droite: current=%d, target=%d, remaining=%d, correction=%.2f, speed=%.2f", 
                             control->current_ticks, control->target_ticks, remaining_ticks, correction, -correction);
                     }
@@ -363,7 +366,7 @@ int16_t position_control_advance(int16_t distance_mm, float speed_rad_s_max)
     mutexLock(&g_right_wheel.mutex);
     
     // Obtenir les positions actuelles des encodeurs
-    uint16_t encoder_values[2] = {0, 0};
+    int32_t encoder_values[2] = {0, 0};
     GetMotorEncoderValues(encoder_values);
     
     // Définir les cibles pour les deux roues
@@ -399,7 +402,7 @@ int16_t position_control_turn(float angle_rad, float speed_rad_s_max)
     mutexLock(&g_right_wheel.mutex);
     
     // Obtenir les positions actuelles des encodeurs
-    uint16_t encoder_values[2] = {0, 0};
+    int32_t encoder_values[2] = {0, 0};
     GetMotorEncoderValues(encoder_values);
     
     // Définir les cibles pour les deux roues

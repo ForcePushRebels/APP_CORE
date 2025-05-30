@@ -19,12 +19,12 @@
 #include "motorControl.h"
 #include "robotConfiguration.h"
 
-enum  move_type_t
+typedef enum  
 {
     FORWARD,
     LEFT,
     RIGHT
-};
+}move_type_t;
 
 // Position structure
 typedef struct {
@@ -38,7 +38,7 @@ typedef struct {
 #define ACCELERATION_COEF   0.5     // Acceleration coefficient (0-1)
 #define DECELERATION_COEF   0.5     // Deceleration coefficient (0-1)
 #define MIN_SPEED_RAD_S     0.5     // Minimum speed to start movement
-#define CORRECTION_SPEED    0.5     // Speed for final position correction
+#define CORRECTION_SPEED    0.2     // Speed for final position correction
 
 // Public functions
 
@@ -74,7 +74,7 @@ int16_t position_control_advance(int16_t distance_mm, float speed_rad_s_max);
 /// @param speed_rad_s_max Maximum speed in radians per second
 /// @return 0 if success, -1 if error
 ////////////////////////////////////////////////////////////
-int16_t position_control_turn(int16_t angle_rad, float speed_rad_s_max);
+int16_t position_control_turn(float angle_rad, float speed_rad_s_max);
 
 ////////////////////////////////////////////////////////////
 /// @brief Stop the robot

@@ -34,31 +34,6 @@
 /////////////////////////////////
 typedef void (*pilot_action_fct_t)(void* arg);
 
-
-/////////////////////////////////
-/// @brief Move queue
-/////////////////////////////////
-typedef struct MoveQueue
-{
-    Move moves[16];
-    int head;
-    int tail;
-    int count;
-    xOsMutexCtx mutex;
-} moveQueue_t;
-
-/////////////////////////////////
-/// @brief Event queue
-/////////////////////////////////
-typedef struct EvtQueue
-{
-    PilotEvent events[16];
-    int head;
-    int tail;
-    int count;
-    xOsMutexCtx mutex;
-} evtQueue_t;
-
 /////////////////////////////////
 /// @brief Position du robot
 /// @param x : Position en x
@@ -136,7 +111,6 @@ typedef struct
     // Ajoute d'autres champs si besoin
 } Move;
 
-
 /////////////////////////////////
 /// @brief Transition
 /// @param next_state : Next state
@@ -147,6 +121,30 @@ typedef struct
     PilotState next_state;
     pilot_action_fct_t action;
 } pilot_transition_t;
+
+/////////////////////////////////
+/// @brief Move queue
+/////////////////////////////////
+typedef struct MoveQueue
+{
+    Move moves[16];
+    int head;
+    int tail;
+    int count;
+    xOsMutexCtx mutex;
+} moveQueue_t;
+
+/////////////////////////////////
+/// @brief Event queue
+/////////////////////////////////
+typedef struct EvtQueue
+{
+    PilotEvent events[16];
+    int head;
+    int tail;
+    int count;
+    xOsMutexCtx mutex;
+} evtQueue_t;
 
 /////////////////////////////////
 /// @brief Pilot structure

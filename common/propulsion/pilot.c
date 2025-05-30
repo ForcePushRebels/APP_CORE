@@ -278,10 +278,6 @@ static bool event_queue_pop(evtQueue_t* p_pttEvtQueue, PilotEvent *p_pttEvt)
         p_pttEvtQueue->count--;
         l_bReturn = true;
     }
-    else
-    {
-        X_LOG_TRACE("event_queue_pop: queue EMPTY!");
-    }
 
     l_iret = mutexUnlock(&p_pttEvtQueue->mutex);
     if (l_iret != MUTEX_OK)
@@ -471,7 +467,7 @@ int32_t pilot_init()
     int l_iret = 0;
 
     l_iret = move_queue_init(&g_pilot.moveQueue);
-    if (l_iret != (PILOT_OK)
+    if (l_iret != PILOT_OK)
     {
         X_LOG_TRACE("pilot_init: move_queue_init failed");
         return l_iret;

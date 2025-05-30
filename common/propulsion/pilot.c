@@ -8,6 +8,14 @@
 #include <math.h>
 #include "positionControl.h"
 
+#ifndef intervention_manager__startMove
+#define intervention_manager__startMove() /* TODO: call real startMove */
+#endif
+
+#ifndef intervention_manager__endMove
+#define intervention_manager__endMove()   /* TODO: call real endMove */
+#endif
+
 // --- Types internes ---
 typedef struct
 {
@@ -246,6 +254,10 @@ void pilot_action_startMoves()
     {
         Move move;
         move_queue_pop(&g_moveQueue, &move);
+
+        // Notifier le début du mouvement
+        intervention_manager__startMove();
+
         if (move.angle_rad != 0.0)
         {
             // X_LOG_TRACE("pilot_action_startMoves: angle_rad=%.6f, distance_mm=%.2f", move.angle_rad, move.distance_mm);
@@ -272,6 +284,9 @@ void pilot_action_endMove()
     // X_LOG_TRACE("pilot_action_endMove");
     if (position_control_is_motion_finished())
     {
+        // Notifier la fin du mouvement pour Uriel
+        intervention_manager__endMove();
+
         // X_LOG_TRACE("pilot_action_endMove: motion finished, posting CHECK_NEXT_MOVE");
         pilot_post_event(PILOT_EVT_CHECK_NEXT_MOVE);
     }

@@ -9,6 +9,13 @@
 
 #include "pilot.h"
 #include "xLog.h"
+#include "xTask.h"
+#include "xTimer.h"
+#include "xOsMutex.h"
+#include <stdlib.h>
+#include <string.h>
+#include <math.h>
+#include <stdatomic.h>
 
 
 /////////////////////////////////
@@ -23,8 +30,8 @@ static PilotState g_state = PILOT_STATE_WAIT_MOVE;
 /////////////////////////////////
 static void *pilot_task(void* p_pttArg);
 static int move_queue_init(moveQueue_t* p_pttMoveQueue);
-static bool move_queue_push(moveQueue_t* p_pttMoveQueue, Move *m);
-static bool move_queue_pop(moveQueue_t* p_pttMoveQueue, Move *m);
+static bool move_queue_push(moveQueue_t* p_pttMoveQueue, Move *p_pttMove);
+static bool move_queue_pop(moveQueue_t* p_pttMoveQueue, Move *p_pttMove);
 static int move_queue_size(moveQueue_t* p_pttMoveQueue);
 static int event_queue_init(evtQueue_t* p_pttEvtQueue);
 static bool event_queue_push(evtQueue_t* p_pttEvtQueue, PilotEvent evt);
@@ -502,6 +509,9 @@ int32_t pilot_init()
     return PILOT_OK;
 }
 
+/////////////////////////////////
+/// pilot_shutdown
+/////////////////////////////////
 int32_t pilot_shutdown(void)
 {
     int32_t l_iret = PILOT_OK;
@@ -523,16 +533,31 @@ int32_t pilot_shutdown(void)
 /////////////////////////////////
 /// pilot_advance
 /////////////////////////////////
-void pilot_advance(double distance_mm, float max_speed)
+int32_t pilot_advance(double distance_mm, float max_speed)
 {
+    // Validate input parameters
+    if (max_speed <= 0.0f || distance_mm <= 0.0)
+    {
+        X_LOG_TRACE("pilot_advance: Invalid parameters (distance=%.2f, speed=%.2f)", distance_mm, max_speed);
+        return PILOT_ERROR_INVALID_ARGUMENT;
+    }
+
     Move move = {
         .distance_mm = distance_mm,
         .angle_rad = 0.0,
         .max_speed = max_speed,
         .direction = DIR_FORWARD,
-        .relative = true};
-    move_queue_push(&g_pilot.moveQueue, &move);
+        .relative = true
+    };
+    
+    if (!move_queue_push(&g_pilot.moveQueue, &move))
+    {
+        X_LOG_TRACE("pilot_advance: Failed to push move to queue (queue full)");
+        return PILOT_ERROR_QUEUE_FULL;
+    }
+    
     pilot_post_event(PILOT_EVT_ADVANCE);
+    return PILOT_OK;
 }
 
 /////////////////////////////////
@@ -553,16 +578,31 @@ void pilot_continuousAdvance(int max_speed)
 /////////////////////////////////
 /// pilot_turn
 /////////////////////////////////
-void pilot_turn(double angle_rad, int max_speed, bool relative)
+int32_t pilot_turn(double angle_rad, int max_speed, bool relative)
 {
+    // Validate input parameters
+    if (max_speed <= 0 || angle_rad == 0.0)
+    {
+        X_LOG_TRACE("pilot_turn: Invalid parameters (angle=%.2f, speed=%d)", angle_rad, max_speed);
+        return PILOT_ERROR_INVALID_ARGUMENT;
+    }
+
     Move move = {
         .distance_mm = 0.0,
         .angle_rad = angle_rad,
         .max_speed = max_speed,
         .direction = (angle_rad > 0) ? DIR_LEFT : DIR_RIGHT,
-        .relative = relative};
-    move_queue_push(&g_pilot.moveQueue, &move);
+        .relative = relative
+    };
+    
+    if (!move_queue_push(&g_pilot.moveQueue, &move))
+    {
+        X_LOG_TRACE("pilot_turn: Failed to push move to queue (queue full)");
+        return PILOT_ERROR_QUEUE_FULL;
+    }
+    
     pilot_post_event(PILOT_EVT_TURN);
+    return PILOT_OK;
 }
 
 /////////////////////////////////
@@ -641,4 +681,28 @@ void pilot_setAcceleration(double linearAcceleration, double angularAcceleration
     (void)angularAcceleration;
     X_LOG_TRACE("Function seems to not be implemented");
     X_ASSERT(0);
+}
+
+/////////////////////////////////
+/// pilot_getErrorString
+/////////////////////////////////
+const char* pilot_getErrorString(int32_t error)
+{
+    switch (error)
+    {
+        case PILOT_OK:
+            return "Success";
+        case PILOT_ERROR_INVALID_ARGUMENT:
+            return "Invalid argument";
+        case PILOT_ERROR_QUEUE_FULL:
+            return "Queue is full";
+        case PILOT_ERROR_QUEUE_EMPTY:
+            return "Queue is empty";
+        case PILOT_ERROR_INIT_FAILED:
+            return "Initialization failed";
+        case PILOT_ERROR_NOT_INITIALIZED:
+            return "Module not initialized";
+        default:
+            return "Unknown error";
+    }
 }

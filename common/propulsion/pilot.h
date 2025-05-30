@@ -27,7 +27,12 @@
 /////////////////////////////////
 /// @brief Error codes
 /////////////////////////////////
-#define PILOT_OK                        0x43412000  
+#define PILOT_OK                            0x43412000
+#define PILOT_ERROR_INVALID_ARGUMENT        0x43412001
+#define PILOT_ERROR_QUEUE_FULL              0x43412002
+#define PILOT_ERROR_QUEUE_EMPTY             0x43412003
+#define PILOT_ERROR_INIT_FAILED             0x43412004
+#define PILOT_ERROR_NOT_INITIALIZED         0x43412005
 
 
 
@@ -193,8 +198,9 @@ int32_t pilot_shutdown(void);
 /// @brief Advance
 /// @param distance_mm : Distance in mm
 /// @param max_speed : Maximum speed
+/// @return PILOT_OK if success, error code otherwise
 /////////////////////////////////
-void pilot_advance(double distance_mm, float max_speed);
+int32_t pilot_advance(double distance_mm, float max_speed);
 
 /////////////////////////////////
 /// @brief Continuous advance
@@ -207,8 +213,9 @@ void pilot_continuousAdvance(int max_speed);
 /// @param angle_rad : Angle in radians
 /// @param max_speed : Maximum speed
 /// @param relative : Relative movement
+/// @return PILOT_OK if success, error code otherwise
 /////////////////////////////////
-void pilot_turn(double angle_rad, int max_speed, bool relative);
+int32_t pilot_turn(double angle_rad, int max_speed, bool relative);
 
 /////////////////////////////////
 /// @brief Go to a position
@@ -253,5 +260,12 @@ void pilot_resetDistanceMeter(void);
 /// @param angularAcceleration : Angular acceleration
 /////////////////////////////////
 void pilot_setAcceleration(double linearAcceleration, double angularAcceleration);
+
+/////////////////////////////////
+/// @brief Get error string representation
+/// @param error : Error code
+/// @return Error string
+/////////////////////////////////
+const char* pilot_getErrorString(int32_t error);
 
 #endif // PILOT_H

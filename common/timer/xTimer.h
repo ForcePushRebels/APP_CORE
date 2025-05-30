@@ -5,6 +5,7 @@
 // general discloser: copy or share the file is forbidden
 // Written : 12/01/2025
 // Modified: 12/05/2025 - Improved thread safety and timing precision
+// Modified: 12/06/2025 - Fixed code execution security issues
 ////////////////////////////////////////////////////////////
 #pragma once
 
@@ -26,6 +27,11 @@
 // Timer modes
 #define XOS_TIMER_MODE_ONESHOT 0
 #define XOS_TIMER_MODE_PERIODIC 1
+
+// Security limits
+#define XOS_TIMER_MAX_PERIOD_MS UINT32_MAX  // Maximum period in milliseconds (uint32_t max value)
+#define XOS_TIMER_MIN_PERIOD_MS 1           // Minimum period in milliseconds
+#define XOS_TIMER_MAX_CALLBACKS 1000        // Maximum callbacks per call to prevent DoS
 
 /**
  * Timer context structure

@@ -5,12 +5,14 @@
 // general discloser: copy or share the file is forbidden
 // Written : 12/01/2025
 // Modified: 12/05/2025 - Improved thread safety and timing precision
+// Modified: 30/05/2025 - Fixed code execution security issues
 ////////////////////////////////////////////////////////////
+
 
 #include "xTimer.h"
 #include "xAssert.h"
 #include "xLog.h"
-#include <string.h>
+#include "xOsMemory.h"
 #include <errno.h>
 
 ////////////////////////////////////////////////////////////
@@ -22,8 +24,28 @@ int xTimerCreate(xOsTimerCtx *p_ptTimer, uint32_t p_ulPeriod, uint8_t p_ucMode)
     X_ASSERT(p_ulPeriod > 0);
     X_ASSERT(p_ucMode <= XOS_TIMER_MODE_PERIODIC);
 
+    // Enhanced input validation for security
+    if (p_ptTimer == NULL)
+    {
+        X_LOG_TRACE("xTimerCreate: NULL timer pointer");
+        return XOS_TIMER_INVALID;
+    }
+    
+    if (p_ulPeriod < XOS_TIMER_MIN_PERIOD_MS || p_ulPeriod > XOS_TIMER_MAX_PERIOD_MS)
+    {
+        X_LOG_TRACE("xTimerCreate: Invalid period %u ms (must be between %d and %d)", 
+                    p_ulPeriod, XOS_TIMER_MIN_PERIOD_MS, XOS_TIMER_MAX_PERIOD_MS);
+        return XOS_TIMER_INVALID;
+    }
+    
+    if (p_ucMode > XOS_TIMER_MODE_PERIODIC)
+    {
+        X_LOG_TRACE("xTimerCreate: Invalid timer mode %u", p_ucMode);
+        return XOS_TIMER_INVALID;
+    }
+
     // Clear the structure
-    memset(p_ptTimer, 0, sizeof(xOsTimerCtx));
+    XOS_MEMORY_SANITIZE(p_ptTimer, sizeof(xOsTimerCtx));
 
     // Initialize timer parameters
     p_ptTimer->t_ulPeriod = p_ulPeriod;
@@ -31,9 +53,10 @@ int xTimerCreate(xOsTimerCtx *p_ptTimer, uint32_t p_ulPeriod, uint8_t p_ucMode)
     p_ptTimer->t_ucActive = 0;
 
     // Initialize mutex for thread safety
-    unsigned long l_ulResult = mutexCreate(&p_ptTimer->t_tMutex);
-    if (l_ulResult != MUTEX_OK)
+    int l_iResult = mutexCreate(&p_ptTimer->t_tMutex);
+    if (l_iResult != MUTEX_OK)
     {
+        X_LOG_TRACE("xTimerCreate: Failed to create mutex");
         return XOS_TIMER_MUTEX_ERROR;
     }
 
@@ -47,24 +70,61 @@ int xTimerStart(xOsTimerCtx *p_ptTimer)
 {
     X_ASSERT(p_ptTimer != NULL);
 
-    unsigned long l_ulResult;
+    if (p_ptTimer == NULL)
+    {
+        X_LOG_TRACE("xTimerStart: NULL timer pointer");
+        return XOS_TIMER_INVALID;
+    }
+
+    int l_iResult;
 
     // Lock mutex for thread safety
-    l_ulResult = mutexLock(&p_ptTimer->t_tMutex);
-    if (l_ulResult != MUTEX_OK)
+    l_iResult = mutexLock(&p_ptTimer->t_tMutex);
+    if (l_iResult != MUTEX_OK)
     {
+        X_LOG_TRACE("xTimerStart: Failed to lock mutex");
         return XOS_TIMER_MUTEX_ERROR;
     }
 
-    // Get current time
-    clock_gettime(CLOCK_MONOTONIC, &p_ptTimer->t_tStart);
+    // Validate timer period before starting
+    if (p_ptTimer->t_ulPeriod < XOS_TIMER_MIN_PERIOD_MS || 
+        p_ptTimer->t_ulPeriod > XOS_TIMER_MAX_PERIOD_MS)
+    {
+        mutexUnlock(&p_ptTimer->t_tMutex);
+        X_LOG_TRACE("xTimerStart: Invalid timer period %u", p_ptTimer->t_ulPeriod);
+        return XOS_TIMER_INVALID;
+    }
 
-    // Convert period from milliseconds to nanoseconds
-    uint64_t l_ulPeriodNs = (uint64_t)p_ptTimer->t_ulPeriod * 1000000ULL;
+    // Get current time with error checking
+    if (clock_gettime(CLOCK_MONOTONIC, &p_ptTimer->t_tStart) != 0)
+    {
+        mutexUnlock(&p_ptTimer->t_tMutex);
+        X_LOG_TRACE("xTimerStart: clock_gettime failed with errno %d", errno);
+        return XOS_TIMER_ERROR;
+    }
 
-    // Calculate next trigger time
+    // Convert period from milliseconds to nanoseconds with overflow protection
+    uint64_t l_ulPeriodNs;
+    if (p_ptTimer->t_ulPeriod > (UINT64_MAX / 1000000ULL))
+    {
+        mutexUnlock(&p_ptTimer->t_tMutex);
+        X_LOG_TRACE("xTimerStart: Period overflow in nanosecond conversion");
+        return XOS_TIMER_ERROR;
+    }
+    l_ulPeriodNs = (uint64_t)p_ptTimer->t_ulPeriod * 1000000ULL;
+
+    // Calculate next trigger time with overflow protection
     p_ptTimer->t_tNext = p_ptTimer->t_tStart;
-    uint64_t l_ulNextNs = (uint64_t)p_ptTimer->t_tNext.tv_nsec + l_ulPeriodNs;
+    uint64_t l_ulCurrentNs = (uint64_t)p_ptTimer->t_tNext.tv_nsec;
+    
+    if (l_ulCurrentNs > (UINT64_MAX - l_ulPeriodNs))
+    {
+        mutexUnlock(&p_ptTimer->t_tMutex);
+        X_LOG_TRACE("xTimerStart: Time calculation overflow");
+        return XOS_TIMER_ERROR;
+    }
+    
+    uint64_t l_ulNextNs = l_ulCurrentNs + l_ulPeriodNs;
 
     p_ptTimer->t_tNext.tv_sec += l_ulNextNs / 1000000000ULL;
     p_ptTimer->t_tNext.tv_nsec = l_ulNextNs % 1000000000ULL;
@@ -72,9 +132,10 @@ int xTimerStart(xOsTimerCtx *p_ptTimer)
     p_ptTimer->t_ucActive = 1;
 
     // Unlock mutex
-    l_ulResult = mutexUnlock(&p_ptTimer->t_tMutex);
-    if (l_ulResult != MUTEX_OK)
+    l_iResult = mutexUnlock(&p_ptTimer->t_tMutex);
+    if (l_iResult != MUTEX_OK)
     {
+        X_LOG_TRACE("xTimerStart: Failed to unlock mutex");
         return XOS_TIMER_MUTEX_ERROR;
     }
 
@@ -88,21 +149,29 @@ int xTimerStop(xOsTimerCtx *p_ptTimer)
 {
     X_ASSERT(p_ptTimer != NULL);
 
-    unsigned long l_ulResult;
+    if (p_ptTimer == NULL)
+    {
+        X_LOG_TRACE("xTimerStop: NULL timer pointer");
+        return XOS_TIMER_INVALID;
+    }
+
+    int l_iResult;
 
     // Lock mutex for thread safety
-    l_ulResult = mutexLock(&p_ptTimer->t_tMutex);
-    if (l_ulResult != MUTEX_OK)
+    l_iResult = mutexLock(&p_ptTimer->t_tMutex);
+    if (l_iResult != MUTEX_OK)
     {
+        X_LOG_TRACE("xTimerStop: Failed to lock mutex");
         return XOS_TIMER_MUTEX_ERROR;
     }
 
     p_ptTimer->t_ucActive = 0;
 
     // Unlock mutex
-    l_ulResult = mutexUnlock(&p_ptTimer->t_tMutex);
-    if (l_ulResult != MUTEX_OK)
+    l_iResult = mutexUnlock(&p_ptTimer->t_tMutex);
+    if (l_iResult != MUTEX_OK)
     {
+        X_LOG_TRACE("xTimerStop: Failed to unlock mutex");
         return XOS_TIMER_MUTEX_ERROR;
     }
 
@@ -116,13 +185,20 @@ int xTimerExpired(xOsTimerCtx *p_ptTimer)
 {
     X_ASSERT(p_ptTimer != NULL);
 
-    unsigned long l_ulResult;
-    unsigned long l_ulReturn;
+    if (p_ptTimer == NULL)
+    {
+        X_LOG_TRACE("xTimerExpired: NULL timer pointer");
+        return XOS_TIMER_INVALID;
+    }
+
+    int l_iResult;
+    int l_iReturn;
 
     // Lock mutex for thread safety
-    l_ulResult = mutexLock(&p_ptTimer->t_tMutex);
-    if (l_ulResult != MUTEX_OK)
+    l_iResult = mutexLock(&p_ptTimer->t_tMutex);
+    if (l_iResult != MUTEX_OK)
     {
+        X_LOG_TRACE("xTimerExpired: Failed to lock mutex");
         return XOS_TIMER_MUTEX_ERROR;
     }
 
@@ -134,9 +210,14 @@ int xTimerExpired(xOsTimerCtx *p_ptTimer)
     }
 
     struct timespec l_tNow;
-    clock_gettime(CLOCK_MONOTONIC, &l_tNow);
+    if (clock_gettime(CLOCK_MONOTONIC, &l_tNow) != 0)
+    {
+        mutexUnlock(&p_ptTimer->t_tMutex);
+        X_LOG_TRACE("xTimerExpired: clock_gettime failed with errno %d", errno);
+        return XOS_TIMER_ERROR;
+    }
 
-    // Convert times to nanoseconds for comparison
+    // Convert times to nanoseconds for comparison with overflow protection
     uint64_t l_ulNowNs = (uint64_t)l_tNow.tv_sec * 1000000000ULL + l_tNow.tv_nsec;
     uint64_t l_ulNextNs = (uint64_t)p_ptTimer->t_tNext.tv_sec * 1000000000ULL + p_ptTimer->t_tNext.tv_nsec;
 
@@ -144,13 +225,36 @@ int xTimerExpired(xOsTimerCtx *p_ptTimer)
     {
         if (p_ptTimer->t_ucMode == XOS_TIMER_MODE_PERIODIC)
         {
-            // Calculate number of elapsed periods
+            // Calculate number of elapsed periods with division by zero protection
             uint64_t l_ulStartNs = (uint64_t)p_ptTimer->t_tStart.tv_sec * 1000000000ULL + p_ptTimer->t_tStart.tv_nsec;
             uint64_t l_ulElapsedNs = l_ulNowNs - l_ulStartNs;
+            
+            // Check for period overflow and division by zero
+            if (p_ptTimer->t_ulPeriod == 0 || p_ptTimer->t_ulPeriod > XOS_TIMER_MAX_PERIOD_MS)
+            {
+                mutexUnlock(&p_ptTimer->t_tMutex);
+                X_LOG_TRACE("xTimerExpired: Invalid period for calculation");
+                return XOS_TIMER_ERROR;
+            }
+            
             uint64_t l_ulPeriodNs = (uint64_t)p_ptTimer->t_ulPeriod * 1000000ULL;
+            if (l_ulPeriodNs == 0)
+            {
+                mutexUnlock(&p_ptTimer->t_tMutex);
+                X_LOG_TRACE("xTimerExpired: Zero period in nanoseconds");
+                return XOS_TIMER_ERROR;
+            }
+            
             uint64_t l_ulPeriods = (l_ulElapsedNs / l_ulPeriodNs) + 1;
 
-            // Calculate next trigger time
+            // Calculate next trigger time with overflow protection
+            if (l_ulPeriods > (UINT64_MAX / l_ulPeriodNs))
+            {
+                mutexUnlock(&p_ptTimer->t_tMutex);
+                X_LOG_TRACE("xTimerExpired: Time calculation overflow");
+                return XOS_TIMER_ERROR;
+            }
+            
             uint64_t l_ulNextTime = l_ulStartNs + (l_ulPeriods * l_ulPeriodNs);
             p_ptTimer->t_tNext.tv_sec = l_ulNextTime / 1000000000ULL;
             p_ptTimer->t_tNext.tv_nsec = l_ulNextTime % 1000000000ULL;
@@ -159,21 +263,22 @@ int xTimerExpired(xOsTimerCtx *p_ptTimer)
         {
             p_ptTimer->t_ucActive = 0;
         }
-        l_ulReturn = XOS_TIMER_OK;
+        l_iReturn = XOS_TIMER_OK;
     }
     else
     {
-        l_ulReturn = XOS_TIMER_TIMEOUT;
+        l_iReturn = XOS_TIMER_TIMEOUT;
     }
 
     // Unlock mutex
-    l_ulResult = mutexUnlock(&p_ptTimer->t_tMutex);
-    if (l_ulResult != MUTEX_OK)
+    l_iResult = mutexUnlock(&p_ptTimer->t_tMutex);
+    if (l_iResult != MUTEX_OK)
     {
+        X_LOG_TRACE("xTimerExpired: Failed to unlock mutex");
         return XOS_TIMER_MUTEX_ERROR;
     }
 
-    return l_ulReturn;
+    return l_iReturn;
 }
 
 ////////////////////////////////////////////////////////////
@@ -182,7 +287,11 @@ int xTimerExpired(xOsTimerCtx *p_ptTimer)
 uint64_t xTimerGetCurrentMs(void)
 {
     struct timespec l_tNow;
-    clock_gettime(CLOCK_MONOTONIC, &l_tNow);
+    if (clock_gettime(CLOCK_MONOTONIC, &l_tNow) != 0)
+    {
+        X_LOG_TRACE("xTimerGetCurrentMs: clock_gettime failed with errno %d", errno);
+        return 0; // Return 0 on error
+    }
     return (uint64_t)((l_tNow.tv_sec * 1000ULL) + (l_tNow.tv_nsec / 1000000ULL));
 }
 
@@ -191,6 +300,13 @@ uint64_t xTimerGetCurrentMs(void)
 ////////////////////////////////////////////////////////////
 int xTimerDelay(uint32_t p_ulDelay)
 {
+    // Input validation
+    if (p_ulDelay > XOS_TIMER_MAX_PERIOD_MS)
+    {
+        X_LOG_TRACE("xTimerDelay: Delay too large %u ms", p_ulDelay);
+        return XOS_TIMER_INVALID;
+    }
+
     struct timespec l_tSleep, l_tRemain;
 
     // Convert milliseconds to timespec structure
@@ -221,13 +337,27 @@ int xTimerProcessElapsedPeriods(xOsTimerCtx *p_ptTimer, void (*p_pfCallback)(voi
     X_ASSERT(p_ptTimer != NULL);
     X_ASSERT(p_pfCallback != NULL);
 
-    unsigned long l_ulResult;
+    // Enhanced input validation
+    if (p_ptTimer == NULL)
+    {
+        X_LOG_TRACE("xTimerProcessElapsedPeriods: NULL timer pointer");
+        return XOS_TIMER_INVALID;
+    }
+    
+    if (p_pfCallback == NULL)
+    {
+        X_LOG_TRACE("xTimerProcessElapsedPeriods: NULL callback function");
+        return XOS_TIMER_INVALID;
+    }
+
+    int l_iResult;
     int l_iPeriodCount = 0;
 
     // Lock mutex for thread safety
-    l_ulResult = mutexLock(&p_ptTimer->t_tMutex);
-    if (l_ulResult != MUTEX_OK)
+    l_iResult = mutexLock(&p_ptTimer->t_tMutex);
+    if (l_iResult != MUTEX_OK)
     {
+        X_LOG_TRACE("xTimerProcessElapsedPeriods: Failed to lock mutex");
         return XOS_TIMER_MUTEX_ERROR;
     }
 
@@ -239,57 +369,98 @@ int xTimerProcessElapsedPeriods(xOsTimerCtx *p_ptTimer, void (*p_pfCallback)(voi
     }
 
     struct timespec l_tNow;
-    clock_gettime(CLOCK_MONOTONIC, &l_tNow);
+    if (clock_gettime(CLOCK_MONOTONIC, &l_tNow) != 0)
+    {
+        mutexUnlock(&p_ptTimer->t_tMutex);
+        X_LOG_TRACE("xTimerProcessElapsedPeriods: clock_gettime failed with errno %d", errno);
+        return XOS_TIMER_ERROR;
+    }
 
-    // Convert times to nanoseconds for calculation
+    // Convert times to nanoseconds for calculation with overflow protection
     uint64_t l_ulNowNs = (uint64_t)l_tNow.tv_sec * 1000000000ULL + l_tNow.tv_nsec;
     uint64_t l_ulStartNs = (uint64_t)p_ptTimer->t_tStart.tv_sec * 1000000000ULL + p_ptTimer->t_tStart.tv_nsec;
     uint64_t l_ulNextNs = (uint64_t)p_ptTimer->t_tNext.tv_sec * 1000000000ULL + p_ptTimer->t_tNext.tv_nsec;
+    
+    // Validate period for division
+    if (p_ptTimer->t_ulPeriod == 0 || p_ptTimer->t_ulPeriod > XOS_TIMER_MAX_PERIOD_MS)
+    {
+        mutexUnlock(&p_ptTimer->t_tMutex);
+        X_LOG_TRACE("xTimerProcessElapsedPeriods: Invalid period %u", p_ptTimer->t_ulPeriod);
+        return XOS_TIMER_ERROR;
+    }
+    
     uint64_t l_ulPeriodNs = (uint64_t)p_ptTimer->t_ulPeriod * 1000000ULL;
+    if (l_ulPeriodNs == 0)
+    {
+        mutexUnlock(&p_ptTimer->t_tMutex);
+        X_LOG_TRACE("xTimerProcessElapsedPeriods: Zero period in nanoseconds");
+        return XOS_TIMER_ERROR;
+    }
 
     if (l_ulNowNs >= l_ulNextNs)
     {
         // Calculate number of elapsed periods
         uint64_t l_ulElapsedNs = l_ulNowNs - l_ulStartNs;
-        uint64_t l_ulLastPeriodNs = ((uint64_t)p_ptTimer->t_tNext.tv_sec * 1000000000ULL +
-                                     p_ptTimer->t_tNext.tv_nsec) -
-                                    l_ulStartNs;
+        uint64_t l_ulLastPeriodNs = l_ulNextNs - l_ulStartNs;
 
         // Calculate complete periods that have passed since last check
-        l_iPeriodCount = (l_ulElapsedNs - l_ulLastPeriodNs) / l_ulPeriodNs + 1;
+        uint64_t l_ulPeriodsSinceLastCheck = (l_ulElapsedNs - l_ulLastPeriodNs) / l_ulPeriodNs + 1;
+        
+        // Limit the number of callbacks to prevent DoS attacks
+        if (l_ulPeriodsSinceLastCheck > XOS_TIMER_MAX_CALLBACKS)
+        {
+            X_LOG_TRACE("xTimerProcessElapsedPeriods: Too many periods elapsed (%llu), limiting to %d", 
+                       l_ulPeriodsSinceLastCheck, XOS_TIMER_MAX_CALLBACKS);
+            l_ulPeriodsSinceLastCheck = XOS_TIMER_MAX_CALLBACKS;
+        }
+        
+        l_iPeriodCount = (int)l_ulPeriodsSinceLastCheck;
 
-        // Callback for each elapsed period
+        // Callback for each elapsed period with security measures
         for (int i = 0; i < l_iPeriodCount; i++)
         {
             // Temporarily unlock mutex during callback to avoid deadlocks
-            l_ulResult = mutexUnlock(&p_ptTimer->t_tMutex);
-            if (l_ulResult != MUTEX_OK)
+            l_iResult = mutexUnlock(&p_ptTimer->t_tMutex);
+            if (l_iResult != MUTEX_OK)
             {
+                X_LOG_TRACE("xTimerProcessElapsedPeriods: Failed to unlock mutex before callback");
                 return XOS_TIMER_MUTEX_ERROR;
             }
 
-            // Execute callback
+            // Execute callback with error handling
+            // Note: The callback should be designed to be safe and not cause infinite loops
             p_pfCallback(p_pvData);
 
             // Re-lock mutex
-            l_ulResult = mutexLock(&p_ptTimer->t_tMutex);
-            if (l_ulResult != MUTEX_OK)
+            l_iResult = mutexLock(&p_ptTimer->t_tMutex);
+            if (l_iResult != MUTEX_OK)
             {
+                X_LOG_TRACE("xTimerProcessElapsedPeriods: Failed to re-lock mutex after callback");
                 return XOS_TIMER_MUTEX_ERROR;
             }
 
             // Check if timer was stopped during callback
             if (!p_ptTimer->t_ucActive)
             {
-                l_ulResult = mutexUnlock(&p_ptTimer->t_tMutex);
-                return l_iPeriodCount;
+                l_iResult = mutexUnlock(&p_ptTimer->t_tMutex);
+                return i + 1; // Return number of callbacks executed
             }
         }
 
         // Update next trigger time
         if (p_ptTimer->t_ucMode == XOS_TIMER_MODE_PERIODIC)
         {
-            uint64_t l_ulNextTime = l_ulStartNs + ((l_ulElapsedNs / l_ulPeriodNs) + 1) * l_ulPeriodNs;
+            uint64_t l_ulPeriodsTotal = l_ulElapsedNs / l_ulPeriodNs + 1;
+            
+            // Check for overflow in multiplication
+            if (l_ulPeriodsTotal > (UINT64_MAX / l_ulPeriodNs))
+            {
+                mutexUnlock(&p_ptTimer->t_tMutex);
+                X_LOG_TRACE("xTimerProcessElapsedPeriods: Time calculation overflow");
+                return XOS_TIMER_ERROR;
+            }
+            
+            uint64_t l_ulNextTime = l_ulStartNs + (l_ulPeriodsTotal * l_ulPeriodNs);
             p_ptTimer->t_tNext.tv_sec = l_ulNextTime / 1000000000ULL;
             p_ptTimer->t_tNext.tv_nsec = l_ulNextTime % 1000000000ULL;
         }
@@ -300,9 +471,10 @@ int xTimerProcessElapsedPeriods(xOsTimerCtx *p_ptTimer, void (*p_pfCallback)(voi
     }
 
     // Unlock mutex
-    l_ulResult = mutexUnlock(&p_ptTimer->t_tMutex);
-    if (l_ulResult != MUTEX_OK)
+    l_iResult = mutexUnlock(&p_ptTimer->t_tMutex);
+    if (l_iResult != MUTEX_OK)
     {
+        X_LOG_TRACE("xTimerProcessElapsedPeriods: Failed to unlock mutex");
         return XOS_TIMER_MUTEX_ERROR;
     }
 

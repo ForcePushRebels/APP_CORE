@@ -267,7 +267,7 @@ void testPositionControl(void) {
     if(start == 0)
     {
         //position_control_advance(500, 2.0);
-        position_control_turn(M_PI/2, 1.0);
+        position_control_turn(-M_PI, 1.0);
         start = 1;
     }
     

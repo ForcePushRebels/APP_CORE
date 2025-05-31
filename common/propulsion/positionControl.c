@@ -494,18 +494,16 @@ int16_t position_control_turn(float angle_rad, float speed_rad_s_max)
     // Définir les cibles pour les deux roues
     g_left_wheel.current_ticks = encoder_values[0];
     g_right_wheel.current_ticks = encoder_values[1];
-    
+
+    g_left_wheel.target_ticks = g_left_wheel.current_ticks + target_ticks;
+    g_right_wheel.target_ticks = g_right_wheel.current_ticks - target_ticks;
     // Si angle négatif = tourner à gauche
     // Si angle positif = tourner à droite
     if (angle_rad < 0) {
         // Tourner à gauche : roue gauche en arrière, roue droite en avant
-        g_left_wheel.target_ticks = g_left_wheel.current_ticks - target_ticks;
-        g_right_wheel.target_ticks = g_right_wheel.current_ticks + target_ticks;
         g_current_move_type = LEFT;
     } else {
         // Tourner à droite : roue gauche en avant, roue droite en arrière
-        g_left_wheel.target_ticks = g_left_wheel.current_ticks + target_ticks;
-        g_right_wheel.target_ticks = g_right_wheel.current_ticks - target_ticks;
         g_current_move_type = RIGHT;
     }
     

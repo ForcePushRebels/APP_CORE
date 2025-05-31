@@ -266,8 +266,8 @@ void testPositionControl(void) {
     }
     if(start == 0)
     {
-        position_control_advance(1000, 2.0);
-        //position_control_turn(-M_PI/2, 1.0);
+        position_control_advance(500, 2.0);
+        //position_control_turn(M_PI/2, 1.0);
         start = 1;
     }
     
@@ -278,7 +278,7 @@ int main()
     int l_iReturn = 0;
 
     t_logCtx t_LogConfig;
-    t_LogConfig.t_bLogToFile = false;
+    t_LogConfig.t_bLogToFile = true;
     t_LogConfig.t_bLogToConsole = true;
     memcpy(t_LogConfig.t_cLogPath, s_aCLogPath, sizeof(s_aCLogPath));
 

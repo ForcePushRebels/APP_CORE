@@ -179,7 +179,7 @@ static void* motor_regulator_task(void* arg)
         // Check motor ID before each reading
         if (!is_valid_motor_id(reg->motor_id)) {
             mutexUnlock(&reg->mutex);
-            xTimerDelay(REGULATION_PERIOD_MS);
+            xTimerDelay(REGULATION_MOTOR_PERIOD_MS);
             continue;
         }
 
@@ -199,7 +199,7 @@ static void* motor_regulator_task(void* arg)
         SetMotorSpeed(reg->motor_id, speed_percentage);
 
         mutexUnlock(&reg->mutex);
-        xTimerDelay(REGULATION_PERIOD_MS);
+        xTimerDelay(REGULATION_MOTOR_PERIOD_MS);
     }
     
     // Stop motor on exit
@@ -250,7 +250,7 @@ int motor_control_set_speed(uint16_t motor_id, double speed_rad_s)
     if (speed_rad_s > MAX_SPEED_RAD_S) speed_rad_s = MAX_SPEED_RAD_S;
     if (speed_rad_s < -MAX_SPEED_RAD_S) speed_rad_s = -MAX_SPEED_RAD_S;
 
-    X_LOG_TRACE("Setting motor %d speed to %.2f rad/s", motor_id, speed_rad_s);
+    //X_LOG_TRACE("Setting motor %d speed to %.2f rad/s", motor_id, speed_rad_s);
     
     motor_regulator_t* reg = (motor_id == MRPIZ_MOTOR_LEFT) ? &g_left_motor : &g_right_motor;
     

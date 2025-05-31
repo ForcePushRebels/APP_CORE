@@ -12,7 +12,7 @@
 #define CORRECTION_MARGIN_TICKS 5
 
 // Activer/désactiver la correction du débordement des encodeurs
-#define CORRECTION 1
+#define CORRECTION 0
 
 // Variable de position globale
 static Position_t g_robot_position = {0, 0, 0.0f};
@@ -63,7 +63,7 @@ static void wheel_position_control_shutdown(wheel_position_control_t* control);
 // Fonction utilitaire pour convertir la distance en ticks d'encodeur
 static int32_t distance_to_ticks(double distance_mm) 
 {
-    int32_t ticks = (int32_t)((distance_mm / 10.0) / (WHEEL_PERIMETER_CM/ENCODER_TICKS_REV));
+    int32_t ticks = (int32_t)((distance_mm / 10.0) / (float)(WHEEL_PERIMETER_CM/ENCODER_TICKS_REV));
 
     X_LOG_TRACE("Conversion de distance: distance=%d mm, ticks=%d",
                 (int)distance_mm, ticks);
@@ -225,6 +225,8 @@ static void* wheel_position_control_task(void* arg)
                     //X_LOG_TRACE("Position control: Adjusted acceleration/deceleration - Total ticks: %d, Acc ticks: %d, Dec ticks: %d", 
                     //        nb_tt_tick, nb_acc_tick, nb_decc_tick);
                 }
+                X_LOG_TRACE("Position control: Adjusted acceleration/deceleration - Target : %d, Acc ticks: %d, Dec ticks: %d", 
+                            control->target_ticks, nb_acc_tick, nb_decc_tick);
                 g_state = ACC;
                 break; 
 
@@ -428,9 +430,10 @@ bool position_control_is_motion_finished(void)
 int16_t position_control_advance(int16_t distance_mm, float speed_rad_s_max) 
 {
     if (!g_initialized) return -1;
+    int32_t distance_patch = (int32_t)((float)distance_mm * 0.909);
 
     // Convertir la distance en ticks d'encodeur
-    int32_t target_ticks = distance_to_ticks(distance_mm);
+    int32_t target_ticks = distance_to_ticks(distance_patch);
     
     mutexLock(&g_left_wheel.mutex);
     mutexLock(&g_right_wheel.mutex);

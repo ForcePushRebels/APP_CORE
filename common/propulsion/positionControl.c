@@ -12,7 +12,7 @@
 #define CORRECTION_MARGIN_TICKS 5
 
 // Activer/désactiver la correction du débordement des encodeurs
-#define CORRECTION 0
+#define CORRECTION 1
 
 // Variable de position globale
 static Position_t g_robot_position = {0, 0, 0.0f};
@@ -154,6 +154,7 @@ static void update_robot_position(int32_t left_ticks, int32_t right_ticks)
     mutexUnlock(&g_position_mutex);
 }
 */
+
 static void* wheel_position_control_task(void* arg) 
 {
     wheel_position_control_t* control = (wheel_position_control_t*)arg;
@@ -162,25 +163,8 @@ static void* wheel_position_control_task(void* arg)
         //X_LOG_TRACE("Tâche de contrôle de position de roue: Pointeur de contrôle invalide");
         return (void*)OS_TASK_EXIT_FAILURE;
     }
-
-    // Obtenir les positions actuelles des encodeurs
-    int32_t encoder_values[2] = {0, 0};
-    GetMotorEncoderValues(encoder_values);
     
-    // Calculer les deltas des encodeurs en tenant compte du débordement
-    //int32_t left_delta = calculate_encoder_delta(encoder_values[0], g_left_wheel.current_ticks);
-    //int32_t right_delta = calculate_encoder_delta(encoder_values[1], g_right_wheel.current_ticks);
     
-    // Mettre à jour la position du robot
-    //update_robot_position(left_delta, right_delta);
-    
-    // Mettre à jour les ticks actuels
-    g_left_wheel.current_ticks = encoder_values[0];
-    g_right_wheel.current_ticks = encoder_values[1];
-    
-    // Calculer la distance restante en ticks
-    int32_t remaining_ticks = control->target_ticks - control->current_ticks;
-    int32_t abs_remaining = abs(remaining_ticks);
     static double step_acc = ACCELERATION_COEF * REGULATION_PERIOD_MS / 1000.0, step_decc = DECELERATION_COEF * REGULATION_PERIOD_MS / 1000.0;
     double right_wheel_speed = 0.0, left_wheel_speed = 0.0;
     int32_t nb_decc_tick = 0, nb_acc_tick = 0;
@@ -188,12 +172,22 @@ static void* wheel_position_control_task(void* arg)
     //X_LOG_TRACE("Tâche de contrôle de position de roue démarrée");
     while (control->running) 
     {
-        X_LOG_TRACE("Wheel task: State %d (is_left_wheel: %d)", g_state, control->is_left_wheel); // Log current state
         mutexLock(&control->mutex);
+
+        // Obtenir les positions actuelles des encodeurs
+        int32_t encoder_values[2] = {0, 0};
+        GetMotorEncoderValues(encoder_values);
         
+        // Mettre à jour les ticks actuels
+        g_left_wheel.current_ticks = encoder_values[0];
+        g_right_wheel.current_ticks = encoder_values[1];
+        
+        // Calculer la distance restante en ticks
+        int32_t remaining_ticks = control->target_ticks - control->current_ticks;
+        int32_t abs_remaining = abs(remaining_ticks);
+
         if (control->should_stop) 
         {
-            X_LOG_TRACE("Wheel task: Stop requested. Setting motion_finished = true"); // Log stop request
             motor_control_stop();
             control->motion_finished = true;
             control->should_stop = false;
@@ -204,17 +198,14 @@ static void* wheel_position_control_task(void* arg)
         switch (g_state)
         {
             case WAIT :
-                X_LOG_TRACE("Wheel task: Entering state WAIT"); // Log state entry
-
+                
                 if(!g_left_wheel.motion_finished && !g_right_wheel.motion_finished)
                 {
-                    X_LOG_TRACE("Wheel task: WAIT -> MOVE_INIT"); // Log state transition
                     g_state = MOVE_INIT;
                 }
-                break; // Add break here
+                break; 
                 
             case MOVE_INIT :
-                X_LOG_TRACE("Wheel task: Entering state MOVE_INIT"); // Log state entry
                 // Variables pour le contrôle de la phase d'accélération
                 step_acc = ACCELERATION_COEF * REGULATION_PERIOD_MS / 1000.0;
                 step_decc = DECELERATION_COEF * REGULATION_PERIOD_MS / 1000.0;
@@ -231,56 +222,58 @@ static void* wheel_position_control_task(void* arg)
                     int32_t nb_tt_tick = control->target_ticks - control->current_ticks;
                     nb_acc_tick = nb_tt_tick / 2.0;
                     nb_decc_tick =  nb_tt_tick / 2.0;
-                    X_LOG_TRACE("Position control: Adjusted acceleration/deceleration - Total ticks: %d, Acc ticks: %d, Dec ticks: %d", 
-                            nb_tt_tick, nb_acc_tick, nb_decc_tick);
+                    //X_LOG_TRACE("Position control: Adjusted acceleration/deceleration - Total ticks: %d, Acc ticks: %d, Dec ticks: %d", 
+                    //        nb_tt_tick, nb_acc_tick, nb_decc_tick);
                 }
-                X_LOG_TRACE("Wheel task: MOVE_INIT -> ACC"); // Log state transition
                 g_state = ACC;
-                break; // Add break here
+                break; 
+
             case ACC :
-                X_LOG_TRACE("Wheel task: Entering state ACC (current_ticks: %d, target_ticks: %d)", control->current_ticks, control->target_ticks); // Log state entry
+                
                 mutexLock(&g_speed_mutex);
                 g_common_target_speed += step_acc;
                 
                 if (g_common_target_speed >= control->max_speed) {
                     g_common_target_speed = control->max_speed;
-                    X_LOG_TRACE("Wheel task: ACC -> MOVE (Max speed reached)"); // Log state transition
                     g_state = MOVE;
                 }
                 mutexUnlock(&g_speed_mutex);
 
                 // Vérifier si on a parcouru la moitié des ticks
-                if (abs(control->target_ticks - nb_decc_tick) <= (abs(control->current_ticks))) {
+                if (abs(control->target_ticks - nb_decc_tick) <= abs(control->current_ticks)) {
                     //probleme
-                    X_LOG_TRACE("Moitie - start decceleration, tick current %d, target %d, %d", control->current_ticks,control->target_ticks, (control->target_ticks - nb_decc_tick));
-                    X_LOG_TRACE("Wheel task: ACC -> DECC (Half ticks reached)"); // Log state transition
+                    //X_LOG_TRACE("Moitie - start decceleration, tick current %d, target %d, %d", control->current_ticks,control->target_ticks, (control->target_ticks - nb_decc_tick));
                     g_state = DECC;
                 }
-                break; // Add break here
+                break; 
+
             case MOVE :
-                X_LOG_TRACE("Wheel task: Entering state MOVE (current_ticks: %d, target_ticks: %d, %d)", control->current_ticks, control->target_ticks, nb_decc_tick); // Log state entry
-                if (abs(control->current_ticks) >= (abs(control->target_ticks) - nb_decc_tick))
+                
+                if (abs(control->current_ticks) >= abs(control->target_ticks - nb_decc_tick))
                 {
-                    X_LOG_TRACE("Wheel task: MOVE -> DECC (Deceleration point reached)"); // Log state transition
                     g_state = DECC;
                 }
-                break; // Add break here
+                break; 
+
             case DECC :
-                X_LOG_TRACE("Wheel task: Entering state DECC (current_ticks: %d, target_ticks: %d)", control->current_ticks, control->target_ticks); // Log state entry
+                
                 mutexLock(&g_speed_mutex);
                 g_common_target_speed -= step_decc;
                 if (g_common_target_speed < MIN_SPEED_RAD_S) {
                     g_common_target_speed = 0.0;
-                    X_LOG_TRACE("Wheel task: DECC -> CORR (Min speed reached)"); // Log state transition
                     g_state = CORR;
                 }
                 mutexUnlock(&g_speed_mutex);
-                break; // Add break here
+                break; 
+
             case CORR :
-                X_LOG_TRACE("Wheel task: Entering state CORR (current_ticks: %d, target_ticks: %d)", control->current_ticks, control->target_ticks); // Log state entry
+                
                 // Calculer la distance restante
                 remaining_ticks = control->target_ticks - control->current_ticks;
                 abs_remaining = abs(remaining_ticks);
+
+                //X_LOG_TRACE("Wheel task: CORR check - abs_remaining: %d, CORRECTION_MARGIN_TICKS: %d, CORRECTION: %d. Condition: %d",
+                //            abs_remaining, CORRECTION_MARGIN_TICKS, CORRECTION, (abs_remaining > CORRECTION_MARGIN_TICKS && CORRECTION)); // Log correction check
 
                 if (abs_remaining > CORRECTION_MARGIN_TICKS && CORRECTION) {
                     // Appliquer une petite vitesse de correction
@@ -301,12 +294,12 @@ static void* wheel_position_control_task(void* arg)
                         // Appliquer la correction à la roue appropriée
                         if (control->is_left_wheel) {
                             motor_control_set_left_speed(correction);
-                            X_LOG_TRACE("Correction LEFT - Roue gauche: current=%d, target=%d, remaining=%d, correction=%.2f, speed=%.2f", 
-                                control->current_ticks, control->target_ticks, remaining_ticks, correction, -correction);
+                            //X_LOG_TRACE("Correction LEFT - Roue gauche: current=%d, target=%d, remaining=%d, correction=%.2f, speed=%.2f", 
+                            //    control->current_ticks, control->target_ticks, remaining_ticks, correction, -correction);
                         } else {
                             motor_control_set_right_speed(correction);
-                            X_LOG_TRACE("Correction LEFT - Roue droite: current=%d, target=%d, remaining=%d, correction=%.2f, speed=%.2f", 
-                                control->current_ticks, control->target_ticks, remaining_ticks, correction, correction);
+                            //X_LOG_TRACE("Correction LEFT - Roue droite: current=%d, target=%d, remaining=%d, correction=%.2f, speed=%.2f", 
+                            //    control->current_ticks, control->target_ticks, remaining_ticks, correction, correction);
                         }
                         break;
                         
@@ -315,29 +308,33 @@ static void* wheel_position_control_task(void* arg)
                         // Appliquer la correction à la roue appropriée
                         if (control->is_left_wheel) {
                             motor_control_set_left_speed(correction);
-                            X_LOG_TRACE("Correction RIGHT - Roue gauche: current=%d, target=%d, remaining=%d, correction=%.2f, speed=%.2f", 
-                                control->current_ticks, control->target_ticks, remaining_ticks, correction, correction);
-                        } else {
+                            //X_LOG_TRACE("Correction RIGHT - Roue gauche: current=%d, target=%d, remaining=%d, correction=%.2f, speed=%.2f", 
+                            //    control->current_ticks, control->target_ticks, remaining_ticks, correction, correction);
+                        }
+                        else 
+                        {
                             motor_control_set_right_speed(correction);
-                            X_LOG_TRACE("Correction RIGHT - Roue droite: current=%d, target=%d, remaining=%d, correction=%.2f, speed=%.2f", 
-                                control->current_ticks, control->target_ticks, remaining_ticks, correction, -correction);
+                            //X_LOG_TRACE("Correction RIGHT - Roue droite: current=%d, target=%d, remaining=%d, correction=%.2f, speed=%.2f", 
+                            //    control->current_ticks, control->target_ticks, remaining_ticks, correction, -correction);
                         }
                         break;
                     }
                 } else {
                     // Arrêt final si on est dans la marge de correction
+                    //X_LOG_TRACE("Wheel task: Final stop condition met in CORR. Remaining ticks: %d", remaining_ticks); // Log final stop in CORR
+                    
                     if (control->is_left_wheel) {
                         motor_control_set_left_speed(0.0);
-                        X_LOG_TRACE("Arrêt final - Roue gauche: current=%d, target=%d, remaining=%d", 
-                            control->current_ticks, control->target_ticks, remaining_ticks);
+                        //X_LOG_TRACE("Arrêt final - Roue gauche: current=%d, target=%d, remaining=%d", 
+                        //    control->current_ticks, control->target_ticks, remaining_ticks);
                         
                     } else {
                         motor_control_set_right_speed(0.0);
-                        X_LOG_TRACE("Arrêt final - Roue droite: current=%d, target=%d, remaining=%d", 
-                            control->current_ticks, control->target_ticks, remaining_ticks);
+                        //X_LOG_TRACE("Arrêt final - Roue droite: current=%d, target=%d, remaining=%d", 
+                        //    control->current_ticks, control->target_ticks, remaining_ticks);
                     }
                     control->motion_finished = true;
-                    X_LOG_TRACE("Wheel task: CORR -> STOP (Motion finished)"); // Log state transition
+                    
                     g_state = STOP; // Transition to STOP state after finishing motion
                 }
 
@@ -346,19 +343,20 @@ static void* wheel_position_control_task(void* arg)
                     g_state = WAIT;
                 }
                 
-                break; // Add break here
+                
+                break; 
 
             case STOP:
-                X_LOG_TRACE("Wheel task: Entering state STOP (current_ticks: %d, target_ticks: %d)", control->current_ticks, control->target_ticks); // Log state entry
+                
                 // Arrêt final si on est dans la marge de correction
                 if (control->is_left_wheel) {
                     motor_control_set_left_speed(0.0);
-                    X_LOG_TRACE("Arrêt final - Roue gauche: current=%d, target=%d, remaining=%d", 
-                        control->current_ticks, control->target_ticks, remaining_ticks);
+                    //X_LOG_TRACE("Arrêt final - Roue gauche: current=%d, target=%d, remaining=%d", 
+                    //    control->current_ticks, control->target_ticks, remaining_ticks);
                 } else {
                     motor_control_set_right_speed(0.0);
-                    X_LOG_TRACE("Arrêt final - Roue droite: current=%d, target=%d, remaining=%d", 
-                        control->current_ticks, control->target_ticks, remaining_ticks);
+                    //X_LOG_TRACE("Arrêt final - Roue droite: current=%d, target=%d, remaining=%d", 
+                    //    control->current_ticks, control->target_ticks, remaining_ticks);
                 }
                 control->motion_finished = true;
 
@@ -367,7 +365,7 @@ static void* wheel_position_control_task(void* arg)
                     X_LOG_TRACE("Wheel task: STOP -> WAIT (Both wheels finished)"); // Log state transition
                     g_state = WAIT;
                 }
-                break; // Add break here
+                break; 
         }
 
         //X_LOG_TRACE("nb_decc_tick: %d, %d", nb_decc_tick,abs(control->target_ticks) - nb_decc_tick);
@@ -376,7 +374,7 @@ static void* wheel_position_control_task(void* arg)
         if (g_state != CORR && g_state != STOP ) {  // Ne pas appliquer la vitesse pendant la phase de correction
             double wheel_speed = g_common_target_speed; 
             
-            X_LOG_TRACE("Wheel task: Applying speeds - Common target speed: %.2f", wheel_speed); // Log applying speeds
+            
 
             switch (g_current_move_type) {
                 case FORWARD:
@@ -399,7 +397,6 @@ static void* wheel_position_control_task(void* arg)
 
                     break;
             }
-            X_LOG_TRACE("Wheel task: Calculated speeds - Left: %.2f, Right: %.2f (State: %d)", left_wheel_speed, right_wheel_speed, g_state); // Log calculated speeds
             motor_control_set_left_speed(left_wheel_speed);
             motor_control_set_right_speed(right_wheel_speed);
 

@@ -15,7 +15,7 @@ use crate::network::handle_network::handle_incoming_message;
 use std::net::{TcpListener, TcpStream};
 use std::thread::JoinHandle;
 use std::thread;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}};
 
 ///error code encoded in 32 bits
 pub const SERVER_OK: u32 = 0xE3452100;
@@ -56,7 +56,9 @@ pub struct Server {
     pub config: ServerConfig,
     pub listener: TcpListener,
     pub clients: Vec<TcpStream>,
-    pub threads: Vec<JoinHandle<()>>,
+    pub threads: Arc<Mutex<Vec<JoinHandle<()>>>>,
+    pub server_thread: Option<JoinHandle<()>>,
+    pub running: Arc<AtomicBool>,
 }
 
 impl Server {
@@ -82,42 +84,92 @@ impl Server {
             config,
             listener,
             clients: Vec::new(),
-            threads: Vec::new(),
+            threads: Arc::new(Mutex::new(Vec::new())),
+            server_thread: None,
+            running: Arc::new(AtomicBool::new(false)),
         })
     }
 
-    pub fn start(&mut self) -> u32 {
-        write_log(&format!("Serveur démarré sur {}:{}", self.config.ip_addr, self.config.port));
+    // Start the server in its own thread
+    pub fn start(&mut self) -> Result<(), u32> {
+        if self.server_thread.is_some() {
+            write_log("Serveur déjà démarré");
+            return Ok(());
+        }
+
+        self.running.store(true, Ordering::Relaxed);
         
-        for stream in self.listener.incoming() {
-            match stream {
-                Ok(stream) => {
-                    write_log("Nouvelle connexion établie");
-                    
-                    // Vérifier le nombre maximum de threads
-                    if self.threads.len() >= self.config.max_threads as usize {
-                        write_log("Nombre maximum de threads atteint");
-                        continue;
-                    }
-                    
-                    // Cloner la configuration pour le thread
-                    let config_clone = self.config.clone();
-                    
-                    // Gérer la connexion dans un thread séparé
-                    let handle = thread::spawn(move || {
-                        Server::handle_client(stream, config_clone);
-                    });
-                    
-                    self.threads.push(handle);
+        // Cloner les données nécessaires pour le thread
+        let config = self.config.clone();
+        let threads = self.threads.clone();
+        let running = self.running.clone();
+        
+        // Créer un nouveau listener pour le thread (car on ne peut pas déplacer self.listener)
+        let bind_addr = format!("{}:{}", config.ip_addr, config.port);
+        let listener = match TcpListener::bind(&bind_addr) {
+            Ok(listener) => listener,
+            Err(_) => {
+                write_log("Erreur lors de la création du listener pour le thread");
+                return Err(SERVER_ERROR);
+            }
+        };
+
+        let server_thread = thread::spawn(move || {
+            write_log(&format!("Serveur démarré sur {}:{}", config.ip_addr, config.port));
+            
+            for stream in listener.incoming() {
+                if !running.load(Ordering::Relaxed) {
+                    write_log("Arrêt du serveur demandé");
+                    break;
                 }
-                Err(e) => {
-                    write_log(&format!("Erreur de connexion: {}", e));
-                    return SERVER_ERROR;
+
+                match stream {
+                    Ok(stream) => {
+                        write_log("Nouvelle connexion établie");
+                        
+                        // Vérifier le nombre maximum de threads
+                        let current_thread_count = {
+                            let threads_guard = threads.lock().unwrap();
+                            threads_guard.len()
+                        };
+                        
+                        if current_thread_count >= config.max_threads as usize {
+                            write_log("Nombre maximum de threads atteint");
+                            continue;
+                        }
+                        
+                        // Cloner la configuration pour le thread client
+                        let config_clone = config.clone();
+                        let threads_clone = threads.clone();
+                        
+                        // Gérer la connexion dans un thread séparé
+                        let handle = thread::spawn(move || {
+                            Server::handle_client(stream, config_clone);
+                            
+                            // Nettoyer le thread de la liste (optionnel)
+                            // Note: Dans une vraie implémentation, vous pourriez vouloir
+                            // un mécanisme plus sophistiqué pour nettoyer les threads terminés
+                        });
+                        
+                        // Ajouter le handle à la liste des threads
+                        if let Ok(mut threads_guard) = threads.lock() {
+                            threads_guard.push(handle);
+                        }
+                    }
+                    Err(e) => {
+                        write_log(&format!("Erreur de connexion: {}", e));
+                        // Ne pas retourner d'erreur ici, continuer à écouter
+                    }
                 }
             }
-        }
+            
+            write_log("Thread serveur principal terminé");
+        });
+
+        self.server_thread = Some(server_thread);
+        write_log("Thread serveur démarré avec succès");
         
-        SERVER_OK
+        Ok(())
     }
     
     fn handle_client(mut stream: TcpStream, config: ServerConfig) {
@@ -141,7 +193,7 @@ impl Server {
                         write_log(&format!("Erreur traitement message: 0x{:08X}", result));
                     }
                     
-                    // Créer une réponse simple (vous pouvez personnaliser selon vos besoins)
+                    // Créer une réponse simple
                     let response = match result {
                         SERVER_OK => "HTTP/1.1 200 OK\r\n\r\nMessage traite avec succes".as_bytes(),
                         _ => "HTTP/1.1 400 Bad Request\r\n\r\nErreur dans le traitement du message".as_bytes(),
@@ -168,15 +220,38 @@ impl Server {
     pub fn stop(&mut self) -> u32 {
         write_log("Arrêt du serveur...");
         
-        // Attendre que tous les threads se terminent
-        while let Some(handle) = self.threads.pop() {
+        // Signaler l'arrêt
+        self.running.store(false, Ordering::Relaxed);
+        
+        // Attendre que le thread principal se termine
+        if let Some(handle) = self.server_thread.take() {
             if let Err(_) = handle.join() {
-                write_log("Erreur lors de l'arrêt d'un thread");
+                write_log("Erreur lors de l'arrêt du thread serveur principal");
                 return SERVER_THREAD_ERROR;
+            }
+        }
+        
+        // Attendre que tous les threads clients se terminent
+        if let Ok(mut threads_guard) = self.threads.lock() {
+            while let Some(handle) = threads_guard.pop() {
+                if let Err(_) = handle.join() {
+                    write_log("Erreur lors de l'arrêt d'un thread client");
+                    return SERVER_THREAD_ERROR;
+                }
             }
         }
         
         write_log("Serveur arrêté");
         SERVER_OK
+    }
+
+    pub fn is_running(&self) -> bool {
+        self.running.load(Ordering::Relaxed)
+    }
+}
+
+impl Drop for Server {
+    fn drop(&mut self) {
+        self.stop();
     }
 }

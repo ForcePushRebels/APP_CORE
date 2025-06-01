@@ -62,15 +62,17 @@ fn main() {
 
     //start the server sur un thread dédié
     let mut server = Server::new(ServerConfig::new("127.0.0.1".to_string(), 8080)).unwrap();
-    let server_thread = thread::spawn(move || {
-        server.start();
-    });
+    let server_thread = server.start();
 
 
-    
+    let mut result: Result<(), &'static str>;
     loop 
     {
-        refresh_watchdog();
+        result = refresh_watchdog();
+        if result.is_err() {
+            write_log("Watchdog expiré - Le système ne répond plus !");
+            break;
+        }
     }
     
     write_log("=== Fin du programme d'exploration ===");

@@ -11,14 +11,13 @@ use common::{
     x_assert::x_assert,
     x_log::{initialize, write_log, LogConfig, XOS_LOG_OK},
     hardware::{
-        Robot,luminosity, sleep_ms
+        Robot, luminosity
     },
     x_watchdog::{init_watchdog, refresh_watchdog, Watchdog},
     network::{
         server::{Server, ServerConfig}, 
     },
 };
-use std::thread;
 
 fn main() {
     // Initialisation du système de logs
@@ -62,7 +61,7 @@ fn main() {
 
     //start the server sur un thread dédié
     let mut server = Server::new(ServerConfig::new("127.0.0.1".to_string(), 8080)).unwrap();
-    let server_thread = server.start();
+    x_assert(server.start().is_ok());
 
 
     let mut result: Result<(), &'static str>;

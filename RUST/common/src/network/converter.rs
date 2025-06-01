@@ -11,7 +11,7 @@ use crate::x_log::write_log;
 use crate::x_assert::x_assert;
 use crate::network::server::SERVER_BUFFER_ERROR;
 
-pub struct ConverterConfig {
+pub struct Converter {
     pub length: u16,
     pub idx: u8, 
     pub data: Vec<u8>,
@@ -61,7 +61,7 @@ impl NetworkMessageType {
     }
 }
 
-impl ConverterConfig {
+impl Converter {
     pub fn new(length: u16, idx: u8, data: Vec<u8>) -> Self {
         x_assert(length > 0);
         x_assert(data.len() <= length as usize);
@@ -97,11 +97,11 @@ impl ConverterConfig {
     }
 }
 
-/// Convertit un buffer de bytes en ConverterConfig selon le format :
+/// Convertit un buffer de bytes en Converter selon le format :
 /// Bytes 0-1 : length (u16, little-endian)
 /// Byte 2 : idx (u8)
 /// Bytes 3+ : data (Vec<u8>)
-pub fn convert_to_struct(bytes: &[u8]) -> Result<ConverterConfig, u32> {
+pub fn convert_to_struct(bytes: &[u8]) -> Result<Converter, u32> {
     // Vérifier qu'on a au moins 3 bytes (length + idx)
     if bytes.len() < 3 {
         write_log("Erreur: buffer trop petit pour contenir un message valide (minimum 3 bytes)");
@@ -130,7 +130,7 @@ pub fn convert_to_struct(bytes: &[u8]) -> Result<ConverterConfig, u32> {
         return Err(SERVER_BUFFER_ERROR);
     }
 
-    Ok(ConverterConfig { length, idx, data })
+    Ok(Converter { length, idx, data })
 }
 
 

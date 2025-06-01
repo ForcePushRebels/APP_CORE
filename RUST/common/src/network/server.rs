@@ -7,9 +7,8 @@
 // Written: 01/06/2025
 ////////////////////////////////////////////////////////////
 
-use crate::x_log::{write_log, LogConfig, XOS_LOG_OK};
+use crate::x_log::write_log;
 use crate::x_assert::x_assert;
-use crate::network::converter::ConverterConfig;
 use crate::network::handle_network::handle_incoming_message;
 
 use std::net::{TcpListener, TcpStream};
@@ -54,7 +53,7 @@ impl ServerConfig {
 
 pub struct Server {
     pub config: ServerConfig,
-    pub listener: TcpListener,
+    pub listener: Option<TcpListener>,
     pub clients: Vec<TcpStream>,
     pub threads: Arc<Mutex<Vec<JoinHandle<()>>>>,
     pub server_thread: Option<JoinHandle<()>>,
@@ -71,18 +70,10 @@ impl Server {
         x_assert(config.max_packet_size > 0);
         x_assert(!config.ip_addr.is_empty());
 
-        let bind_addr = format!("{}:{}", config.ip_addr, config.port);
-        let listener = match TcpListener::bind(&bind_addr) {
-            Ok(listener) => listener,
-            Err(_) => {
-                write_log("Erreur lors de la création du listener");
-                return Err(SERVER_ERROR);
-            }
-        };
-
+        // Ne plus créer le listener ici
         Ok(Self {
             config,
-            listener,
+            listener: None, // Initialisé à None
             clients: Vec::new(),
             threads: Arc::new(Mutex::new(Vec::new())),
             server_thread: None,
@@ -97,6 +88,16 @@ impl Server {
             return Ok(());
         }
 
+        // Créer le listener une seule fois ici
+        let bind_addr = format!("{}:{}", self.config.ip_addr, self.config.port);
+        let listener = match TcpListener::bind(&bind_addr) {
+            Ok(listener) => listener,
+            Err(_) => {
+                write_log("Erreur lors de la création du listener");
+                return Err(SERVER_ERROR);
+            }
+        };
+
         self.running.store(true, Ordering::Relaxed);
         
         // Cloner les données nécessaires pour le thread
@@ -104,17 +105,8 @@ impl Server {
         let threads = self.threads.clone();
         let running = self.running.clone();
         
-        // Créer un nouveau listener pour le thread (car on ne peut pas déplacer self.listener)
-        let bind_addr = format!("{}:{}", config.ip_addr, config.port);
-        let listener = match TcpListener::bind(&bind_addr) {
-            Ok(listener) => listener,
-            Err(_) => {
-                write_log("Erreur lors de la création du listener pour le thread");
-                return Err(SERVER_ERROR);
-            }
-        };
-
-        let server_thread = thread::spawn(move || {
+        // Déplacer le listener dans le thread (pas de duplication)
+        self.server_thread = Some(thread::spawn(move || {
             write_log(&format!("Serveur démarré sur {}:{}", config.ip_addr, config.port));
             
             for stream in listener.incoming() {
@@ -140,7 +132,6 @@ impl Server {
                         
                         // Cloner la configuration pour le thread client
                         let config_clone = config.clone();
-                        let threads_clone = threads.clone();
                         
                         // Gérer la connexion dans un thread séparé
                         let handle = thread::spawn(move || {
@@ -164,9 +155,10 @@ impl Server {
             }
             
             write_log("Thread serveur principal terminé");
-        });
+        }));
 
-        self.server_thread = Some(server_thread);
+        // Le listener n'est plus stocké dans self car il a été déplacé dans le thread
+        self.listener = None;
         write_log("Thread serveur démarré avec succès");
         
         Ok(())
@@ -176,7 +168,7 @@ impl Server {
         use std::io::{Read, Write};
         
         let mut buffer = vec![0; config.max_buffer_size as usize];
-        
+
         loop {
             match stream.read(&mut buffer) {
                 Ok(0) => {

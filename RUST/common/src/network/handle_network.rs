@@ -8,7 +8,7 @@
 ////////////////////////////////////////////////////////////
 
 use crate::x_log::write_log;
-use crate::network::converter::{ConverterConfig, NetworkMessageType, convert_to_struct};
+use crate::network::converter::{Converter, NetworkMessageType, convert_to_struct};
 use crate::network::server::SERVER_OK;
 
 /// Traite un message réseau reçu
@@ -40,7 +40,7 @@ pub fn handle_incoming_message(buffer: &[u8], bytes_received: usize) -> u32 {
 }
 
 /// Traite un message selon son type
-fn handle_message_by_type(msg_type: NetworkMessageType, message: &ConverterConfig) -> u32 {
+fn handle_message_by_type(msg_type: NetworkMessageType, message: &Converter) -> u32 {
     match msg_type {
         // Messages envoyés par Android
         NetworkMessageType::IdSetMovement => {
@@ -79,7 +79,7 @@ fn handle_message_by_type(msg_type: NetworkMessageType, message: &ConverterConfi
 }
 
 /// Traite une commande de mouvement
-fn handle_movement_command(message: &ConverterConfig) -> u32 {
+fn handle_movement_command(message: &Converter) -> u32 {
     if message.data.len() < 2 {
         write_log("Commande de mouvement invalide: données insuffisantes");
         return SERVER_OK;
@@ -105,7 +105,7 @@ fn handle_movement_command(message: &ConverterConfig) -> u32 {
 }
 
 /// Traite une commande de contrôle de mission
-fn handle_mission_control(message: &ConverterConfig) -> u32 {
+fn handle_mission_control(message: &Converter) -> u32 {
     if message.data.is_empty() {
         write_log("Commande de mission invalide: aucune donnée");
         return SERVER_OK;
@@ -127,7 +127,7 @@ fn handle_mission_control(message: &ConverterConfig) -> u32 {
 }
 
 /// Traite les points sélectionnés
-fn handle_selected_points(message: &ConverterConfig) -> u32 {
+fn handle_selected_points(message: &Converter) -> u32 {
     write_log(&format!("Points sélectionnés reçus: {} bytes de données", message.data.len()));
     
     // Les points sont généralement encodés comme des coordonnées (x,y)
@@ -146,7 +146,7 @@ fn handle_selected_points(message: &ConverterConfig) -> u32 {
 }
 
 /// Traite l'upload de carte
-fn handle_upload_map(message: &ConverterConfig) -> u32 {
+fn handle_upload_map(message: &Converter) -> u32 {
     write_log(&format!("Données de carte reçues: {} bytes", message.data.len()));
     
     // Ici vous pourriez sauvegarder les données de carte
@@ -156,7 +156,7 @@ fn handle_upload_map(message: &ConverterConfig) -> u32 {
 }
 
 /// Traite la découverte de robot
-fn handle_robot_discovery(_message: &ConverterConfig) -> u32 {
+fn handle_robot_discovery(_message: &Converter) -> u32 {
     write_log("Réponse à la découverte de robot - Envoi du manifeste");
     
     // Ici vous devriez créer et envoyer un message de manifeste
@@ -166,7 +166,7 @@ fn handle_robot_discovery(_message: &ConverterConfig) -> u32 {
 }
 
 /// Traite le manifeste
-fn handle_manifest(message: &ConverterConfig) -> u32 {
+fn handle_manifest(message: &Converter) -> u32 {
     write_log(&format!("Manifeste reçu: {} bytes", message.data.len()));
     
     // Parser le manifeste selon votre format
@@ -175,26 +175,26 @@ fn handle_manifest(message: &ConverterConfig) -> u32 {
 }
 
 /// Crée un message de réponse pour l'information de batterie
-pub fn create_battery_info_message(level: u8, voltage: f32) -> ConverterConfig {
+pub fn create_battery_info_message(level: u8, voltage: f32) -> Converter {
     let mut data = Vec::with_capacity(5);
     data.push(level);
     data.extend_from_slice(&voltage.to_le_bytes());
     
     let length = 1 + data.len() as u16; // idx + data
     
-    ConverterConfig::new(length, NetworkMessageType::IdInfBattery as u8, data)
+    Converter::new(length, NetworkMessageType::IdInfBattery as u8, data)
 }
 
 /// Crée un message de réponse pour le statut
-pub fn create_status_info_message(status: u8) -> ConverterConfig {
+pub fn create_status_info_message(status: u8) -> Converter {
     let data = vec![status];
     let length = 1 + data.len() as u16; // idx + data
     
-    ConverterConfig::new(length, NetworkMessageType::IdInfStatus as u8, data)
+    Converter::new(length, NetworkMessageType::IdInfStatus as u8, data)
 }
 
 /// Crée un message de réponse pour la position
-pub fn create_position_info_message(x: f32, y: f32, theta: f32) -> ConverterConfig {
+pub fn create_position_info_message(x: f32, y: f32, theta: f32) -> Converter {
     let mut data = Vec::with_capacity(12);
     data.extend_from_slice(&x.to_le_bytes());
     data.extend_from_slice(&y.to_le_bytes());
@@ -202,5 +202,5 @@ pub fn create_position_info_message(x: f32, y: f32, theta: f32) -> ConverterConf
     
     let length = 1 + data.len() as u16; // idx + data
     
-    ConverterConfig::new(length, NetworkMessageType::IdInfPos as u8, data)
+    Converter::new(length, NetworkMessageType::IdInfPos as u8, data)
 }

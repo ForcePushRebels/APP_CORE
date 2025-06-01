@@ -163,6 +163,7 @@ void testMotors(void)
 }
 
 // Fonction de test du hardware abstraction layer
+/*
 void testHardwareAbstraction(void)
 {
     static uint8_t test_phase = 0;
@@ -235,7 +236,7 @@ void testHardwareAbstraction(void)
         break;
     }
 }
-
+*/
 // Fonction de test du contrôle de position
 void testPositionControl(void)
 {

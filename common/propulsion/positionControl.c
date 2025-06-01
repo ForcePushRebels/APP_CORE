@@ -150,19 +150,13 @@ static void update_robot_position(int32_t left_ticks, int32_t right_ticks)
 static void* wheel_position_control_task(void* arg) 
 {
 
-    // Variables pour le contrôle de la phase d'accélération
-    static bool acc_done = false;
-    static bool start_decc = false;
-    static bool decc_done = false;
-    static double step_acc = ACCELERATION_COEF * REGULATION_PERIOD_MS / 1000.0;
-
     wheel_position_control_t *control = (wheel_position_control_t *)arg;
     if (!control)
     {
         return (void*)OS_TASK_EXIT_FAILURE;
     }
     
-    static double step_acc = ACCELERATION_COEF * REGULATION_PERIOD_MS / 1000.0, step_decc = DECELERATION_COEF * REGULATION_PERIOD_MS / 1000.0;
+    double step_acc, step_decc;
     double right_wheel_speed = 0.0, left_wheel_speed = 0.0;
     int32_t nb_decc_tick = 0, nb_acc_tick = 0;
     

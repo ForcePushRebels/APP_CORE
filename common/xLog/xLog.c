@@ -64,8 +64,7 @@ int xLogInit(t_logCtx *p_ptConfig)
     
     // Fixed bounds buffers
     char l_cConfigPath[XOS_LOG_PATH_SIZE] = {0};
-    strncpy(l_cConfigPath, p_ptConfig->t_cLogPath, sizeof(l_cConfigPath) - 1);
-    l_cConfigPath[sizeof(l_cConfigPath) - 1] = '\0';
+    snprintf(l_cConfigPath, sizeof(l_cConfigPath), "%s", p_ptConfig->t_cLogPath);
 
     // Early return if already initialized - use acquire ordering for proper synchronization
     if (atomic_load_explicit(&s_eLogState, memory_order_acquire) == XOS_LOG_STATE_INITIALIZED)
@@ -111,8 +110,7 @@ int xLogInit(t_logCtx *p_ptConfig)
         char l_cOriginalFileName[XOS_LOG_MAX_FILENAME_SIZE] = {0};
         
         // Copy original filename with fixed bounds
-        strncpy(l_cOriginalFileName, l_cConfigPath, sizeof(l_cOriginalFileName) - 1);
-        l_cOriginalFileName[sizeof(l_cOriginalFileName) - 1] = '\0';
+        snprintf(l_cOriginalFileName, sizeof(l_cOriginalFileName), "%s", l_cConfigPath);
         
         // Validate filename security
         if (!isValidLogFileName(l_cOriginalFileName))

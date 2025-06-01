@@ -1,14 +1,19 @@
 ////////////////////////////////////////////////////////////
 //  Common library entry point
-//  Exports all common modules
+//  Exports core modules for robot control
 //
 // general discloser: copy or share the file is forbidden
 // Author: Christophe
 // Written: 12/01/2025
 ////////////////////////////////////////////////////////////
 
-pub mod xAssert;
-pub mod xLog;
-pub mod xOs;
-pub mod hardwareAbstraction;
-pub mod xWatchdog; 
+pub mod x_assert;
+pub mod x_log;
+pub mod hardware; 
+pub mod network;
+
+// Module optionnel - décommentez si vous voulez utiliser le watchdog
+pub mod x_watchdog;
+
+pub use network::server::ServerConfig;
+

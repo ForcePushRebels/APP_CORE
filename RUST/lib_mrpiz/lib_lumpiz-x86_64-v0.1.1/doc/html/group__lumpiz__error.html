@@ -1,0 +1,194 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "https://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/xhtml;charset=UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=11"/>
+<meta name="generator" content="Doxygen 1.9.4"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>LumPiZ lib: Gestion d&#39;erreur pour la programmation du capteur de luminosité d&#39;une PiZ.</title>
+<link href="tabs.css" rel="stylesheet" type="text/css"/>
+<script type="text/javascript" src="jquery.js"></script>
+<script type="text/javascript" src="dynsections.js"></script>
+<link href="doxygen.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+<div id="top"><!-- do not remove this div, it is closed by doxygen! -->
+<div id="titlearea">
+<table cellspacing="0" cellpadding="0">
+ <tbody>
+ <tr id="projectrow">
+  <td id="projectalign">
+   <div id="projectname">LumPiZ lib<span id="projectnumber">&#160;0.1</span>
+   </div>
+   <div id="projectbrief">API de programmation pour un capteur de luminosité de PiZ</div>
+  </td>
+ </tr>
+ </tbody>
+</table>
+</div>
+<!-- end header part -->
+<!-- Généré par Doxygen 1.9.4 -->
+<script type="text/javascript" src="menudata.js"></script>
+<script type="text/javascript" src="menu.js"></script>
+<script type="text/javascript">
+/* @license magnet:?xt=urn:btih:d3d9a9a6595521f9666a5e94cc830dab83b65699&amp;dn=expat.txt MIT */
+$(function() {
+  initMenu('',false,false,'search.php','Recherche');
+});
+/* @license-end */
+</script>
+<div id="main-nav"></div>
+</div><!-- top -->
+<div class="header">
+  <div class="summary">
+<a href="#enum-members">Énumérations</a> &#124;
+<a href="#func-members">Fonctions</a>  </div>
+  <div class="headertitle"><div class="title">Gestion d'erreur pour la programmation du capteur de luminosité d'une PiZ.</div></div>
+</div><!--header-->
+<div class="contents">
+
+<p>Fonctions et macros utiles à la gestion d'erreur pour la programmation du capteur de luminosité d'une PiZ.  
+<a href="#details">Plus de détails...</a></p>
+<table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="enum-members" name="enum-members"></a>
+Énumérations</h2></td></tr>
+<tr class="memitem:ga199074b4ea577cc18471912553976277"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__lumpiz__error.html#ga199074b4ea577cc18471912553976277">lumpiz_error_t</a> { <br />
+&#160;&#160;<a class="el" href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277a1107f99b4f5da0154a5f2958783f1aa5">LUMPIZ_INTOX_E_SYSTEM</a> = 1
+, <a class="el" href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277a591c3fe33bceaaf747f86b106a7a7095">LUMPIZ_INTOX_E_SOCKET</a>
+, <a class="el" href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277af15fc149f017a22c815390c4aa224b15">LUMPIZ_INTOX_E_CONNECT</a>
+, <a class="el" href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277af2646128ee2fb3464d6e3835ccb1e2ba">LUMPIZ_INTOX_E_CONNECT_REFUSED</a>
+, <br />
+&#160;&#160;<a class="el" href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277ae85715edb003087a27542a3e87c6c5f1">LUMPIZ_INTOX_E_CONNECT_NET</a>
+, <a class="el" href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277aa3e95847f7de6a75561f2960a8b4b3ba">LUMPIZ_INTOX_E_CONNECT_HOST</a>
+, <a class="el" href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277a07fcdd4b5aaad442b4955c314568d2cb">LUMPIZ_INTOX_E_CONNECT_TIMEOUT</a>
+, <a class="el" href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277aced2fd2123f8d6eac4527148aac5bf2c">LUMPIZ_INTOX_E_CONNECT_PORT</a>
+, <br />
+&#160;&#160;<a class="el" href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277a5e8db12beb693b3f0806ce2a6458a41d">LUMPIZ_INTOX_E_ACCESS</a>
+, <a class="el" href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277ad2690770a2a3bffa793ff393759ae931">LUMPIZ_INTOX_E_LOST</a>
+, <a class="el" href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277a25d54e9dc90d394f1d9ac3ba9828fecf">LUMPIZ_INTOX_E_CMD</a>
+, <a class="el" href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277ad390e8d3112e01db9e4622c12390b0e3">LUMPIZ_E_LUM_INIT</a>
+, <br />
+&#160;&#160;<a class="el" href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277a04efb5dc3ec26f0b6eef482aae6af596">LUMPIZ_E_LUM_SENSOR_ID</a>
+, <a class="el" href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277aba35b68b9507782d2da189746e4308fb">LUMPIZ_E_LUM_SENSOR_STATE</a>
+, <a class="el" href="group__lumpiz__error.html#gga199074b4ea577cc18471912553976277a7df38b798870bcf3156e501e27e325f2">LUMPIZ_E_SYSTEM</a>
+<br />
+ }</td></tr>
+<tr class="memdesc:ga199074b4ea577cc18471912553976277"><td class="mdescLeft">&#160;</td><td class="mdescRight">Liste des erreurs LumPiz.  <a href="group__lumpiz__error.html#ga199074b4ea577cc18471912553976277">Plus de détails...</a><br /></td></tr>
+<tr class="separator:ga199074b4ea577cc18471912553976277"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="func-members" name="func-members"></a>
+Fonctions</h2></td></tr>
+<tr class="memitem:ga6f77c897016a3af6107e02fc8611c072"><td class="memItemLeft" align="right" valign="top">char const *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__lumpiz__error.html#ga6f77c897016a3af6107e02fc8611c072">lumpiz_error_msg</a> ()</td></tr>
+<tr class="memdesc:ga6f77c897016a3af6107e02fc8611c072"><td class="mdescLeft">&#160;</td><td class="mdescRight">Donne le message d'erreur (associé à la valeur de errno de la lib lumpiz).  <a href="group__lumpiz__error.html#ga6f77c897016a3af6107e02fc8611c072">Plus de détails...</a><br /></td></tr>
+<tr class="separator:ga6f77c897016a3af6107e02fc8611c072"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:gadb334cf74213ff2e8e600763333e5790"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__lumpiz__error.html#gadb334cf74213ff2e8e600763333e5790">lumpiz_error_print</a> (char *msg)</td></tr>
+<tr class="memdesc:gadb334cf74213ff2e8e600763333e5790"><td class="mdescLeft">&#160;</td><td class="mdescRight">Affiche le message d'erreur (associé à la valeur errno de la lib lumpiz).  <a href="group__lumpiz__error.html#gadb334cf74213ff2e8e600763333e5790">Plus de détails...</a><br /></td></tr>
+<tr class="separator:gadb334cf74213ff2e8e600763333e5790"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table>
+<a name="details" id="details"></a><h2 class="groupheader">Description détaillée</h2>
+<p >Fonctions et macros utiles à la gestion d'erreur pour la programmation du capteur de luminosité d'une PiZ. </p>
+<h2 class="groupheader">Documentation du type de l'énumération</h2>
+<a id="ga199074b4ea577cc18471912553976277" name="ga199074b4ea577cc18471912553976277"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ga199074b4ea577cc18471912553976277">&#9670;&nbsp;</a></span>lumpiz_error_t</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">enum <a class="el" href="group__lumpiz__error.html#ga199074b4ea577cc18471912553976277">lumpiz_error_t</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Liste des erreurs LumPiz. </p>
+<p >Code d'erreur utilisés pour renseigné errno lors de l'exécution des fonctions de la bibliothèque.</p>
+<p >Remarque : L'énumératin commence à 1 (errno n'est jamais mis à zero lorsqu'une erreur survient (man errno)). </p>
+<table class="fieldtable">
+<tr><th colspan="2">Valeurs énumérées</th></tr><tr><td class="fieldname"><a id="gga199074b4ea577cc18471912553976277a1107f99b4f5da0154a5f2958783f1aa5" name="gga199074b4ea577cc18471912553976277a1107f99b4f5da0154a5f2958783f1aa5"></a>LUMPIZ_INTOX_E_SYSTEM&#160;</td><td class="fielddoc"><p >Problème interne d'utilisation d'un appel système (voir logs précédents issus de perror). </p>
+</td></tr>
+<tr><td class="fieldname"><a id="gga199074b4ea577cc18471912553976277a591c3fe33bceaaf747f86b106a7a7095" name="gga199074b4ea577cc18471912553976277a591c3fe33bceaaf747f86b106a7a7095"></a>LUMPIZ_INTOX_E_SOCKET&#160;</td><td class="fielddoc"><p >Erreur durant la création de la socket de connexion au simulateur. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="gga199074b4ea577cc18471912553976277af15fc149f017a22c815390c4aa224b15" name="gga199074b4ea577cc18471912553976277af15fc149f017a22c815390c4aa224b15"></a>LUMPIZ_INTOX_E_CONNECT&#160;</td><td class="fielddoc"><p >Erreur durant la connexion au simulateur Intox (erreur par défaut). </p>
+</td></tr>
+<tr><td class="fieldname"><a id="gga199074b4ea577cc18471912553976277af2646128ee2fb3464d6e3835ccb1e2ba" name="gga199074b4ea577cc18471912553976277af2646128ee2fb3464d6e3835ccb1e2ba"></a>LUMPIZ_INTOX_E_CONNECT_REFUSED&#160;</td><td class="fielddoc"><p >Erreur durant la connexion au simulateur Intox : connexion refusée. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="gga199074b4ea577cc18471912553976277ae85715edb003087a27542a3e87c6c5f1" name="gga199074b4ea577cc18471912553976277ae85715edb003087a27542a3e87c6c5f1"></a>LUMPIZ_INTOX_E_CONNECT_NET&#160;</td><td class="fielddoc"><p >Erreur durant la connexion au simulateur Intox : réseau inaccessible. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="gga199074b4ea577cc18471912553976277aa3e95847f7de6a75561f2960a8b4b3ba" name="gga199074b4ea577cc18471912553976277aa3e95847f7de6a75561f2960a8b4b3ba"></a>LUMPIZ_INTOX_E_CONNECT_HOST&#160;</td><td class="fielddoc"><p >Erreur durant la connexion au simulateur Intox : serveur inaccessible. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="gga199074b4ea577cc18471912553976277a07fcdd4b5aaad442b4955c314568d2cb" name="gga199074b4ea577cc18471912553976277a07fcdd4b5aaad442b4955c314568d2cb"></a>LUMPIZ_INTOX_E_CONNECT_TIMEOUT&#160;</td><td class="fielddoc"><p >Erreur durant la connexion au simulateur Intox : échéance de connexion. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="gga199074b4ea577cc18471912553976277aced2fd2123f8d6eac4527148aac5bf2c" name="gga199074b4ea577cc18471912553976277aced2fd2123f8d6eac4527148aac5bf2c"></a>LUMPIZ_INTOX_E_CONNECT_PORT&#160;</td><td class="fielddoc"><p >Erreur durant la connexion au simulateur Intox : port non valide. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="gga199074b4ea577cc18471912553976277a5e8db12beb693b3f0806ce2a6458a41d" name="gga199074b4ea577cc18471912553976277a5e8db12beb693b3f0806ce2a6458a41d"></a>LUMPIZ_INTOX_E_ACCESS&#160;</td><td class="fielddoc"><p >Erreur d'accès au simulateur Intox. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="gga199074b4ea577cc18471912553976277ad2690770a2a3bffa793ff393759ae931" name="gga199074b4ea577cc18471912553976277ad2690770a2a3bffa793ff393759ae931"></a>LUMPIZ_INTOX_E_LOST&#160;</td><td class="fielddoc"><p >Perte d'accès au simulateur Intox. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="gga199074b4ea577cc18471912553976277a25d54e9dc90d394f1d9ac3ba9828fecf" name="gga199074b4ea577cc18471912553976277a25d54e9dc90d394f1d9ac3ba9828fecf"></a>LUMPIZ_INTOX_E_CMD&#160;</td><td class="fielddoc"><p >Commande invalide au simulateur Intox. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="gga199074b4ea577cc18471912553976277ad390e8d3112e01db9e4622c12390b0e3" name="gga199074b4ea577cc18471912553976277ad390e8d3112e01db9e4622c12390b0e3"></a>LUMPIZ_E_LUM_INIT&#160;</td><td class="fielddoc"><p >Erreur durant l'initialisation du capteur de luminosité. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="gga199074b4ea577cc18471912553976277a04efb5dc3ec26f0b6eef482aae6af596" name="gga199074b4ea577cc18471912553976277a04efb5dc3ec26f0b6eef482aae6af596"></a>LUMPIZ_E_LUM_SENSOR_ID&#160;</td><td class="fielddoc"><p >Identifiant de capteur de luminosité invalide. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="gga199074b4ea577cc18471912553976277aba35b68b9507782d2da189746e4308fb" name="gga199074b4ea577cc18471912553976277aba35b68b9507782d2da189746e4308fb"></a>LUMPIZ_E_LUM_SENSOR_STATE&#160;</td><td class="fielddoc"><p >État d'allumage du capteur de luminosité invalide. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="gga199074b4ea577cc18471912553976277a7df38b798870bcf3156e501e27e325f2" name="gga199074b4ea577cc18471912553976277a7df38b798870bcf3156e501e27e325f2"></a>LUMPIZ_E_SYSTEM&#160;</td><td class="fielddoc"><p >Problème interne d'utilisation d'un appel système (voir logs précédents issus de perror). </p>
+</td></tr>
+</table>
+
+</div>
+</div>
+<h2 class="groupheader">Documentation des fonctions</h2>
+<a id="ga6f77c897016a3af6107e02fc8611c072" name="ga6f77c897016a3af6107e02fc8611c072"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ga6f77c897016a3af6107e02fc8611c072">&#9670;&nbsp;</a></span>lumpiz_error_msg()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">char const  * lumpiz_error_msg </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Donne le message d'erreur (associé à la valeur de errno de la lib lumpiz). </p>
+<dl class="section return"><dt>Renvoie</dt><dd>le message d'erreur </dd></dl>
+
+</div>
+</div>
+<a id="gadb334cf74213ff2e8e600763333e5790" name="gadb334cf74213ff2e8e600763333e5790"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#gadb334cf74213ff2e8e600763333e5790">&#9670;&nbsp;</a></span>lumpiz_error_print()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void lumpiz_error_print </td>
+          <td>(</td>
+          <td class="paramtype">char *&#160;</td>
+          <td class="paramname"><em>msg</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Affiche le message d'erreur (associé à la valeur errno de la lib lumpiz). </p>
+<dl class="params"><dt>Paramètres</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">msg</td><td>le préfixe du message à afficher (NULL si pas de préfixe) </td></tr>
+  </table>
+  </dd>
+</dl>
+
+</div>
+</div>
+</div><!-- contents -->
+<!-- start footer part -->
+<hr class="footer"/><address class="footer"><small>
+Généré par&#160;<a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.9.4
+</small></address>
+</body>
+</html>

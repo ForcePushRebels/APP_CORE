@@ -1,0 +1,23 @@
+[workspace]
+members = [
+    "common",
+    "explo",
+    "mrpiz_bindings"
+]
+
+[workspace.dependencies]
+# Common dependencies shared between packages
+log = "0.4"
+env_logger = "0.10"
+libc = "0.2"
+chrono = "0.4"
+lazy_static = "1.4"
+once_cell = "1.19"
+
+[profile.dev]
+opt-level = 0
+debug = true
+
+[profile.release]
+opt-level = 3
+debug = false 

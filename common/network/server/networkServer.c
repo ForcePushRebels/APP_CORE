@@ -10,14 +10,13 @@
 #include "xLog.h"
 #include <stdlib.h>
 #include <string.h>
-#include <arpa/inet.h> // Pour htonl, htons, etc.
 
 //-----------------------------------------------------------------------------
 // Constants & Defines
 //-----------------------------------------------------------------------------
 
-#define SERVER_THREAD_STACK_SIZE (1024 * 1024) // 1MB stack for the server thread
-#define CLIENT_THREAD_STACK_SIZE (128 * 1024)  // 128KB stack for the client threads
+#define SERVER_THREAD_STACK_SIZE (64 * 1024)   // 64KB stack for the server thread
+#define CLIENT_THREAD_STACK_SIZE (32 * 1024)   // 32KB stack for the client threads
 #define SERVER_ACCEPT_TIMEOUT 500              // 500ms timeout for accept
 #define SERVER_MAX_BUFFER_SIZE 4096            // Max buffer size
 #define MAX_CLIENTS 10                         // Max number of clients
@@ -69,13 +68,15 @@ static void *clientThreadFunc(void *p_ptArg);
 ///////////////////////////////////////////
 /// client management prototypes
 ///////////////////////////////////////////
-static void cleanupClientResources(clientCtx *p_ptClient);
+static void cleanupAndFreeClient(clientCtx *p_ptClient);
+static void clientThreadCleanup(clientCtx *p_ptClient);
 static bool parseMessageHeader(const uint8_t *p_ptucData,
                                int p_iSize,
                                uint8_t *p_ptucMsgType);
 static clientCtx *findClientById(ClientID p_tClientId);
 static int addClient(clientCtx *p_ptClient);
 static int removeClient(clientCtx *p_ptClient);
+static bool isClientConnected(clientCtx *p_ptClient);
 
 ///////////////////////////////////////////
 /// networkServerInit
@@ -455,17 +456,17 @@ static int removeClient(clientCtx *p_ptClient)
 ///////////////////////////////////////////
 /// networkServerGetClientAddress
 ///////////////////////////////////////////
-bool networkServerGetClientAddress(ClientID p_tClientId, char *p_pcBuffer, int p_iSize)
+bool networkServerGetClientAddress(ClientID p_tClientId, char *p_ptcBuffer, int p_iSize)
 {
     clientCtx *l_ptClient = findClientById(p_tClientId);
-    if (l_ptClient == NULL || p_pcBuffer == NULL || p_iSize <= 0)
+    if (l_ptClient == NULL || p_ptcBuffer == NULL || p_iSize <= 0)
     {
         return false;
     }
 
     // copy the address to the buffer
-    strncpy(p_pcBuffer, l_ptClient->t_tAddress.t_cAddress, p_iSize - 1);
-    p_pcBuffer[p_iSize - 1] = '\0';
+    strncpy(p_ptcBuffer, l_ptClient->t_tAddress.t_cAddress, p_iSize - 1);
+    p_ptcBuffer[p_iSize - 1] = '\0';
 
     return true;
 }
@@ -495,35 +496,8 @@ int networkServerDisconnectClient(ClientID p_tClientId)
         return SERVER_CLIENT_NOT_FOUND;
     }
 
-    // mark the client as disconnected
-    l_ptClient->t_bConnected = false;
-
-    // close the socket to unblock the client thread
-    if (l_ptClient->t_ptSocket != NULL)
-    {
-        networkCloseSocket(l_ptClient->t_ptSocket);
-        l_ptClient->t_ptSocket = NULL;
-    }
-
-    // stop the client thread
-    int l_iResult = osTaskStop(&l_ptClient->t_tTask, OS_TASK_STOP_TIMEOUT);
-    if (l_iResult != OS_TASK_SUCCESS)
-    {
-        X_LOG_TRACE("Failed to stop client thread gracefully: %s", osTaskGetErrorString(l_iResult));
-        osTaskEnd(&l_ptClient->t_tTask);
-    }
-
-    // wait for the client thread to terminate
-    osTaskWait(&l_ptClient->t_tTask, NULL);
-
-    // remove the client from the table
-    removeClient(l_ptClient);
-
-    // clean up the client resources
-    cleanupClientResources(l_ptClient);
-
-    // free the client structure
-    free(l_ptClient);
+    // Use centralized cleanup function
+    cleanupAndFreeClient(l_ptClient);
 
     return SERVER_OK;
 }
@@ -568,7 +542,7 @@ int networkServerSendToClient(ClientID p_tClientId, const void *p_pvData, int p_
         return SERVER_INVALID_PARAM;
     }
 
-    if (!l_ptClient->t_bConnected || l_ptClient->t_ptSocket == NULL)
+    if (!isClientConnected(l_ptClient))
     {
         return SERVER_CLIENT_DISCONNECTED;
     }
@@ -590,7 +564,7 @@ int networkServerSendMessage(ClientID p_tClientId,
         return SERVER_CLIENT_NOT_FOUND;
     }
 
-    if (!l_ptClient->t_bConnected || l_ptClient->t_ptSocket == NULL)
+    if (!isClientConnected(l_ptClient))
     {
         return SERVER_CLIENT_DISCONNECTED;
     }
@@ -613,7 +587,7 @@ int networkServerSendMessage(ClientID p_tClientId,
     }
 
     // STEP 2: Prepare and send the message (header + payload)
-    uint32_t l_ulTotalMessageSize = 1 + p_ulPayloadSize; // 1 byte for type + payload
+    uint32_t l_ulTotalMessageSize = 1 + p_ulPayloadSize; // 1 byte header + payload
     uint8_t *l_pucBuffer = (uint8_t *)malloc(l_ulTotalMessageSize);
     if (l_pucBuffer == NULL)
     {
@@ -647,6 +621,16 @@ int networkServerSendMessage(ClientID p_tClientId,
 
 ///////////////////////////////////////////
 /// Helper function for complete TCP read
+/// 
+/// CRITICAL: This function is absolutely necessary for the message protocol!
+/// TCP recv() can return fewer bytes than requested, even when all data is available.
+/// For example: requesting 1000 bytes might return only 300 bytes on first call.
+/// 
+/// This is especially critical for our protocol that reads:
+/// 1. Size header (2 bytes) - must be read completely to avoid desync
+/// 2. Message data (variable size) - must match exactly the announced size
+/// 
+/// Without this function, partial reads would break the entire protocol.
 ///////////////////////////////////////////
 static int networkReceiveComplete(NetworkSocket *p_ptSocket, uint8_t *p_pucBuffer, int p_iSize)
 {
@@ -784,121 +768,6 @@ int networkServerConnect(void)
 }
 
 ///////////////////////////////////////////
-/// networkServerAcceptClient
-///////////////////////////////////////////
-int networkServerAcceptClient(ClientID *p_ptClientId)
-{
-    if (s_ptServerInstance == NULL)
-    {
-        X_LOG_TRACE("Server not initialized");
-        return SERVER_INVALID_STATE;
-    }
-
-    if (s_ptServerInstance->t_ptSocket == NULL)
-    {
-        X_LOG_TRACE("Server not connected");
-        return SERVER_INVALID_STATE;
-    }
-
-    // wait for a client connection with timeout
-    int l_iActivity = networkWaitForActivity(s_ptServerInstance->t_ptSocket, SERVER_ACCEPT_TIMEOUT);
-
-    // if no activity, return timeout
-    if (l_iActivity <= 0)
-    {
-        return SERVER_TIMEOUT;
-    }
-
-    // accept the new client connection
-    NetworkAddress l_tClientAddress;
-    NetworkSocket *l_ptClientSocket = networkAccept(s_ptServerInstance->t_ptSocket, &l_tClientAddress);
-
-    if (l_ptClientSocket == NULL)
-    {
-        X_LOG_TRACE("Accept failed");
-        return SERVER_SOCKET_ERROR;
-    }
-
-    X_LOG_TRACE("New client connection from %s:%d",
-                l_tClientAddress.t_cAddress, l_tClientAddress.t_usPort);
-
-    // check the number of clients before creating the new instance
-    mutexLock(&s_ptServerInstance->t_tMutex);
-    bool l_bMaxClients = (s_ptServerInstance->t_iNumClients >= MAX_CLIENTS);
-    mutexUnlock(&s_ptServerInstance->t_tMutex);
-
-    if (l_bMaxClients)
-    {
-        X_LOG_TRACE("Maximum number of clients reached, rejecting connection");
-        networkCloseSocket(l_ptClientSocket);
-        return SERVER_MAX_CLIENTS_REACHED;
-    }
-
-    // create the client context
-    clientCtx *l_ptClient = (clientCtx *)malloc(sizeof(clientCtx));
-    if (l_ptClient == NULL)
-    {
-        X_LOG_TRACE("Failed to allocate memory for client");
-        networkCloseSocket(l_ptClientSocket);
-        return SERVER_MEMORY_ERROR;
-    }
-
-    // initialize the client
-    memset(l_ptClient, 0, sizeof(clientCtx));
-    l_ptClient->t_ptSocket = l_ptClientSocket;
-    l_ptClient->t_tAddress = l_tClientAddress;
-    l_ptClient->t_bConnected = true;
-    l_ptClient->t_ptServer = s_ptServerInstance;
-
-    // configure the client task
-    l_ptClient->t_tTask.t_ptTask = clientThreadFunc;
-    l_ptClient->t_tTask.t_ptTaskArg = l_ptClient;
-    l_ptClient->t_tTask.t_iPriority = 1;
-    l_ptClient->t_tTask.t_ulStackSize = CLIENT_THREAD_STACK_SIZE;
-
-    // configure the socket timeout if necessary
-    if (s_ptServerInstance->t_sConfig.t_bUseTimeout && s_ptServerInstance->t_sConfig.t_iReceiveTimeout > 0)
-    {
-        networkSetTimeout(l_ptClientSocket, s_ptServerInstance->t_sConfig.t_iReceiveTimeout, false);
-    }
-
-    // add the client to the table (this also sets its ID)
-    int l_iResult = addClient(l_ptClient);
-    if (l_iResult != SERVER_OK)
-    {
-        X_LOG_TRACE("Failed to add client: %s", networkServerGetErrorString(l_iResult));
-        networkCloseSocket(l_ptClientSocket);
-        free(l_ptClient);
-        return l_iResult;
-    }
-
-    // create the client thread
-    int l_iTaskResult = osTaskCreate(&l_ptClient->t_tTask);
-    if (l_iTaskResult != OS_TASK_SUCCESS)
-    {
-        X_LOG_TRACE("Failed to create client thread: %s",
-                    osTaskGetErrorString(l_iTaskResult));
-
-        // remove the client from the table
-        removeClient(l_ptClient);
-
-        // clean up
-        networkCloseSocket(l_ptClientSocket);
-        free(l_ptClient);
-        return SERVER_THREAD_ERROR;
-    }
-
-    // return the client ID if requested
-    if (p_ptClientId != NULL)
-    {
-        *p_ptClientId = l_ptClient->t_tId;
-    }
-
-    X_LOG_TRACE("Client %u accepted and thread created", l_ptClient->t_tId);
-    return SERVER_OK;
-}
-
-///////////////////////////////////////////
 /// serverThreadFunc
 ///////////////////////////////////////////
 static void *serverThreadFunc(void *p_pvArg)
@@ -915,16 +784,20 @@ static void *serverThreadFunc(void *p_pvArg)
     // get the task context to check the stop flag
     xOsTaskCtx *p_ptTaskCtx = &p_ptServer->t_tTask;
 
+    // Cache stop flag for better performance - flag rarely changes during normal operation
+    int l_iStopFlag = atomic_load_explicit(&p_ptTaskCtx->a_iStopFlag, memory_order_acquire);
+    
     // main loop of the server
-    while (p_ptServer->t_bRunning &&
-           atomic_load(&p_ptTaskCtx->a_iStopFlag) != OS_TASK_STOP_REQUEST)
+    while (p_ptServer->t_bRunning && l_iStopFlag != OS_TASK_STOP_REQUEST)
     {
         // wait for a client connection with timeout
         int l_iActivity = networkWaitForActivity(p_ptServer->t_ptSocket, SERVER_ACCEPT_TIMEOUT);
 
+        // Refresh stop flag periodically with relaxed ordering for performance
+        l_iStopFlag = atomic_load_explicit(&p_ptTaskCtx->a_iStopFlag, memory_order_relaxed);
+        
         // check if the server should stop
-        if (!p_ptServer->t_bRunning ||
-            atomic_load(&p_ptTaskCtx->a_iStopFlag) == OS_TASK_STOP_REQUEST)
+        if (!p_ptServer->t_bRunning || l_iStopFlag == OS_TASK_STOP_REQUEST)
         {
             break;
         }
@@ -1011,10 +884,8 @@ static void *serverThreadFunc(void *p_pvArg)
             X_LOG_TRACE("Failed to create client thread: %s",
                         osTaskGetErrorString(l_iTaskResult));
 
-            // remove the client from the table
+            // Error cleanup: remove from table, close socket, free memory
             removeClient(l_ptClient);
-
-            // clean up
             networkCloseSocket(l_ptClientSocket);
             free(l_ptClient);
             continue;
@@ -1046,10 +917,20 @@ static void *clientThreadFunc(void *p_pvArg)
                 p_ptClient->t_tAddress.t_usPort,
                 p_ptClient->t_tId);
 
+    // Cache stop flag for better performance in main client loop
+    int l_iClientStopFlag = atomic_load_explicit(&p_ptClient->t_tTask.a_iStopFlag, memory_order_acquire);
+    int l_iLoopCounter = 0;  // Simple counter for periodic flag refresh
+
     // main loop of the client
-    while (p_ptClient->t_bConnected && p_ptServer->t_bRunning &&
-           atomic_load(&p_ptClient->t_tTask.a_iStopFlag) != OS_TASK_STOP_REQUEST)
+    while (p_ptClient->t_bConnected && p_ptServer->t_bRunning && 
+           l_iClientStopFlag != OS_TASK_STOP_REQUEST)
     {
+        // Periodically refresh stop flag every 10 iterations for better performance
+        if (++l_iLoopCounter >= 10) {
+            l_iLoopCounter = 0;
+            l_iClientStopFlag = atomic_load_explicit(&p_ptClient->t_tTask.a_iStopFlag, memory_order_relaxed);
+        }
+        
         // STEP 1: First receive the size (2 bytes) - FIXED: use complete receive
         p_iReceived = networkReceiveComplete(p_ptClient->t_ptSocket, p_aucBuffer, sizeof(uint16_t));
 
@@ -1141,49 +1022,95 @@ static void *clientThreadFunc(void *p_pvArg)
             // error or disconnection
             X_LOG_TRACE("Client %u disconnected or error: %s",
                         p_ptClient->t_tId, networkGetErrorString(p_iReceived));
-            p_ptClient->t_bConnected = false;
+            clientThreadCleanup(p_ptClient);
+            return NULL;
         }
     }
 
-    // the client disconnects
-    X_LOG_TRACE("Client %u disconnecting: %s:%d",
-                p_ptClient->t_tId,
-                p_ptClient->t_tAddress.t_cAddress,
-                p_ptClient->t_tAddress.t_usPort);
-
-    // remove the client from the table
-    removeClient(p_ptClient);
-
-    // close the socket
-    if (p_ptClient->t_ptSocket != NULL)
-    {
-        networkCloseSocket(p_ptClient->t_ptSocket);
-        p_ptClient->t_ptSocket = NULL;
-    }
-
-    // free the client context
-    free(p_ptClient);
-
-    X_LOG_TRACE("Client thread terminated");
+    // Normal termination (loop ended)
+    clientThreadCleanup(p_ptClient);
     return NULL;
 }
 
 ///////////////////////////////////////////
-/// cleanupClientResources
+/// cleanupAndFreeClient
+/// Centralized client cleanup: stops thread, closes socket, removes from table, frees memory
 ///////////////////////////////////////////
-static void cleanupClientResources(clientCtx *p_ptClient)
+static void cleanupAndFreeClient(clientCtx *p_ptClient)
 {
     if (p_ptClient == NULL)
     {
         return;
     }
 
-    // close the socket if it is still open
+    X_LOG_TRACE("Cleaning up client %u", p_ptClient->t_tId);
+
+    // Mark client as disconnected
+    p_ptClient->t_bConnected = false;
+
+    // Close socket to unblock client thread if it's still running
     if (p_ptClient->t_ptSocket != NULL)
     {
         networkCloseSocket(p_ptClient->t_ptSocket);
         p_ptClient->t_ptSocket = NULL;
     }
+
+    // Stop the client thread if it exists and is running
+    if (p_ptClient->t_tTask.t_ptTask != NULL)
+    {
+        int l_iResult = osTaskStop(&p_ptClient->t_tTask, OS_TASK_STOP_TIMEOUT);
+        if (l_iResult != OS_TASK_SUCCESS)
+        {
+            X_LOG_TRACE("Failed to stop client thread gracefully: %s", osTaskGetErrorString(l_iResult));
+            osTaskEnd(&p_ptClient->t_tTask);
+        }
+
+        // Wait for thread termination
+        osTaskWait(&p_ptClient->t_tTask, NULL);
+    }
+
+    // Remove from client table
+    removeClient(p_ptClient);
+
+    // Free the client structure
+    free(p_ptClient);
+
+    X_LOG_TRACE("Client cleanup completed");
+}
+
+///////////////////////////////////////////
+/// clientThreadCleanup
+/// Minimal cleanup when client thread terminates (cannot stop itself)
+///////////////////////////////////////////
+static void clientThreadCleanup(clientCtx *p_ptClient)
+{
+    if (p_ptClient == NULL)
+    {
+        return;
+    }
+
+    X_LOG_TRACE("Client %u disconnecting: %s:%d",
+                p_ptClient->t_tId,
+                p_ptClient->t_tAddress.t_cAddress,
+                p_ptClient->t_tAddress.t_usPort);
+
+    // Mark as disconnected
+    p_ptClient->t_bConnected = false;
+
+    // Close socket
+    if (p_ptClient->t_ptSocket != NULL)
+    {
+        networkCloseSocket(p_ptClient->t_ptSocket);
+        p_ptClient->t_ptSocket = NULL;
+    }
+
+    // Remove from client table
+    removeClient(p_ptClient);
+
+    // Free the client context (safe to do in thread termination)
+    free(p_ptClient);
+
+    X_LOG_TRACE("Client thread terminated");
 }
 
 ///////////////////////////////////////////
@@ -1202,4 +1129,18 @@ static bool parseMessageHeader(const uint8_t *p_ptucData,
     *p_ptucMsgType = p_ptucData[0];
 
     return true;
+}
+
+///////////////////////////////////////////
+/// isClientConnected
+/// Validates if a client is properly connected and ready for communication
+///////////////////////////////////////////
+static bool isClientConnected(clientCtx *p_ptClient)
+{
+    if (p_ptClient == NULL)
+    {
+        return false;
+    }
+
+    return p_ptClient->t_bConnected && p_ptClient->t_ptSocket != NULL;
 }

@@ -22,7 +22,7 @@ typedef struct network_message_t
 } network_message_t;
 #pragma pack(pop)
 
-enum network_message_type_t
+typedef enum network_message_type
 {
     //====== SEND BY ANDROID ======
     ID_SET_MOVEMENT = 0x01,
@@ -43,6 +43,6 @@ enum network_message_type_t
     // UDP:
     ID_IS_ANY_ROBOT_HERE = 0x30,
     ID_MANIFEST = 0x31,
-};
+} network_message_type_t;
 
 #endif // NETWORK_ENCODER_H_

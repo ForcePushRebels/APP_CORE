@@ -19,7 +19,7 @@
 #include "motorControl.h"
 #include "robotConfiguration.h"
 
-typedef enum  
+typedef enum moveType
 {
     FORWARD,
     LEFT,

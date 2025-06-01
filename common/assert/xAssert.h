@@ -14,21 +14,22 @@
 #include <stdint.h>
 
 // Assert modes
-#define XOS_ASSERT_MODE_CONTINUE    0x00000000
-#define XOS_ASSERT_MODE_EXIT        0x00000001
-#define XOS_ASSERT_MODE_LOOP        0x00000002
-
+#define XOS_ASSERT_MODE_CONTINUE 0x00000000
+#define XOS_ASSERT_MODE_EXIT     0x00000001
+#define XOS_ASSERT_MODE_LOOP     0x00000002
 
 // Assert macros
 #define X_ASSERT(expr) \
     ((expr) ? (void)0 : xAssert((uint8_t *)__FILE__, __LINE__, NULL))
 
-#define X_ASSERT_RETURN(expr, ret) \
-    do { \
-        if (!(expr)) { \
-            return xAssertReturn((uint8_t *)__FILE__, __LINE__, NULL, ret); \
-        } \
-    } while(0)
+#define X_ASSERT_RETURN(expr, l_iReturn)                                          \
+    do                                                                            \
+    {                                                                             \
+        if (!(expr))                                                              \
+        {                                                                         \
+            return xAssertReturn((uint8_t *)__FILE__, __LINE__, NULL, l_iReturn); \
+        }                                                                         \
+    } while (0)
 
 //////////////////////////////////
 /// @brief Assert function
@@ -37,7 +38,7 @@
 /// @param p_ptMsg : message
 /// @return none
 //////////////////////////////////
-void xAssert(const uint8_t* p_ptkcFile, uint32_t p_ulLine, const void* p_ptMsg);
+void xAssert(const uint8_t *p_ptkcFile, uint32_t p_ulLine, const void *p_ptMsg);
 
 //////////////////////////////////
 /// @brief Assert with return value
@@ -47,6 +48,6 @@ void xAssert(const uint8_t* p_ptkcFile, uint32_t p_ulLine, const void* p_ptMsg);
 /// @param p_iRet : return value
 /// @return return value
 //////////////////////////////////
-int xAssertReturn(const uint8_t* p_ptkcFile, uint32_t p_ulLine, const void* p_ptMsg, int p_iRet);
+int xAssertReturn(const uint8_t *p_ptkcFile, uint32_t p_ulLine, const void *p_ptMsg, int p_iRet);
 
 #endif // XOS_ASSERT_H_

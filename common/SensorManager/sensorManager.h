@@ -17,8 +17,12 @@
 #include "xTimer.h"
 #include "stdint.h"
 
-#define SENSOR_MANAGER_SENSORS_COUNT 5
+#define SENSOR_MANAGER_SENSORS_COUNT 3
+#define SENSOR_MAX_RAW_VALUE 188
+#define SENSOR_MAX_MM_VALUE 320
 
+#define SENSOR_MIN_RAW_VALUE 24
+#define SENSOR_MIN_MM_VALUE 12
 ////////////////////////////////////////////////////////////
 /// @brief Sensor manager structure
 ////////////////////////////////////////////////////////////
@@ -28,14 +32,12 @@ typedef struct sensorManager_t
     xOsMutexCtx t_tMutex;
     xOsTimerCtx t_tTimer;
     uint16_t t_tISensors[SENSOR_MANAGER_SENSORS_COUNT];
+    uint16_t t_tFloorSensor;
 } sensorManager_t;
 
-
-
 // error codes
-#define SENSOR_MANAGER_OK               0x5d8c6010
-#define SENSOR_MANAGER_INVALID_ARG      0x5d8c6011
-
+#define SENSOR_MANAGER_OK 0x5d8c6010
+#define SENSOR_MANAGER_INVALID_ARG 0x5d8c6011
 
 ///////////////////////////////////////////
 /// @brief Initialize the sensor manager
@@ -44,22 +46,19 @@ typedef struct sensorManager_t
 ///////////////////////////////////////////
 int sensorManagerInit(void);
 
-
 ///////////////////////////////////////////
-/// @brief Check if the move is possible
+/// @brief Check forward
 ///
-/// @return true if the move is possible, false otherwise
+/// @return true if there is something, false otherwise
 ///////////////////////////////////////////
-bool checkMovePossible(void);
-
+bool checkForward(void);
 
 ///////////////////////////////////////////
 /// @brief Start monitoring the environment
 ///
 /// @return SENSOR_MANAGER_OK if successful, error code otherwise
 ///////////////////////////////////////////
-int startMonitoring(void);
-
+int startMonitoring();
 
 ///////////////////////////////////////////
 /// @brief Stop monitoring the environment
@@ -68,5 +67,18 @@ int startMonitoring(void);
 ///////////////////////////////////////////
 int stopMonitoring(void);
 
+///////////////////////////////////////////
+/// @brief Get one of the sensor values
+/// @param sensor : valeur du capteur (0;1;2)
+/// @return one of the sensor value
+///////////////////////////////////////////
+uint16_t updateVision(int sensor);
+
+///////////////////////////////////////////
+/// @brief Convertit une valeur capteur brute (0-255) en millimètres (0-200mm)
+/// @param rawValue : valeur brute du capteur (0-255)
+/// @return distance en mm (0-200)
+///////////////////////////////////////////
+uint16_t rawValuesToMm(uint16_t rawValue);
 
 #endif

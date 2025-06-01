@@ -101,13 +101,6 @@ void networkServerCleanup(void);
 ///////////////////////////////////////////
 int networkServerConnect(void);
 
-///////////////////////////////////////////
-/// @brief Accept a new client connection (encapsulates accept + client setup)
-/// @param clientId Pointer to store the new client ID (optional, can be NULL)
-/// @return SERVER_OK if client accepted, SERVER_TIMEOUT if no client, or error code
-///////////////////////////////////////////
-int networkServerAcceptClient(ClientID *p_ptClientId);
-
 //-----------------------------------------------------------------------------
 // Client Management Functions
 //-----------------------------------------------------------------------------
@@ -119,7 +112,7 @@ int networkServerAcceptClient(ClientID *p_ptClientId);
 /// @param size Buffer size
 /// @return true on success
 ///////////////////////////////////////////
-bool networkServerGetClientAddress(ClientID p_tClientId, char *p_pcBuffer, int p_iSize);
+bool networkServerGetClientAddress(ClientID p_tClientId, char *p_ptcBuffer, int p_iSize);
 
 ///////////////////////////////////////////
 /// @brief Get the client port

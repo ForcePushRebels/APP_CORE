@@ -743,16 +743,7 @@ void pilot_resetDistanceMeter(void)
     g_pilot.distanceMeter = 0.0;
 }
 
-/////////////////////////////////
-/// pilot_setAcceleration
-/////////////////////////////////
-void pilot_setAcceleration(double linearAcceleration, double angularAcceleration)
-{
-    (void)linearAcceleration;
-    (void)angularAcceleration;
-    X_LOG_TRACE("Function seems to not be implemented");
-    X_ASSERT(0);
-}
+
 
 /////////////////////////////////
 /// pilot_getErrorString

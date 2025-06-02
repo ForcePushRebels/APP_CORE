@@ -259,13 +259,6 @@ int pilot_getDistanceMeter(void);
 void pilot_resetDistanceMeter(void);
 
 /////////////////////////////////
-/// @brief Set the acceleration
-/// @param linearAcceleration : Linear acceleration
-/// @param angularAcceleration : Angular acceleration
-/////////////////////////////////
-void pilot_setAcceleration(double linearAcceleration, double angularAcceleration);
-
-/////////////////////////////////
 /// @brief Get error string representation
 /// @param error : Error code
 /// @return Error string

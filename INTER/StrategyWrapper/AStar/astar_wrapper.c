@@ -14,28 +14,19 @@ int grid[GRID_SIZE][GRID_SIZE];  // 0 for empty, 1 for obstacle
 static float GridHeuristic(void* fromNode, void* toNode, void* context);
 static const ASPathNodeSource PathNodeSource;
 
-AStarWrapper *astar_wrapper__create()
+int astar_wrapper__init()
 {	
-	AStarWrapper *self = malloc(sizeof(AStarWrapper));
-
-	self = strategy_wrapper__create("AStar");
+	strategy_wrapper__init("AStar");
 	
-	strategy_wrapper__bindPrepare(self, astar_wrapper__prepare);
+	strategy_wrapper__bindPrepare(astar_wrapper__prepare);
 	
-	strategy_wrapper__bindExecute(self, astar_wrapper__execute);
+	strategy_wrapper__bindExecute(astar_wrapper__execute);
 	
-	return self;
+	return 1;
 }
 
 //@Override
-void astar_wrapper__delete(AStarWrapper *self) {
-
-	strategy_wrapper__delete(self);
-	
-}
-
-//@Override
-int astar_wrapper__prepare(mat_t *mat) {
+int astar_wrapper__prepare(mat_t (*mat)[10]) {
 	// Initialize the grid with a static maze (0 = empty, 1 = obstacle)
 	for (int i = 0; i < GRID_SIZE; i++) {
 		for (int j = 0; j < GRID_SIZE; j++) {
@@ -62,8 +53,8 @@ int astar_wrapper__execute(seq_t *seq, Point *initial, Point *final) {
 	if (pathCount > 0) {
 		for (size_t i = 0; i < pathCount; i++) {
 			GridNode* node = (GridNode*)ASPathGetNode(path, i);
-			seq[i][0] = node->x;
-			seq[i][1] = node->y;
+			seq[i].x = node->x;
+			seq[i].y = node->y;
 		}
 	}
 

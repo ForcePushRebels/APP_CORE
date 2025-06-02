@@ -39,20 +39,22 @@
 
 #define supervisor__giveEndCondition(listEndCondition) // TODO
 
-static void print_colored_grid(StrategyManager *self, seq_t *path, size_t path_len);
+static void print_colored_grid(seq_t *path, size_t path_len);
+
+static StrategyManager strategyManager;
 
 struct strategy_manager_s
 {
 	// TODO Ajouter à la conception
-	StrategyWrapper **listStrat;
+	StrategyWrapper *listStrat[MAX_WRAPPER_PER_MANAGER]; // Array of pointers to individual wrappers
 	// TODO Ajouter à la conception
 	int currentStrategyID; // ID de la stratégie actuellement suivie
 	int listStratLen;
 
 	Status status;
 
-	mat_t *matrix;
-	seq_t *sequence;
+	mat_t matrix[MAP_SIZE][MAP_SIZE];
+	seq_t sequence[MAP_SIZE];
 
 	// TODO Ajouter à la conception
 	// FIXME time_t Timer;
@@ -60,76 +62,44 @@ struct strategy_manager_s
 };
 
 __attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
-StrategyManager *strategy_manager__create()
+int strategy_manager__init()
 {
 	/* ===== Préconditions ===== */
 	X_ASSERT(true); // ⬅️ À conserver. Indique explicitement qu'il n'y a pas de précondition
 
-	X_LOG_TRACE("entering strategy_manager__create()");
+	X_LOG_TRACE("entering strategy_manager__init()");
 
 	/* ===== Variables locales ===== */
-	StrategyManager *strategyManager; // ⬅️ À remplacer. malloc/calloc pour la persistence
 
 	/* ===== Logique principale ===== */
-	strategyManager = malloc(sizeof(StrategyManager)); // ⬅️ Alloue dynamiquement un StrategyManager
 
-	strategyManager->listStrat = malloc(sizeof(StrategyWrapper) * MAX_WRAPPER_PER_MANAGER);
-	strategyManager->listStratLen = 0;
-
-	strategyManager->matrix = malloc(sizeof(mat_t) * MAP_SIZE);
-	strategyManager->sequence = malloc(sizeof(seq_t) * MAP_SIZE * MAP_SIZE);
-
-	X_LOG_TRACE("exiting strategy_manager__create()");
+	// strategyManager.listStrat = malloc(sizeof(StrategyWrapper) * MAX_WRAPPER_PER_MANAGER);
+	// strategyManager.listStratLen = 0;
+	X_LOG_TRACE("exiting strategy_manager__init()");
 
 	/* ===== Postconditions ===== */
     // X_ASSERT(strategyManager != NULL); // ⬅️ À décommenter. Pour les plus téméraires
 
-	return strategyManager;
+	return 1;
 }
 
-__attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
-void strategy_manager__delete(StrategyManager *self)
-{
-	/* ===== Préconditions ===== */
-	X_ASSERT(self != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
-
-	UNUSED(self); // ⬅️ À retirer. Dès que 'self' est utilisé en dehors des assert()
-
-	X_LOG_TRACE("entering strategy_manager__delete()");
-
-	/* ===== Variables locales ===== */
-    // Déclare les variables temporaires
-
-	/* ===== Logique principale ===== */
-	free(self); // ⬅️ Libère la mémoire allouée pour le StrategyManager
-
-	X_LOG_TRACE("exiting strategy_manager__delete()");
-
-	/* ===== Postconditions ===== */
-    // X_ASSERT(strategyManager == NULL); // ⬅️ À décommenter. Quand le SAFE_FREE() est utilisé
-
-	return; // ⬅️ À conserver. Retour explicite (void)
-}
-
-void strategy_manager__addStrategyWrapper(StrategyManager *self, StrategyWrapper *strategyWrapper)
+void strategy_manager__addStrategyWrapper(StrategyWrapper *strategyWrapper)
 {	
-	self->listStrat[self->listStratLen++] = strategyWrapper;	
+	strategyManager.listStrat[strategyManager.listStratLen++] = strategyWrapper;	
 }
 
-void strategy_manager__setMap(StrategyManager *self)
+void strategy_manager__setMap()
 {
-	map_engine_get_map(self->matrix);
+	map_engine_get_map(strategyManager.matrix);
 
-	strategy_wrapper__bindMap(self->listStrat[self->currentStrategyID], self->matrix);
+	strategy_wrapper__bindMap(strategyManager.matrix);
 }
 
 __attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
-void strategy_manager__askStrat(StrategyManager *self)
+void strategy_manager__askStrat()
 {
 	/* ===== Préconditions ===== */
-	X_ASSERT(self != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
-
-	UNUSED(self); // ⬅️ À retirer. Dès que 'self' est utilisé en dehors des assert()
+	X_ASSERT(&strategyManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
 
 	/* ===== Variables locales ===== */
     // Déclare les variables temporaires
@@ -149,12 +119,11 @@ void strategy_manager__askStrat(StrategyManager *self)
 }
 
 __attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
-void strategy_manager__giveIDStrategieToFollow(StrategyManager *self, int idStrat)
+void strategy_manager__giveIDStrategieToFollow(int idStrat)
 {
 	/* ===== Préconditions ===== */
-	X_ASSERT(self != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
+	X_ASSERT(&strategyManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
 
-	UNUSED(self); // ⬅️ À retirer dès que 'self' est utilisé en dehors des assert()
 	UNUSED(idStrat); // ⬅️ À retirer dès que 'idStrat' est utilisé dans la logique
 
 	X_LOG_TRACE("entering strategy_manager__giveIDStrategieToFollow()");
@@ -163,7 +132,7 @@ void strategy_manager__giveIDStrategieToFollow(StrategyManager *self, int idStra
     // Déclare les variables temporaires
 
 	/* ===== Logique principale ===== */
-	self->currentStrategyID = idStrat;
+	strategyManager.currentStrategyID = idStrat;
 	supervisor__giveEndCondition(listEndCondition); // 📌
 
 	X_LOG_TRACE("exiting strategy_manager__giveIDStrategieToFollow()");
@@ -175,12 +144,10 @@ void strategy_manager__giveIDStrategieToFollow(StrategyManager *self, int idStra
 }
 
 __attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
-void strategy_manager__startMove(StrategyManager *self)
+void strategy_manager__startMove()
 {
 	/* ===== Préconditions ===== */
-	X_ASSERT(self != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
-
-	UNUSED(self); // ⬅️ À retirer. Dès que 'self' est utilisé en dehors des assert()
+	X_ASSERT(&strategyManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
 
 	X_LOG_TRACE("entering strategy_manager__startMove()");
 
@@ -191,13 +158,13 @@ void strategy_manager__startMove(StrategyManager *self)
 	/*
 		TODO : Démarrer un déplacement basé sur la stratégie courante.
 		       Cette fonction peut :
-		       - Lire self->currentStrategyID ou une structure de mouvement
+		       - Lire strategyManager.currentStrategyID ou une structure de mouvement
 		       - Initialiser un mouvement (ex : appel moteur, consigne de distance/vitesse)
-		       - Changer l'état interne : self->isMoving = true;
+		       - Changer l'état interne : strategyManager.isMoving = true;
 
 		       Exemple :
-		           motion_controller__start(self->motion);
-		           self->isMoving = true;
+		           motion_controller__start(strategyManager.motion);
+		           strategyManager.isMoving = true;
 	*/
 
 	X_LOG_TRACE("exiting strategy_manager__startMove()");
@@ -209,12 +176,10 @@ void strategy_manager__startMove(StrategyManager *self)
 }
 
 __attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
-void strategy_manager__endMove(StrategyManager *self)
+void strategy_manager__endMove()
 {
 	/* ===== Préconditions ===== */
-	X_ASSERT(self != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
-
-	UNUSED(self); // ⬅️ À retirer. Dès que 'self' est utilisé en dehors des assert()
+	X_ASSERT(&strategyManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
 
 	X_LOG_TRACE("entering strategy_manager__endMove()");
 
@@ -226,12 +191,12 @@ void strategy_manager__endMove(StrategyManager *self)
 		TODO : Gérer la fin d'un déplacement stratégique.
 		       Cette fonction pourrait :
 		       - Arrêter proprement les moteurs ou contrôleurs de mouvement
-		       - Mettre à jour l'état interne : self->isMoving = false;
+		       - Mettre à jour l'état interne : strategyManager.isMoving = false;
 		       - Notifier le système ou enchaîner vers la prochaine action
 
 		       Exemple :
-		           motion_controller__stop(self->motion);
-		           self->isMoving = false;
+		           motion_controller__stop(strategyManager.motion);
+		           strategyManager.isMoving = false;
 	*/
 
 	X_LOG_TRACE("exiting strategy_manager__endMove()");
@@ -243,12 +208,10 @@ void strategy_manager__endMove(StrategyManager *self)
 }
 
 __attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
-bool strategy_manager__alertWallNear(StrategyManager *self)
+bool strategy_manager__alertWallNear()
 {
 	/* ===== Préconditions ===== */
-	X_ASSERT(self != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
-
-	UNUSED(self); // ⬅️ À retirer. Dès que 'self' est utilisé en dehors des assert()
+	X_ASSERT(&strategyManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
 
 	X_LOG_TRACE("entering strategy_manager__alertWallNear()");
 
@@ -258,7 +221,7 @@ bool strategy_manager__alertWallNear(StrategyManager *self)
 	/* ===== Logique principale ===== */
 	/*
 		TODO : Implémenter la logique pour détecter si un mur est proche.
-		Probablement via les données de self->Timer ou capteurs associés.
+		Probablement via les données de strategyManager.Timer ou capteurs associés.
 	*/
 
 	X_LOG_TRACE("exiting strategy_manager__alertWallNear()");
@@ -270,12 +233,10 @@ bool strategy_manager__alertWallNear(StrategyManager *self)
 }
 
 __attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
-void strategy_manager__alertEndConditionReach(StrategyManager *self)
+void strategy_manager__alertEndConditionReach()
 {
 	/* ===== Préconditions ===== */
-	X_ASSERT(self != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
-
-	UNUSED(self); // ⬅️ À retirer. Dès que 'self' est utilisé en dehors des assert()
+	X_ASSERT(&strategyManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
 
 	X_LOG_TRACE("entering strategy_manager__alertEndConditionReach()");
 
@@ -290,7 +251,7 @@ void strategy_manager__alertEndConditionReach(StrategyManager *self)
 		       - Passer à une autre stratégie ou arrêter le système
 		       - Notifier un autre module (logique d’état ou communication)
 		       Exemple :
-		           self->hasReachedEndCondition = true;
+		           strategyManager.hasReachedEndCondition = true;
 		           strategy_manager__switchToIdle(self);
 	*/
 
@@ -303,12 +264,10 @@ void strategy_manager__alertEndConditionReach(StrategyManager *self)
 }
 
 __attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
-int strategy_manager__getStatus(StrategyManager *self)
+int strategy_manager__getStatus()
 {
 	/* ===== Préconditions ===== */
-	X_ASSERT(self != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
-
-	UNUSED(self); // ⬅️ À retirer. Dès que 'self' est utilisé en dehors des assert()
+	X_ASSERT(&strategyManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
 
 	X_LOG_TRACE("entering strategy_manager__getStatus()");
 
@@ -319,12 +278,12 @@ int strategy_manager__getStatus(StrategyManager *self)
 	/*
 		TODO : Retourner le statut courant de la stratégie.
 		       Cela pourrait impliquer :
-		       - Lire un champ d'état interne, ex : self->status
+		       - Lire un champ d'état interne, ex : strategyManager.status
 		       - Évaluer l'état courant à partir de plusieurs flags
 		       - Combiner ou normaliser plusieurs états internes
 
 		       Exemple :
-		           return self->status;
+		           return strategyManager.status;
 		           // ou : return strategy_manager__computeStatus(self);
 	*/
 
@@ -337,14 +296,12 @@ int strategy_manager__getStatus(StrategyManager *self)
 }
 
 __attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
-void strategy_manager__reportStatus(StrategyManager *self, MoveReason pilotStatus)
+void strategy_manager__reportStatus(MoveReason pilotStatus)
 {
 	/* ===== Préconditions ===== */
-	X_ASSERT(self != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
+	X_ASSERT(&strategyManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
 	assert(0 <= pilotStatus &&           // ⬅️ Vérifie que pilotStatus est dans la plage valide
 	       pilotStatus < MOVE_REASON_NB);
-
-	UNUSED(self); // ⬅️ À retirer. Dès que 'self' est utilisé en dehors des assert()
 	UNUSED(pilotStatus); // ⬅️ À retirer. Dès que 'pilotStatus' est utilisé en dehors des assert()
 
 	X_LOG_TRACE("entering strategy_manager__reportStatus()");
@@ -361,7 +318,7 @@ void strategy_manager__reportStatus(StrategyManager *self, MoveReason pilotStatu
 		       - Déclencher une action liée au changement de statut pilote
 
 		       Exemple pseudo-code :
-		           self->lastPilotStatus = pilotStatus;
+		           strategyManager.lastPilotStatus = pilotStatus;
 		           log_info("Pilot status reporté : %d", pilotStatus);
 	*/
 
@@ -374,12 +331,10 @@ void strategy_manager__reportStatus(StrategyManager *self, MoveReason pilotStatu
 }
 
 __attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
-void strategy_manager__interlockManuMode(StrategyManager *self)
+void strategy_manager__interlockManuMode()
 {
 	/* ===== Préconditions ===== */
-    X_ASSERT(self != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
-
-	UNUSED(self); // ⬅️ À retirer. Dès que 'self' est utilisé en dehors des assert()
+    X_ASSERT(&strategyManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
 
 	X_LOG_TRACE("entering strategy_manager__interlockManuMode()");
 
@@ -404,12 +359,10 @@ void strategy_manager__interlockManuMode(StrategyManager *self)
 }
 
 __attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
-void strategy_manager__computeStrat(StrategyManager *self, seq_t *sequence)
+void strategy_manager__computeStrat(seq_t *sequence)
 {
 	/* ===== Préconditions ===== */
-    X_ASSERT(self != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
-
-	UNUSED(self); // ⬅️ À retirer. Dès que 'self' est utilisé en dehors des assert()
+    X_ASSERT(&strategyManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
 
 	X_LOG_TRACE("entering strategy_manager__computeStrat()");
 
@@ -417,13 +370,13 @@ void strategy_manager__computeStrat(StrategyManager *self, seq_t *sequence)
     // Déclare les variables temporaires
 
 	/* ===== Logique principale ===== */
-	strategy_wrapper__prepare(self->listStrat[self->currentStrategyID], self->matrix);
+	strategy_wrapper__prepare(strategyManager.matrix);
 
 	Point initial = {0, 0}, final = {9, 9};
 
-	strategy_wrapper__execute(self->listStrat[self->currentStrategyID], sequence, &initial, &final);
+	strategy_wrapper__execute(sequence, &initial, &final);
 
-	print_colored_grid(self, sequence, MAP_SIZE * MAP_SIZE);
+	print_colored_grid(sequence, MAP_SIZE * MAP_SIZE);
 
 	X_LOG_TRACE("exiting strategy_manager__computeStrat()");
 
@@ -434,13 +387,11 @@ void strategy_manager__computeStrat(StrategyManager *self, seq_t *sequence)
 }
 
 __attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
-int strategy_manager__startTimer(StrategyManager *self)
+int strategy_manager__startTimer()
 {
 	/* ===== Préconditions ===== */
-    X_ASSERT(self != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
-    // X_ASSERT(self->Timer != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
-
-	UNUSED(self); // ⬅️ À retirer. Dès que 'self' est utilisé en dehors des assert()
+    X_ASSERT(&strategyManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
+    // X_ASSERT(strategyManager.Timer != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
 
 	X_LOG_TRACE("entering strategy_manager__startTimer()");
 
@@ -448,7 +399,7 @@ int strategy_manager__startTimer(StrategyManager *self)
 	int ret = RET_NOT_IMPL_INT; // ⬅️ "Rater-vite". Initialisé par un code d'erreur (prog défensive)
 
 	/* ===== Logique principale ===== */
-    ret = clock_gettime(CLOCK_MONOTONIC, &self->start_time);
+    ret = clock_gettime(CLOCK_MONOTONIC, &strategyManager.start_time);
 
 	X_LOG_TRACE("exiting strategy_manager__startTimer()");
 
@@ -459,13 +410,11 @@ int strategy_manager__startTimer(StrategyManager *self)
 }
 
 __attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
-int strategy_manager__stopTimer(StrategyManager *self)
+int strategy_manager__stopTimer()
 {
 	/* ===== Préconditions ===== */
-    X_ASSERT(self != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
-    // X_ASSERT(self->Timer != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
-
-	UNUSED(self); // ⬅️ À retirer. Dès que 'self' est utilisé en dehors des assert()
+    X_ASSERT(&strategyManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
+    // X_ASSERT(strategyManager.Timer != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
 
 	X_LOG_TRACE("entering strategy_manager__stopTimer()");
 
@@ -473,7 +422,7 @@ int strategy_manager__stopTimer(StrategyManager *self)
 	int ret = RET_NOT_IMPL_INT; // ⬅️ "Rater-vite". Initialisé par un code d'erreur (prog défensive)
 
 	/* ===== Logique principale ===== */
-	clock_gettime(CLOCK_MONOTONIC, &self->end_time);
+	clock_gettime(CLOCK_MONOTONIC, &strategyManager.end_time);
 
 	X_LOG_TRACE("exiting strategy_manager__stopTimer()");
 
@@ -483,19 +432,17 @@ int strategy_manager__stopTimer(StrategyManager *self)
     return ret;
 }
 
-int strategy_manager__getTimeElapsed(StrategyManager *self) {
-	return self->end_time.tv_sec - self->start_time.tv_sec;
+int strategy_manager__getTimeElapsed() {
+	return strategyManager.end_time.tv_sec - strategyManager.start_time.tv_sec;
 }
 
 __attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
-void strategy_manager__updateStatus(StrategyManager *self, Status status)
+void strategy_manager__updateStatus(Status status)
 {
 	/* ===== Préconditions ===== */
 	// Vérifie les invariants avant logique
 
-    X_ASSERT(self != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
-
-	UNUSED(self); // ⬅️ À retirer. Dès que 'self' est utilisé en dehors des assert()
+    X_ASSERT(&strategyManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
 
 	UNUSED(status); // ⬅️ À retirer. Dès que 'status' est utilisé en dehors des assert()
 
@@ -505,7 +452,7 @@ void strategy_manager__updateStatus(StrategyManager *self, Status status)
     // Déclare les variables temporaires
 
 	/* ===== Logique principale ===== */
-	self->status = status;
+	strategyManager.status = status;
    
 	X_LOG_TRACE("exiting strategy_manager__updateStatus()");
 
@@ -518,13 +465,13 @@ void strategy_manager__updateStatus(StrategyManager *self, Status status)
 #define ROWS 10
 #define COLS 10
 #define PATH_MAX_LEN MAP_SIZE * MAP_SIZE
-static void print_colored_grid(StrategyManager *self, seq_t *path, size_t path_len) {
+static void print_colored_grid(seq_t *path, size_t path_len) {
 	int grid[ROWS][COLS] = {0};  // 0: empty, 1: path, 2: obstacle
 
 	// Mark obstacles and path in single loop
 	for (int i = 0; i < ROWS; ++i) {
 		for (int j = 0; j < COLS; ++j) {
-		if (self->matrix[i][j].type == MAP_CELL_WALL) {
+		if (strategyManager.matrix[i][j].type == MAP_CELL_WALL) {
 			grid[i][j] = 2; // Mark as obstacle
 		}
 		}
@@ -532,8 +479,8 @@ static void print_colored_grid(StrategyManager *self, seq_t *path, size_t path_l
 
 	// Mark path points
 	for (size_t i = 0; i < path_len; ++i) {
-		int x = path[i][0];
-		int y = path[i][1];
+		int x = path[i].x;
+		int y = path[i].y;
 		
 		if (x >= 0 && x < ROWS && y >= 0 && y < COLS) {
 		grid[x][y] = 1; // Mark as path

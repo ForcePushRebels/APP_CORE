@@ -62,50 +62,48 @@ typedef struct intervention_manager_s InterventionManager; // To force using the
 
 	// Constructor and destructor
 
-InterventionManager *intervention_manager__create(void);
-
-void intervention_manager__delete(InterventionManager *);
+int intervention_manager__init(void);
 
 	// Strategy management
 
-void intervention_manager__askStrat(InterventionManager *);
+void intervention_manager__askStrat();
 
-void intervention_manager__giveIDStrategieToFollow(InterventionManager *, int);
+void intervention_manager__giveIDStrategieToFollow(int);
 
 
-void intervention_manager__addStrategyWrapper(InterventionManager *, StrategyWrapper *);
+void intervention_manager__addStrategyWrapper(StrategyWrapper *);
 
 	// Movement control
 
-void intervention_manager__startMove(InterventionManager *);
+void intervention_manager__startMove();
 
-void intervention_manager__endMove(InterventionManager *);
+void intervention_manager__endMove();
 
 	// External alert
 
-bool intervention_manager__alertWallNear(InterventionManager *);
+bool intervention_manager__alertWallNear();
 
-void intervention_manager__alertEndConditionReach(InterventionManager *);
+void intervention_manager__alertEndConditionReach();
 
 	// Status management
 
-int intervention_manager__getStatus(InterventionManager *);
+int intervention_manager__getStatus();
 
-void intervention_manager__reportStatus(InterventionManager *, MoveReason);
+void intervention_manager__reportStatus(MoveReason);
 
 	// Manual interlock
 	
-void intervention_manager__interlockManuMode(InterventionManager *);
+void intervention_manager__interlockManuMode();
  
 	// Points selection
-void intervention_manager__sendPointsSelection(InterventionManager *self, Point **);
+void intervention_manager__sendPointsSelection(Point **);
 
 	// Intervention control
-void intervention_manager__startInter(InterventionManager *self);
+void intervention_manager__startInter();
 
-void intervention_manager__stopInter(InterventionManager *self);
+void intervention_manager__stopInter();
 
 	// Time management
-int intervention_manager__getTimeInter(InterventionManager *self);
+int intervention_manager__getTimeInter();
 
 #endif /* __INTERVENTION_MANAGER_H__ */

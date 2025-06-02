@@ -7,13 +7,10 @@
 typedef StrategyWrapper AStarWrapper;
 
 //@Override
-AStarWrapper *astar_wrapper__create(void);
+int astar_wrapper__init(void);
 
 //@Override
-void astar_wrapper__delete(AStarWrapper *);
-
-//@Override
-int astar_wrapper__prepare(mat_t *);
+int astar_wrapper__prepare(mat_t (*)[10]);
 
 //@Override
 int astar_wrapper__execute(seq_t *, Point*, Point*);

@@ -94,12 +94,12 @@ int main()
     l_iReturn = xLogInit(&t_LogConfig);
     X_ASSERT(l_iReturn == XOS_LOG_OK);
 
-	InterventionManager *inter = intervention_manager__create();
+	intervention_manager__init();
 
-	AStarWrapper *astar = astar_wrapper__create();
-	intervention_manager__addStrategyWrapper(inter, astar);
-	intervention_manager__giveIDStrategieToFollow(inter, 0);
-	intervention_manager__startInter(inter);
+	AStarWrapper *astar = astar_wrapper__init();
+	intervention_manager__addStrategyWrapper(astar);
+	intervention_manager__giveIDStrategieToFollow(0);
+	intervention_manager__startInter();
 
     // init hardware abstraction
     l_iReturn = hardwareAbstractionInit();

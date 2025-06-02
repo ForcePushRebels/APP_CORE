@@ -6,14 +6,14 @@
  * 
  * @details
  * This file is part of the PATO project developed by ForcePushRebels.
- * The project was coordinated by Mr. Jérôme DELATOUR, in collaboration with
+ * The project was coordinated by Mr. Jérôme DELATOURin collaboration with
  * faculty of the Embedded Software and Cybersecurity (LEC) option at ESEO.
  * 
  * It constitutes a collective work as per Article L113-2 of the French
  * Intellectual Property Code.
  *
  * Usage is restricted to educational purposes within ESEO. Redistribution,
- * public use, or commercial exploitation without prior written consent is prohibited.
+ * public useor commercial exploitation without prior written consent is prohibited.
  *
  * The content is provided "as is," without any warranty or guarantee.
  *
@@ -63,14 +63,14 @@ typedef enum {
 	MODE_MANUEL, // Contrôle manuel actif
 	FIN_DE_MISSION, // Mission terminée normalement
 	ECHEC, // Échec ou interruption anormale
-	STATUS_NB
+	STATUS_NB,
 } Status;
 
 typedef enum {
 	END_MOVE, // Fin d'un déplacement élémentaire
 	END_ALL_MOVES, // Fin de la séquence de déplacements
 	EMERGENCY_STOP, // Arrêt d'urgence
-	MOVE_REASON_NB
+	MOVE_REASON_NB,
 } MoveReason;
 
 typedef struct strategy_manager_s StrategyManager; // To force using the API
@@ -79,58 +79,58 @@ typedef struct strategy_manager_s StrategyManager; // To force using the API
 
 	// Constructor and destructor
 
-StrategyManager * strategy_manager__create(void);
+int strategy_manager__init(void);
 
-void strategy_manager__delete(StrategyManager *);
+void strategy_manager__delete();
 
 	// Strategy management
 
-void strategy_manager__askStrat(StrategyManager *);
+void strategy_manager__askStrat();
 
-void strategy_manager__giveIDStrategieToFollow(StrategyManager *, int);
+void strategy_manager__giveIDStrategieToFollow(int);
 
-void strategy_manager__addStrategyWrapper(StrategyManager *, StrategyWrapper *);
+void strategy_manager__addStrategyWrapper(StrategyWrapper *);
 
-void strategy_manager__setMap(StrategyManager *);
+void strategy_manager__setMap();
 
-int strategy_manager__getTimeElapsed(StrategyManager *);
+int strategy_manager__getTimeElapsed();
 
 	// Movement control
 
-void strategy_manager__startMove(StrategyManager *);
+void strategy_manager__startMove();
 
-void strategy_manager__endMove(StrategyManager *);
+void strategy_manager__endMove();
 
 	// External alert
 
-bool strategy_manager__alertWallNear(StrategyManager *);
+bool strategy_manager__alertWallNear();
 
-void strategy_manager__alertEndConditionReach(StrategyManager *);
+void strategy_manager__alertEndConditionReach();
 
 	// Status management
 
-int strategy_manager__getStatus(StrategyManager *);
+int strategy_manager__getStatus();
 
-void strategy_manager__reportStatus(StrategyManager *, MoveReason);
+void strategy_manager__reportStatus(MoveReason);
 
 	// Manual interlock
 
-void strategy_manager__interlockManuMode(StrategyManager *);
+void strategy_manager__interlockManuMode();
 
 /* Private methods */
 
 	// Strategy computation
 
-void strategy_manager__computeStrat(StrategyManager *, seq_t *);
+void strategy_manager__computeStrat(seq_t *);
 
 	// Timer management
 
-int strategy_manager__startTimer(StrategyManager *);
+int strategy_manager__startTimer();
 
-int strategy_manager__stopTimer(StrategyManager *);
+int strategy_manager__stopTimer();
 
 	// Status update
 
-void strategy_manager__updateStatus(StrategyManager *, Status);
+void strategy_manager__updateStatus(Status);
 
 #endif /* __STRATEGY_MANAGER_H__ */

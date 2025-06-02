@@ -30,81 +30,56 @@
 
 #define LOG_TAG "StrategyWrapper"
 
+static StrategyWrapper strategyWrapper;
+
 /* Constructor */
 __attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
-StrategyWrapper *strategy_wrapper__create(char * name)
+int strategy_wrapper__init(char * name)
 {
 	/* ===== Préconditions ===== */
 	assert(true); // ⬅️ À conserver. Indique explicitement qu'il n'y a pas de précondition
 
-	X_LOG_TRACE("entering strategy_wrapper__create()");
+	X_LOG_TRACE("entering strategy_wrapper__init()");
 
 	/* ===== Variables locales ===== */
-	StrategyWrapper *strategyWrapper;
 
 	/* ===== Logique principale ===== */
-	strategyWrapper = malloc(sizeof(StrategyWrapper));
 	
-	strategyWrapper->name = name;
+	strategyWrapper.name = name;
 
-	X_LOG_TRACE("exiting strategy_wrapper__create()");
+	X_LOG_TRACE("exiting strategy_wrapper__init()");
 
 	/* ===== Postconditions ===== */
     // assert(interventionManager != NULL); // ⬅️ À décommenter. Pour les plus téméraires
 
-	return strategyWrapper;
+	return 1;
 }
 
 /* Binders */
 
-void strategy_wrapper__bindMap(StrategyWrapper *self, mat_t *map_ptr)
+void strategy_wrapper__bindMap(mat_t (*map_ptr)[10])
 {
-	self->map = map_ptr;
+	strategyWrapper.map = map_ptr;
 }
 
-void strategy_wrapper__bindPrepare(StrategyWrapper *self, prep_func_cb *prep_func_ptr)
+void strategy_wrapper__bindPrepare(prep_func_cb *prep_func_ptr)
 {
-	self->prepare = prep_func_ptr;
+	strategyWrapper.prepare = prep_func_ptr;
 }
 
-void strategy_wrapper__bindExecute(StrategyWrapper *self, exec_func_cb *exec_func_ptr)
+void strategy_wrapper__bindExecute(exec_func_cb *exec_func_ptr)
 {
-	self->execute = exec_func_ptr;
+	strategyWrapper.execute = exec_func_ptr;
 }
 
 /* Callbacks */
 
-void strategy_wrapper__prepare(StrategyWrapper *self, mat_t *map)
+void strategy_wrapper__prepare(mat_t (*map)[10])
 {
-	self->prepare(map);
+	strategyWrapper.prepare(map);
 }
 
-void strategy_wrapper__execute(StrategyWrapper *self, seq_t *way, Point *initial, Point *final)
+void strategy_wrapper__execute(seq_t *way, Point *initial, Point *final)
 {
-	self->execute(way, initial, final);
-}
-
-/* Destructor */
-__attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
-void strategy_wrapper__delete(StrategyWrapper *self)
-{
-	/* ===== Préconditions ===== */
-	assert(self != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
-
-	UNUSED(self); // ⬅️ À retirer. Dès que 'self' est utilisé en dehors des assert()
-
-	X_LOG_TRACE("entering strategy_wrapper__delete()");
-
-	/* ===== Variables locales ===== */
-	// Déclare les variables temporaires
-
-	/* ===== Logique principale ===== */
-	free(self); // ⬅️ Libère la mémoire allouée pour l'InterventionManager
-
-	X_LOG_TRACE("exiting strategy_wrapper__delete()");
-
-	/* ===== Postconditions ===== */
-    // assert(interventionManager == NULL); // ⬅️ À décommenter. Quand le SAFE_FREE() est utilisé
-
-	return; // ⬅️ À conserver. Retour explicite (void)
+	strategyWrapper.execute(way, initial, final);
 }

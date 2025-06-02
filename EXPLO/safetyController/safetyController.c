@@ -50,11 +50,6 @@ void stop(SafetyController* ctrl, double decelerationFactor)
  */
 void moveForward(SafetyController* ctrl, float max_speed) 
 {
-    if (SENSOR_OBSTACLE_THRESHOLD >= 150) 
-    {
-        X_LOG_TRACE("[SafetyController] Seuil d'obstacle atteint, pas de déplacement possible\n");
-        return;
-    }
     // Si l'arrêt d'urgence est actif, on ne permet pas le mouvement
     if (ctrl->emergencyStopFlag == true) 
     {
@@ -87,6 +82,13 @@ void moveLeft(SafetyController* ctrl, float max_speed, bool relative)
     }
     pilot_turn(3.14159f / 2, max_speed, relative);
     X_LOG_TRACE("[SafetyController] Rotation gauche 90°.\n");
+}
+
+
+void mesTest()
+{
+    X_LOG_TRACE("=== Test du SafetyController ===");
+    
 }
 
 

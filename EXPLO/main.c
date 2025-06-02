@@ -25,8 +25,15 @@
 #include "xTimer.h"
 
 #include "map_engine.h"
+#include "safetyController.h"
+
+#define SENSOR_OBSTACLE_THRESHOLD 150
+
 
 static const uint8_t s_aCLogPath[] = "explo.log";
+
+static SafetyController safetyCtrl;
+static bool safety_initialized = false;
 
 // Définition des durées pour le code morse (en millisecondes)
 #define UNIT_TIME 300
@@ -186,16 +193,17 @@ void testHardwareAbstraction(void) {
                 X_LOG_TRACE("Encoder values - Left: %d, Right: %d", motor_ids[0], motor_ids[1]);
             }
             break;
-            
-        case 1: // Test des capteurs
-            X_LOG_TRACE("=== Testing Sensors ===");
-            uint16_t sensor_values[HARDWARE_ABSTRACTION_MAX_SENSORS];
-            if (GetSensorValues(sensor_values) == 0) {
-                for (int i = 0; i < HARDWARE_ABSTRACTION_MAX_SENSORS; i++) {
-                    X_LOG_TRACE("Sensor %d value: %d", i, sensor_values[i]);
-                }
+         
+        case 1: // safetyController
+            if (!checkForward()) // ou checkMovePossible() selon ton projet
+            {
+                X_LOG_TRACE("[SafetyController_Das] Seuil d'obstacle atteint, pas de déplacement possible\n");
+                return;
             }
+            // Ici tu peux appeler moveForward() ou autre action de sécurité
             break;
+
+        
             
         case 2: // Test de la batterie
             X_LOG_TRACE("=== Testing Battery ===");
@@ -220,9 +228,25 @@ void testHardwareAbstraction(void) {
             X_LOG_TRACE("=== Testing LEDs (final) ===");
             SetLedColor(MRPIZ_LED_BLUE);
             X_LOG_TRACE("LED set to BLUE");
-            break;
+            break; 
+        
+        case 6: // Test des capteurs
+        X_LOG_TRACE("=== Testing Sensors ===");
+        uint16_t sensor_values[HARDWARE_ABSTRACTION_MAX_SENSORS];
+        SafetyController* ctrl = &safetyCtrl; 
+        float max_speed = 1.0; // Vitesse maximale pour le test
+        if (GetSensorValues(sensor_values) == 0) {
+            for (int i = 0; i < HARDWARE_ABSTRACTION_MAX_SENSORS; i++) {
+                X_LOG_TRACE("Sensor %d value: %d", i, sensor_values[i]);
+                moveForward(&safetyCtrl, max_speed);
+            }
+        }
+        break;  
+      
     }
 }
+
+
 
 int main()
 {

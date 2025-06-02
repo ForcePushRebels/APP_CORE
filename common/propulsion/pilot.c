@@ -348,7 +348,7 @@ static void *pilot_task(void *p_pttArg)
         }   
         else
         {
-            X_LOG_TRACE("pilot_task: polling, state=%d, motion_finished=%d", g_state, position_control_is_motion_finished());
+            // X_LOG_TRACE("pilot_task: polling, state=%d, motion_finished=%d", g_state, position_control_is_motion_finished());
 
             if ((g_state == PILOT_STATE_MOVING || g_state == PILOT_STATE_MOVE_IN_PROGRESS) &&
                 position_control_is_motion_finished())
@@ -489,7 +489,7 @@ void pilot_action_endMove(void *arg)
     (void)arg; // Unused parameter
     if (position_control_is_motion_finished())
     {
-        // Notifier la fin du mouvement pour Uriel
+        X_LOG_TRACE("pilot_action_endMove: motion finished");
         intervention_manager__endMove();
 
         // X_LOG_TRACE("pilot_action_endMove: motion finished, posting CHECK_NEXT_MOVE");

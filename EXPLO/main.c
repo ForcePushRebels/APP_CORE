@@ -59,15 +59,15 @@ int main(void)
 
     if (checkForward()) {
         X_LOG_TRACE("Voie libre : avance !");
-        moveForward(&safetyCtrl, 1.0f);
+        moveForward(&safetyCtrl, 4.0f);
         usleep(500 * 1000); // 500 ms
 
         X_LOG_TRACE("Tourne à droite !");
-        moveRight(&safetyCtrl, 1.0f, true);
+        moveRight(&safetyCtrl, 2.0f, true);
         usleep(500 * 1000); // 500 ms
 
         X_LOG_TRACE("Tourne à gauche !");
-        moveLeft(&safetyCtrl, 1.0f, true);
+        moveLeft(&safetyCtrl, 2.0f, true);
         usleep(500 * 1000); // 500 ms
 
     } else {

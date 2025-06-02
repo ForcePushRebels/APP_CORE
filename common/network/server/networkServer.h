@@ -112,7 +112,7 @@ int networkServerConnect(void);
 /// @param size Buffer size
 /// @return true on success
 ///////////////////////////////////////////
-bool networkServerGetClientAddress(ClientID p_tClientId, char *p_pcBuffer, int p_iSize);
+bool networkServerGetClientAddress(ClientID p_tClientId, char *p_ptcBuffer, int p_iSize);
 
 ///////////////////////////////////////////
 /// @brief Get the client port

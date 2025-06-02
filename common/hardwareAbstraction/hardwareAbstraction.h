@@ -68,7 +68,7 @@ int GetSensorValues(uint16_t *p_ptISensors);
 /// @param p_ptIMotors : pointer to array to store motor encoder values
 /// @return 0 if success, -1 if error
 ////////////////////////////////////////////////////////////
-int GetMotorEncoderValues(uint16_t *p_ptIMotors);
+int GetMotorEncoderValues(int32_t *p_ptIMotors);
 
 ////////////////////////////////////////////////////////////
 /// @brief Hardware Abstraction Layer get battery level

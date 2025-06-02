@@ -356,12 +356,12 @@ void *testNetworkCommunicationThread(void *p_ptTaskArg)
         int l_iReturn = networkServerSendMessage(1, ID_INF_BATTERY, (uint8_t *)&batteryLevel, sizeof(batteryLevel));
         if (l_iReturn != SERVER_OK)
         {
-            X_LOG_TRACE("Failed to send battery level");
+            // X_LOG_TRACE("Failed to send battery level");
         }
         l_iReturn = networkServerSendMessage(1, ID_INF_POS, (uint8_t *)l_cPosition, sizeof(l_cPosition));
         if (l_iReturn != SERVER_OK)
         {
-            X_LOG_TRACE("Failed to send position");
+            // X_LOG_TRACE("Failed to send position");
         }
 
         sleep(1);
@@ -386,6 +386,13 @@ int testNetworkCommunication(void)
 
     return 0;
 }
+
+
+void test_setMovementHandler(clientCtx *p_ptClient, const network_message_t *p_ptMessage)
+{
+    X_LOG_TRACE("Received set movement id: %d", p_ptMessage->t_ptucPayload[0]);
+}
+
 
 int main()
 {
@@ -421,7 +428,7 @@ int main()
 
     ServerConfig l_tServerConfig = networkServerCreateDefaultConfig();
     l_tServerConfig.t_usPort = 8080;
-    l_tServerConfig.t_pcBindAddress = "127.0.0.1";
+    l_tServerConfig.t_pcBindAddress = "0.0.0.0";
     l_tServerConfig.t_iMaxClients = 10;
     l_tServerConfig.t_iBacklog = 5;
     l_tServerConfig.t_bUseTimeout = false;
@@ -469,7 +476,9 @@ int main()
 
     // main loop
 
-    testNetworkCommunication();
+    // testNetworkCommunication();
+
+registerMessageHandler(ID_SET_MOVEMENT, test_setMovementHandler);
 
     while (1)
     {

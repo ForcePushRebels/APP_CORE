@@ -961,9 +961,10 @@ static void *clientThreadFunc(void *p_pvArg)
             }
 
             // STEP 3: Receive the message (header + payload) - FIXED: use complete receive
-            p_iReceived = networkReceiveComplete(p_ptClient->t_ptSocket, l_pucMessageBuffer, 1 + l_ulPayloadSize);
+            p_iReceived = networkReceiveComplete(p_ptClient->t_ptSocket, l_pucMessageBuffer, l_ulPayloadSize);
 
-            if (p_iReceived == 1 + (int)l_ulPayloadSize)
+
+            if (p_iReceived == (int)l_ulPayloadSize)
             {
                 // Process the received message
                 uint8_t l_ucMsgType;

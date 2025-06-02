@@ -20,10 +20,14 @@
 /* **************************************************** Private macros *************************************************** */
 #define MAP_DEBUG 0
 
-#define MAP_WIDTH 10
-#define MAP_HEIGHT 10
+#define MAP_WIDTH_MM 1000
+#define MAP_HEIGHT_MM 1000
 
-#define MAP_CELL_SIZE_MM 100
+#define MAP_CELL_SIZE_MM 50
+
+
+#define MAP_WIDTH (MAP_WIDTH_MM / MAP_CELL_SIZE_MM)
+#define MAP_HEIGHT (MAP_HEIGHT_MM / MAP_CELL_SIZE_MM)
 
 /* ************************************************ Private type definition ********************************************** */
 

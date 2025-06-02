@@ -299,7 +299,7 @@ void testPilot(void)
     {
         case 0:
             X_LOG_TRACE("Pilot test: Advance 1000mm");
-            pilot_advance(1000, 2.0);
+            pilot_advance(300, 100);
             phase_start_time = now;
             phase = 1;
             break;
@@ -326,20 +326,20 @@ void testPilot(void)
             }
             break;
 
-    case 3:
-        // Attendre 5 secondes à l'arrêt, puis goTo
-        if (now - phase_start_time > 5000)
-        {
-            X_LOG_TRACE("Pilot test: GoTo (1000, 1000)");
-            pilot_goTo(1000, 1000, 2); // Va à (1000, 1000) depuis (0,0)
-            phase_start_time = now;
-            phase = 4;
-        }
-        break;
+        case 3:
+            // Attendre 5 secondes à l'arrêt, puis goTo
+            if (now - phase_start_time > 5000)
+            {
+                X_LOG_TRACE("Pilot test: GoTo (1000, 1000)");
+                pilot_goTo(1000, 1000, 2); // Va à (1000, 1000) depuis (0,0)
+                phase_start_time = now;
+                phase = 4;
+            }
+            break;
 
-    case 4:
-        // Fin du test, tu peux ajouter d'autres phases ici si besoin
-        break;
+        case 4:
+            // Fin du test, tu peux ajouter d'autres phases ici si besoin
+            break;
     }
 }
 
@@ -399,12 +399,10 @@ int testNetworkCommunication(void)
     return 0;
 }
 
-
 void test_setMovementHandler(clientCtx *p_ptClient, const network_message_t *p_ptMessage)
 {
     X_LOG_TRACE("Received set movement id: %d", p_ptMessage->t_ptucPayload[0]);
 }
-
 
 int main()
 {
@@ -492,7 +490,7 @@ int main()
 
     testNetworkCommunication();
 
-registerMessageHandler(ID_SET_MOVEMENT, test_setMovementHandler);
+    registerMessageHandler(ID_SET_MOVEMENT, test_setMovementHandler);
 
     while (1)
     {
@@ -501,9 +499,9 @@ registerMessageHandler(ID_SET_MOVEMENT, test_setMovementHandler);
 
         // Envoyer le signal SOS en morse
         // sendMorseSOS();
-        //testPilot(); // <-- Active cette ligne pour tester le pilotage
+        testPilot(); // <-- Active cette ligne pour tester le pilotage
         // xTimerDelay(100); // Ajoute un petit délai pour éviter de saturer le CPU
-        testPositionControl();
+        // testPositionControl();
         // Pour envoyer des mises à jour périodiques, on devra attendre d'avoir un client connecté
         // et utiliser serverSendMessage à ce moment-là.
     }

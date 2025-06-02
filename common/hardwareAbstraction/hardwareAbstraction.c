@@ -5,6 +5,7 @@
 // Written : 25/04/2025
 ////////////////////////////////////////////////////////////
 #include "hardwareAbstraction.h"
+#include "lumpiz.h"
 
 ////////////////////////////////////////////////////////////
 /// @brief Hardware Abstraction Layer structure
@@ -90,6 +91,10 @@ int hardwareAbstractionInit()
     // set initialized
     t_bHardwareAbstractionInitialized = true;
 
+    // init floor sensor
+    lumpiz_luminosity_init();
+
+
     return 0;
 }
 
@@ -151,7 +156,7 @@ int GetSensorValues(uint16_t *p_ptISensors)
 ////////////////////////////////////////////////////////////
 /// @brief Hardware Abstraction Layer get motor encoder values
 ////////////////////////////////////////////////////////////
-int GetMotorEncoderValues(uint16_t *p_ptIMotors)
+int GetMotorEncoderValues(int32_t *p_ptIMotors)
 {
     X_ASSERT(t_bHardwareAbstractionInitialized == true);
 
@@ -161,7 +166,7 @@ int GetMotorEncoderValues(uint16_t *p_ptIMotors)
         int l_iValue = mrpiz_motor_encoder_get(t_HardwareAbstraction.t_iMotors[i]);
         if (l_iValue != -1)
         {
-            p_ptIMotors[i] = (uint16_t)l_iValue;
+            p_ptIMotors[i] = (int32_t)l_iValue;
         }
 
         else
@@ -250,4 +255,31 @@ int ResetMotorEncoders()
     X_ASSERT(t_bHardwareAbstractionInitialized == true);
 
     return mrpiz_motor_encoder_reset(MRPIZ_MOTOR_BOTH);
+}
+
+////////////////////////////////////////////////////////////
+/// @brief Hardware Abstraction Layer get floor sensor value
+////////////////////////////////////////////////////////////
+int GetFloorSensorValue()
+{
+    X_ASSERT(t_bHardwareAbstractionInitialized == true);
+
+    int l_iValue = lumpiz_luminosity_get();
+    if (l_iValue == -1)
+    {
+        X_LOG_TRACE("Failed to read floor sensor");
+        return -1;
+    }
+
+    return l_iValue;
+}
+
+////////////////////////////////////////////////////////////
+/// @brief Hardware Abstraction Layer set floor sensor light
+////////////////////////////////////////////////////////////
+int SetFloorSensorLight(bool p_iLight)
+{
+    X_ASSERT(t_bHardwareAbstractionInitialized == true);
+
+    return lumpiz_luminosity_light_set(p_iLight ? LUMPIZ_LUMINOSITY_ON : LUMPIZ_LUMINOSITY_OFF);
 }

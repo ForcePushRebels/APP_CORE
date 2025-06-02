@@ -5,6 +5,10 @@
         "hardwareabstraction.h": "c",
         "error.h": "c",
         "xosmutex.h": "c",
+<<<<<<< HEAD
         "sensormanager.h": "c"
+=======
+        "xoshorodateur.h": "c"
+>>>>>>> origin/audren
     }
 }

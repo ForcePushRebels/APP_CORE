@@ -16,16 +16,8 @@ static sensorManager_t s_tSensorManager;
 #define SENSOR_MANAGER_TASK_PERIOD 100
 #define SENSOR_OBSTACLE_THRESHOLD 150
 
-#define SENSOR_MAX_RAW_VALUE 188
-#define SENSOR_MAX_MM_VALUE 320
-
-#define SENSOR_MIN_RAW_VALUE 24
-#define SENSOR_MIN_MM_VALUE 12
-
 // prototypes
 static void *sensorManagerTask(void *p_pvParam);
-static void updateSensorData(void *p_pvParam);
-bool checkMovePossible(void);
 
 ///////////////////////////////////////////
 /// sensorManagerInit
@@ -40,7 +32,10 @@ int sensorManagerInit(void)
         return l_iRet;
     }
 
-    l_iRet = xTimerCreate(&s_tSensorManager.t_tTimer, SENSOR_MANAGER_TASK_PERIOD, XOS_TIMER_MODE_PERIODIC);
+    l_iRet = xTimerCreate(&s_tSensorManager.t_tTimer, 
+                          SENSOR_MANAGER_TASK_PERIOD, 
+                          XOS_TIMER_MODE_PERIODIC);
+                          
     if (l_iRet != XOS_TIMER_OK)
     {
         X_LOG_TRACE("Error creating timer");
@@ -63,20 +58,12 @@ int sensorManagerInit(void)
 }
 
 ///////////////////////////////////////////
-/// checkForward
-///////////////////////////////////////////
-bool checkForward(void)
-{
-    return checkMovePossible();
-}
-
-///////////////////////////////////////////
 /// checkMovePossible
 ///////////////////////////////////////////
 bool checkMovePossible(void)
 {
     // On suppose que les valeurs sont à jour dans s_tSensorManager.t_tISensors
-    for (int i = 0; i < SENSOR_MANAGER_SENSORS_COUNT - 2; i++)
+    for (int i = 0; i < SENSOR_MANAGER_SENSORS_COUNT; i++)
     {
         if (s_tSensorManager.t_tISensors[i] < SENSOR_OBSTACLE_THRESHOLD)
         {
@@ -87,6 +74,14 @@ bool checkMovePossible(void)
     }
     // Aucun obstacle détecté
     return true;
+}
+
+///////////////////////////////////////////
+/// checkForward
+///////////////////////////////////////////
+bool checkForward(void)
+{
+    return checkMovePossible();
 }
 
 ///////////////////////////////////////////
@@ -128,6 +123,35 @@ uint16_t updateVision(int sensor)
 }
 
 ///////////////////////////////////////////
+/// updateSensorData
+///////////////////////////////////////////
+static void updateSensorData(void *p_pvParam)
+{
+    (void)p_pvParam; // warning suppression
+
+    int32_t l_iRet = 0;
+
+    l_iRet = GetSensorValues(s_tSensorManager.t_tISensors);
+    if (l_iRet != 0)
+    {
+        X_LOG_TRACE("Error getting sensor values");
+    }
+
+    for (int i = 0; i < SENSOR_MANAGER_SENSORS_COUNT; i++)
+    {
+        s_tSensorManager.t_tISensors[i] = rawValuesToMm(s_tSensorManager.t_tISensors[i]);
+    }
+    
+    s_tSensorManager.t_tFloorSensor = GetFloorSensorValue();
+
+    if (idCardGetRole() == IDCARD_ROLE_EXPLO)
+    {
+        map_engine_update_vision(s_tSensorManager.t_tISensors, SENSOR_MANAGER_SENSORS_COUNT);
+    }
+
+}
+
+///////////////////////////////////////////
 /// sensorManagerTask
 ///////////////////////////////////////////
 static void *sensorManagerTask(void *p_pvParam)
@@ -158,31 +182,7 @@ static void *sensorManagerTask(void *p_pvParam)
     return NULL;
 }
 
-///////////////////////////////////////////
-/// updateSensorData
-///////////////////////////////////////////
-static void updateSensorData(void *p_pvParam)
-{
-    (void)p_pvParam; // warning suppression
 
-    int32_t l_iRet = 0;
-
-    l_iRet = GetSensorValues(s_tSensorManager.t_tISensors);
-    if (l_iRet != 0)
-    {
-        X_LOG_TRACE("Error getting sensor values");
-    }
-
-    for (int i = 0; i < SENSOR_MANAGER_SENSORS_COUNT; i++)
-    {
-        s_tSensorManager.t_tISensors[i] = rawValuesToMm(s_tSensorManager.t_tISensors[i]);
-    }
-
-    if (idCardGetRole() == IDCARD_ROLE_EXPLO)
-    {
-        map_engine_update_vision(s_tSensorManager.t_tISensors, SENSOR_MANAGER_SENSORS_COUNT - 2);
-    }
-}
 
 ///////////////////////////////////////////
 /// rawValuesToMm

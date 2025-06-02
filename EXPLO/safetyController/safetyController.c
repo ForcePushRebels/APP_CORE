@@ -5,6 +5,9 @@
 #include "pilot.h"
 #include "motorControl.h"
 #include "xLog.h"
+#include "xAssert.h"
+#include "xTimer.h"
+
 
 #define SENSOR_OBSTACLE_THRESHOLD 150
 
@@ -13,7 +16,8 @@
  * 
  * @param ctrl Pointeur vers la structure SafetyController à initialiser.
  */
-void SafetyController_init(SafetyController* ctrl) {
+void SafetyController_init(SafetyController* ctrl) 
+{
     ctrl->emergencyStopFlag = false;
 }
 
@@ -25,7 +29,7 @@ void SafetyController_init(SafetyController* ctrl) {
  * 
  * @param ctrl Pointeur vers la structure SafetyController.
  * @param decelerationFactor Facteur de décélération à appliquer lors de l'arrêt.
- */
+ */ 
 void stop(SafetyController* ctrl, double decelerationFactor) 
 {
     if (ctrl->emergencyStopFlag == true) 
@@ -34,7 +38,8 @@ void stop(SafetyController* ctrl, double decelerationFactor)
         return;
     }
     ctrl->emergencyStopFlag = true;
-    pilot_stop(decelerationFactor);   
+    pilot_stop(decelerationFactor);  
+    //pilot_action_emergencyStop(); 
     X_LOG_TRACE("[SafetyController] Arrêt d'urgence déclenché !\n");
 }
 
@@ -60,7 +65,8 @@ void moveForward(SafetyController* ctrl, float max_speed)
     {
         pilot_continuousAdvance(max_speed);
         X_LOG_TRACE("[SafetyController] Avance autorisée.\n");
-    } else 
+    } 
+    else 
     {
         X_LOG_TRACE("[SafetyController] Mouvement bloqué : obstacle détecté !\n");
     }
@@ -85,13 +91,6 @@ void moveLeft(SafetyController* ctrl, float max_speed, bool relative)
 }
 
 
-void mesTest()
-{
-    X_LOG_TRACE("=== Test du SafetyController ===");
-    
-}
-
-
 /**
  * @brief Effectue une rotation à droite de 90°.
  * 
@@ -108,4 +107,20 @@ void moveRight(SafetyController* ctrl, float max_speed, bool relative)
     pilot_turn(-3.14159f / 2, max_speed, relative);
     X_LOG_TRACE("[SafetyController] Rotation droite 90°.\n");
 }
+
+
+/**
+ * @brief Réinitialise l'arrêt d'urgence du SafetyController.
+ *
+ * Cette fonction désactive le flag d'arrêt d'urgence, permettant ainsi au robot de reprendre ses mouvements.
+ * Un message de trace est généré pour indiquer la réinitialisation.
+ *
+ * @param ctrl Pointeur vers la structure SafetyController à réinitialiser.
+ */
+void resetEmergencyStop(SafetyController* ctrl)
+{
+    ctrl->emergencyStopFlag = false;
+    X_LOG_TRACE("[SafetyController] Arrêt d'urgence réinitialisé.\n");
+}
+
 

@@ -30,11 +30,11 @@ typedef enum moveType
 typedef struct {
     double x_mm;        // X position in millimeters
     double y_mm;        // Y position in millimeters
-    float angle_rad;     // Angle in radians
+    double angle_rad;     // Angle in radians
 } Position_t;
 
 // Constants for position control
-#define REGULATION_PERIOD_MS 5     // Regulation period in milliseconds
+#define REGULATION_PERIOD_MS 50     // Regulation period in milliseconds
 #define ACCELERATION_COEF   0.5     // Acceleration coefficient (0-1)
 #define DECELERATION_COEF   0.5     // Deceleration coefficient (0-1)
 #define MIN_SPEED_RAD_S     0.5     // Minimum speed to start movement

@@ -364,7 +364,8 @@ void *testNetworkCommunicationThread(void *p_ptTaskArg)
             // X_LOG_TRACE("Failed to send position");
         }
 
-        sleep(1);
+        // 500ms
+        usleep(500 * 1000);
     }
 
     return NULL;
@@ -476,7 +477,7 @@ int main()
 
     // main loop
 
-    // testNetworkCommunication();
+    testNetworkCommunication();
 
 registerMessageHandler(ID_SET_MOVEMENT, test_setMovementHandler);
 

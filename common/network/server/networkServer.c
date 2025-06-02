@@ -17,7 +17,7 @@
 
 #define SERVER_THREAD_STACK_SIZE (64 * 1024)   // 64KB stack for the server thread
 #define CLIENT_THREAD_STACK_SIZE (32 * 1024)   // 32KB stack for the client threads
-#define SERVER_ACCEPT_TIMEOUT 500              // 500ms timeout for accept
+#define SERVER_ACCEPT_TIMEOUT 2000              // 500ms timeout for accept
 #define SERVER_MAX_BUFFER_SIZE 4096            // Max buffer size
 #define MAX_CLIENTS 10                         // Max number of clients
 

@@ -16,12 +16,18 @@ static void setMovementHandle(clientCtx *p_ptClient, const network_message_t *p_
     (void)p_ptClient; // unused parameter
     int l_iReturn = 0;
     int l_iPayloadSize = p_ptMessage->t_iPayloadSize;
-    if (l_iPayloadSize != sizeof(movement_type_t))
+
+    printf("Received set movement id: %d\n", p_ptMessage->t_ptucPayload[0]);
+    printf("Payload size: %d\n", l_iPayloadSize);
+
+    //cast the paayload from 1bytes to movement_type_t
+    if (p_ptMessage->t_ptucPayload == NULL)
     {
-        X_LOG_TRACE("Invalid payload size");
+        X_LOG_TRACE("Payload is NULL");
         atomic_store(&s_bEmergencyStopFlag, true);
         return;
     }
+
     movement_type_t l_eMovement = (movement_type_t)p_ptMessage->t_ptucPayload[0];
 
     // check if the movement is valid

@@ -101,13 +101,12 @@ static int32_t angle_to_ticks(double angle_rad)
 // Fonction utilitaire pour mettre à jour la position du robot
 static void update_robot_position(int32_t left_ticks, int32_t right_ticks)
 {
-    
     // Calculer la variation d'angle en radians
     // 1 tick = 0.21 degrés = 0.00366 radians
     double delta_angle = (right_ticks * -ANGLE_PER_TICK_RAD) + (left_ticks * ANGLE_PER_TICK_RAD);
     
     // Calculer la distance parcourue en cm
-    // 1 tick = 0.03 cm
+    // 1 tick = 0.028 cm
     double center_distance = ((abs(left_ticks) + abs(right_ticks)) * 0.028) / 2.0;
     
     // Déterminer le sens du mouvement
@@ -131,18 +130,16 @@ static void update_robot_position(int32_t left_ticks, int32_t right_ticks)
     double dy = center_distance * 10.0 * sin(avg_angle); // Calcul en double
     
     // Accumuler les changements de position directement en double
-    
-    g_robot_position.x_mm += dx;
-    g_robot_position.y_mm += dy;
-
-    
+    if (g_current_move_type == FORWARD) {
+        g_robot_position.x_mm += dx;
+        g_robot_position.y_mm += dy;
+    }
     
     X_LOG_TRACE("Position mise à jour - left_ticks: %d, right_ticks: %d",
                 left_ticks, right_ticks);
 
     X_LOG_TRACE("Position mise à jour - X: %.2f mm, Y: %.2f mm, Angle: %.2f°",
                 g_robot_position.x_mm, g_robot_position.y_mm, g_robot_position.angle_rad * 180.0 / M_PI);
-
     
     mutexUnlock(&g_position_mutex);
 }
@@ -193,9 +190,6 @@ static void* wheel_position_control_task(void* arg)
         }
         first_run = false;
         
-        X_LOG_TRACE("Position mise à jour - X: %d mm, Y: %d mm, Angle: %.2f rad",
-                g_robot_position.x_mm, g_robot_position.y_mm, g_robot_position.angle_rad);
-
         // Mettre à jour les ticks actuels
         g_left_wheel.current_ticks = encoder_values[0];
         g_right_wheel.current_ticks = encoder_values[1];

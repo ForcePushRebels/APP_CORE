@@ -27,6 +27,7 @@
 #include "xNetwork.h"
 #include "xTimer.h"
 
+#include "ihm.h"
 #include "map_engine.h"
 
 // chemin des logs avec l'executable en chemin de l'executable
@@ -347,7 +348,6 @@ void testPilot(void)
             usleep(100000);
             break;
 
-
         case STATE_TURN2:
             X_LOG_TRACE("Pilot test: Turn 90° right");
             pilot_turn(-M_PI / 2, 200, true); // Tourner de 90° à droite (relatif)
@@ -515,6 +515,11 @@ int main()
     // init map engine
     l_iReturn = map_engine_init();
     X_ASSERT(l_iReturn == MAP_ENGINE_OK);
+
+    // init ihm
+    l_iReturn = ihm_init();
+    X_ASSERT(l_iReturn == IHM_OK);
+    X_LOG_TRACE("IHM initialized");
 
     // main loop
 

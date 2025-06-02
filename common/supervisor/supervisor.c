@@ -18,7 +18,7 @@ static bool checkEndCondition()
     X_ASSERT(false); //not implemented 
     return false;
 }
-*/
+
 
 
 

@@ -20,11 +20,18 @@ typedef struct strategy_s {
     exec_func_cb *execute;
 } StrategyWrapper;
 
-int strategy_wrapper__create(char *);
+typedef enum strategy_e {
+	STRATEGY_ASTAR,
+	STRATEGY_NB,
+} Strategy;
+
+int strategy_wrapper__init(char *, prep_func_cb *, exec_func_cb *);
 
 void strategy_wrapper__prepare(mat_t (*)[10]);
 
 void strategy_wrapper__execute(seq_t *, Point *, Point *);
+
+void strategy_wrapper__giveIDStrategieToFollow(int id);
 
 void strategy_wrapper__bindMap(mat_t (*)[10]);
 

@@ -42,6 +42,9 @@
 
 #define STRATEGY_MANAGER_API_VERSION VER(1, 0, 0)
 
+#define MAX_WRAPPER_PER_MANAGER 5
+#define MAP_SIZE 10
+
 // -- Strategy Manager Compatibility --
 #ifdef STRATEGY_MANAGER_IMPL_VERSION
 #if MIN(STRATEGY_MANAGER_IMPL_VERSION) != MIN(STRATEGY_MANAGER_API_VERSION)
@@ -88,8 +91,6 @@ void strategy_manager__delete();
 void strategy_manager__askStrat();
 
 void strategy_manager__giveIDStrategieToFollow(int);
-
-void strategy_manager__addStrategyWrapper(StrategyWrapper *);
 
 void strategy_manager__setMap();
 

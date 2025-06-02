@@ -23,13 +23,12 @@
 #include "../../helpers/util_macros.h"
 
 #define STRATEGY_MANAGER_IMPL_VERSION VER(1, 0, 0)
-#include "../include/strategy_manager.h"
+#include "strategy_manager.h"
 #include "../../StrategyWrapper/strategy_wrapper.h"
 
 #include "../../symbols/ret_codes.h"
 #include "../../common/supervisor/supervisor.h"
 
-#include "../../config.h"
 #include <stdio.h>
 #include "xLog.h"
 
@@ -45,12 +44,6 @@ static StrategyManager strategyManager;
 
 struct strategy_manager_s
 {
-	// TODO Ajouter à la conception
-	StrategyWrapper *listStrat[MAX_WRAPPER_PER_MANAGER]; // Array of pointers to individual wrappers
-	// TODO Ajouter à la conception
-	int currentStrategyID; // ID de la stratégie actuellement suivie
-	int listStratLen;
-
 	Status status;
 
 	mat_t matrix[MAP_SIZE][MAP_SIZE];
@@ -72,20 +65,14 @@ int strategy_manager__init()
 	/* ===== Variables locales ===== */
 
 	/* ===== Logique principale ===== */
+	astar_wrapper__init(); // Initialisation de la stratégie AStar
 
-	// strategyManager.listStrat = malloc(sizeof(StrategyWrapper) * MAX_WRAPPER_PER_MANAGER);
-	// strategyManager.listStratLen = 0;
 	X_LOG_TRACE("exiting strategy_manager__init()");
 
 	/* ===== Postconditions ===== */
     // X_ASSERT(strategyManager != NULL); // ⬅️ À décommenter. Pour les plus téméraires
 
 	return 1;
-}
-
-void strategy_manager__addStrategyWrapper(StrategyWrapper *strategyWrapper)
-{	
-	strategyManager.listStrat[strategyManager.listStratLen++] = strategyWrapper;	
 }
 
 void strategy_manager__setMap()
@@ -132,7 +119,7 @@ void strategy_manager__giveIDStrategieToFollow(int idStrat)
     // Déclare les variables temporaires
 
 	/* ===== Logique principale ===== */
-	strategyManager.currentStrategyID = idStrat;
+	strategy_wrapper__giveIDStrategieToFollow(idStrat); // 📌
 	supervisor__giveEndCondition(listEndCondition); // 📌
 
 	X_LOG_TRACE("exiting strategy_manager__giveIDStrategieToFollow()");

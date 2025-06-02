@@ -21,7 +21,7 @@
 #include "handleNetworkMessage.h"
 #include "idCard.h"
 #include "sensorManager.h"
-#include "StrategyManager/include/intervention_manager.h"
+#include "../common/InterventionManager/intervention_manager.h"
 #include "AStar/astar_wrapper.h"
 
 static const uint8_t s_aCLogPath[] = "inter.log";
@@ -95,9 +95,6 @@ int main()
     X_ASSERT(l_iReturn == XOS_LOG_OK);
 
 	intervention_manager__init();
-
-	AStarWrapper *astar = astar_wrapper__init();
-	intervention_manager__addStrategyWrapper(astar);
 	intervention_manager__giveIDStrategieToFollow(0);
 	intervention_manager__startInter();
 

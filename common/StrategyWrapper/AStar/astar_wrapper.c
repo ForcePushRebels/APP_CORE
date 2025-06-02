@@ -14,13 +14,15 @@ int grid[GRID_SIZE][GRID_SIZE];  // 0 for empty, 1 for obstacle
 static float GridHeuristic(void* fromNode, void* toNode, void* context);
 static const ASPathNodeSource PathNodeSource;
 
+static AStarWrapper astar_wrapper;
+
 int astar_wrapper__init()
 {	
-	strategy_wrapper__init("AStar");
-	
-	strategy_wrapper__bindPrepare(astar_wrapper__prepare);
-	
-	strategy_wrapper__bindExecute(astar_wrapper__execute);
+	strategy_wrapper__init(
+		"AStar",
+		astar_wrapper__prepare,
+		astar_wrapper__execute
+	);
 	
 	return 1;
 }

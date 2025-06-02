@@ -1,7 +1,7 @@
 #ifndef __ASTAR_WRAPPER__
 #define __ASTAR_WRAPPER__
 
-#include "strategy_wrapper.h"
+#include "../strategy_wrapper.h"
 
 //@Alias
 typedef StrategyWrapper AStarWrapper;

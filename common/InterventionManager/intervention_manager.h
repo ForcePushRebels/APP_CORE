@@ -39,13 +39,14 @@
 
 #include "../../helpers/util_macros.h"
 
-#include "../include/strategy_manager.h"
+#include "../StrategyManager/strategy_manager.h"
 
 #include "strategy_wrapper.h"
 
 #include "map_engine.h"
-#include "pilot.h"
-#include "sensorManager.h"
+#include "../propulsion/pilot.h"
+#include "../SensorManager/sensorManager.h"
+
 
 #define INTERVENTION_MANAGER_API_VERSION 	VER(1, 0, 0) // current header API version
 
@@ -69,9 +70,6 @@ int intervention_manager__init(void);
 void intervention_manager__askStrat();
 
 void intervention_manager__giveIDStrategieToFollow(int);
-
-
-void intervention_manager__addStrategyWrapper(StrategyWrapper *);
 
 	// Movement control
 

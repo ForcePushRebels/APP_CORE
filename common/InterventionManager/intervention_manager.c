@@ -21,12 +21,11 @@
 #include <stdlib.h>
 #include <math.h>
 
-#include "../../helpers/util_macros.h"
-#define INTERVENTION_MANAGER_IMPL_VERSION VER(1, 0, 0)
-#include "../include/intervention_manager.h"
+#include "../helpers/util_macros.h"
+#include "../symbols/ret_codes.h"
 
-#include "../../logger/log.h"
-#include "../../symbols/ret_codes.h"
+#define INTERVENTION_MANAGER_IMPL_VERSION VER(1, 0, 0)
+#include "intervention_manager.h"
 
 #define LOG_TAG "InterventionManager"
 
@@ -113,13 +112,6 @@ void intervention_manager__followTrajectory() {
 	intervention_manager__updateTrace();
 
 	// geo_positionner__sendTrace(); // 📌
-}
-
-void intervention_manager__addStrategyWrapper(StrategyWrapper *strategyWrapper)
-{
-	strategy_manager__addStrategyWrapper(strategyWrapper);
-
-	return; // ⬅️ À conserver. Retour explicite (void)
 }
 
 // @Override

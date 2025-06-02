@@ -282,6 +282,8 @@ void testPositionControl(void)
     {
         //position_control_advance(1000, 2.0);
         position_control_turn(M_PI, 1.0);
+        sleep(10);
+        position_control_stop();
         start = 1;
     }
     

@@ -70,9 +70,7 @@ static void *clientThreadFunc(void *p_ptArg);
 ///////////////////////////////////////////
 static void cleanupAndFreeClient(clientCtx *p_ptClient);
 static void clientThreadCleanup(clientCtx *p_ptClient);
-static bool parseMessageHeader(const uint8_t *p_ptucData,
-                               int p_iSize,
-                               uint8_t *p_ptucMsgType);
+static bool parseMessageHeader(const uint8_t *p_ptucData, int p_iSize, uint8_t *p_ptucMsgType);
 static clientCtx *findClientById(ClientID p_tClientId);
 static int addClient(clientCtx *p_ptClient);
 static int removeClient(clientCtx *p_ptClient);
@@ -148,9 +146,8 @@ int networkServerConfigure(const ServerConfig *p_ptConfig)
     memcpy(&s_ptServerInstance->t_sConfig, p_ptConfig, sizeof(ServerConfig));
 
     // configure the server address
-    s_ptServerInstance->t_tAddress = networkMakeAddress(
-        p_ptConfig->t_pcBindAddress ? p_ptConfig->t_pcBindAddress : "0.0.0.0",
-        p_ptConfig->t_usPort);
+    s_ptServerInstance->t_tAddress
+        = networkMakeAddress(p_ptConfig->t_pcBindAddress ? p_ptConfig->t_pcBindAddress : "0.0.0.0", p_ptConfig->t_usPort);
 
     // configure the server task
     s_ptServerInstance->t_tTask.t_ptTask = serverThreadFunc;
@@ -553,10 +550,7 @@ int networkServerSendToClient(ClientID p_tClientId, const void *p_pvData, int p_
 ///////////////////////////////////////////
 /// networkServerSendMessage
 ///////////////////////////////////////////
-int networkServerSendMessage(ClientID p_tClientId,
-                             uint8_t p_ucMsgType,
-                             const void *p_pvPayload,
-                             uint32_t p_ulPayloadSize)
+int networkServerSendMessage(ClientID p_tClientId, uint8_t p_ucMsgType, const void *p_pvPayload, uint32_t p_ulPayloadSize)
 {
     clientCtx *l_ptClient = findClientById(p_tClientId);
     if (l_ptClient == NULL)
@@ -615,21 +609,25 @@ int networkServerSendMessage(ClientID p_tClientId,
     }
 
     X_LOG_TRACE("Sent message type 0x%02X to client %u (%d bytes size + %d bytes message, %d bytes payload)",
-                p_ucMsgType, p_tClientId, l_iSizeResult, l_iMessageResult, p_ulPayloadSize);
+                p_ucMsgType,
+                p_tClientId,
+                l_iSizeResult,
+                l_iMessageResult,
+                p_ulPayloadSize);
     return SERVER_OK;
 }
 
 ///////////////////////////////////////////
 /// Helper function for complete TCP read
-/// 
+///
 /// CRITICAL: This function is absolutely necessary for the message protocol!
 /// TCP recv() can return fewer bytes than requested, even when all data is available.
 /// For example: requesting 1000 bytes might return only 300 bytes on first call.
-/// 
+///
 /// This is especially critical for our protocol that reads:
 /// 1. Size header (2 bytes) - must be read completely to avoid desync
 /// 2. Message data (variable size) - must match exactly the announced size
-/// 
+///
 /// Without this function, partial reads would break the entire protocol.
 ///////////////////////////////////////////
 static int networkReceiveComplete(NetworkSocket *p_ptSocket, uint8_t *p_pucBuffer, int p_iSize)
@@ -660,31 +658,31 @@ const char *networkServerGetErrorString(int p_iError)
 {
     switch (p_iError)
     {
-    case SERVER_OK:
-        return "Success";
-    case SERVER_INVALID_PARAM:
-        return "Invalid parameter";
-    case SERVER_MEMORY_ERROR:
-        return "Memory allocation error";
-    case SERVER_SOCKET_ERROR:
-        return "Socket error";
-    case SERVER_INVALID_STATE:
-        return "Invalid state";
-    case SERVER_THREAD_ERROR:
-        return "Thread creation error";
-    case SERVER_MAX_CLIENTS_REACHED:
-        return "Maximum clients reached";
-    case SERVER_NOT_RUNNING:
-        return "Server not running";
-    case SERVER_CLIENT_DISCONNECTED:
-        return "Client disconnected";
-    case SERVER_TIMEOUT:
-        return "Operation timed out";
-    case SERVER_CLIENT_NOT_FOUND:
-        return "Client not found";
-    case SERVER_ERROR:
-    default:
-        return "Unknown error";
+        case SERVER_OK:
+            return "Success";
+        case SERVER_INVALID_PARAM:
+            return "Invalid parameter";
+        case SERVER_MEMORY_ERROR:
+            return "Memory allocation error";
+        case SERVER_SOCKET_ERROR:
+            return "Socket error";
+        case SERVER_INVALID_STATE:
+            return "Invalid state";
+        case SERVER_THREAD_ERROR:
+            return "Thread creation error";
+        case SERVER_MAX_CLIENTS_REACHED:
+            return "Maximum clients reached";
+        case SERVER_NOT_RUNNING:
+            return "Server not running";
+        case SERVER_CLIENT_DISCONNECTED:
+            return "Client disconnected";
+        case SERVER_TIMEOUT:
+            return "Operation timed out";
+        case SERVER_CLIENT_NOT_FOUND:
+            return "Client not found";
+        case SERVER_ERROR:
+        default:
+            return "Unknown error";
     }
 }
 
@@ -786,7 +784,7 @@ static void *serverThreadFunc(void *p_pvArg)
 
     // Cache stop flag for better performance - flag rarely changes during normal operation
     int l_iStopFlag = atomic_load_explicit(&p_ptTaskCtx->a_iStopFlag, memory_order_acquire);
-    
+
     // main loop of the server
     while (p_ptServer->t_bRunning && l_iStopFlag != OS_TASK_STOP_REQUEST)
     {
@@ -795,7 +793,7 @@ static void *serverThreadFunc(void *p_pvArg)
 
         // Refresh stop flag periodically with relaxed ordering for performance
         l_iStopFlag = atomic_load_explicit(&p_ptTaskCtx->a_iStopFlag, memory_order_relaxed);
-        
+
         // check if the server should stop
         if (!p_ptServer->t_bRunning || l_iStopFlag == OS_TASK_STOP_REQUEST)
         {
@@ -824,8 +822,7 @@ static void *serverThreadFunc(void *p_pvArg)
             continue;
         }
 
-        X_LOG_TRACE("New client connection from %s:%d",
-                    l_tClientAddress.t_cAddress, l_tClientAddress.t_usPort);
+        X_LOG_TRACE("New client connection from %s:%d", l_tClientAddress.t_cAddress, l_tClientAddress.t_usPort);
 
         // check the number of clients before creating the new instance
         mutexLock(&p_ptServer->t_tMutex);
@@ -881,8 +878,7 @@ static void *serverThreadFunc(void *p_pvArg)
         int l_iTaskResult = osTaskCreate(&l_ptClient->t_tTask);
         if (l_iTaskResult != OS_TASK_SUCCESS)
         {
-            X_LOG_TRACE("Failed to create client thread: %s",
-                        osTaskGetErrorString(l_iTaskResult));
+            X_LOG_TRACE("Failed to create client thread: %s", osTaskGetErrorString(l_iTaskResult));
 
             // Error cleanup: remove from table, close socket, free memory
             removeClient(l_ptClient);
@@ -919,18 +915,18 @@ static void *clientThreadFunc(void *p_pvArg)
 
     // Cache stop flag for better performance in main client loop
     int l_iClientStopFlag = atomic_load_explicit(&p_ptClient->t_tTask.a_iStopFlag, memory_order_acquire);
-    int l_iLoopCounter = 0;  // Simple counter for periodic flag refresh
+    int l_iLoopCounter = 0; // Simple counter for periodic flag refresh
 
     // main loop of the client
-    while (p_ptClient->t_bConnected && p_ptServer->t_bRunning && 
-           l_iClientStopFlag != OS_TASK_STOP_REQUEST)
+    while (p_ptClient->t_bConnected && p_ptServer->t_bRunning && l_iClientStopFlag != OS_TASK_STOP_REQUEST)
     {
         // Periodically refresh stop flag every 10 iterations for better performance
-        if (++l_iLoopCounter >= 10) {
+        if (++l_iLoopCounter >= 10)
+        {
             l_iLoopCounter = 0;
             l_iClientStopFlag = atomic_load_explicit(&p_ptClient->t_tTask.a_iStopFlag, memory_order_relaxed);
         }
-        
+
         // STEP 1: First receive the size (2 bytes) - FIXED: use complete receive
         p_iReceived = networkReceiveComplete(p_ptClient->t_ptSocket, p_aucBuffer, sizeof(uint16_t));
 
@@ -1021,8 +1017,7 @@ static void *clientThreadFunc(void *p_pvArg)
         else
         {
             // error or disconnection
-            X_LOG_TRACE("Client %u disconnected or error: %s",
-                        p_ptClient->t_tId, networkGetErrorString(p_iReceived));
+            X_LOG_TRACE("Client %u disconnected or error: %s", p_ptClient->t_tId, networkGetErrorString(p_iReceived));
             clientThreadCleanup(p_ptClient);
             return NULL;
         }
@@ -1117,9 +1112,7 @@ static void clientThreadCleanup(clientCtx *p_ptClient)
 ///////////////////////////////////////////
 /// parseMessageHeader
 ///////////////////////////////////////////
-static bool parseMessageHeader(const uint8_t *p_ptucData,
-                               int p_iSize,
-                               uint8_t *p_ptucMsgType)
+static bool parseMessageHeader(const uint8_t *p_ptucData, int p_iSize, uint8_t *p_ptucMsgType)
 {
     if (p_ptucData == NULL || p_iSize < 1 || p_ptucMsgType == NULL)
     {

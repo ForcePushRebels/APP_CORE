@@ -31,10 +31,10 @@ typedef enum network_message_type
     ID_UPLOAD_MAP = 0x07,
 
     //====== SEND BY BOT ======
-    ID_INF_BATTERY = 0x10,
-    ID_INF_STATUS = 0x11,
-    ID_INF_POS = 0x12,
-    ID_INF_TIME = 0x13,
+    ID_INF_BATTERY = 0x0A,
+    ID_INF_STATUS = 0x0B,
+    ID_INF_POS = 0x0C,
+    ID_INF_TIME = 0x0D,
 
     ID_MAP_FRAGMENT = 0x20,
     ID_MAP_FULL = 0x21,

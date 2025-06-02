@@ -11,6 +11,7 @@ pub mod x_assert;
 pub mod x_log;
 pub mod hardware; 
 pub mod network;
+pub mod sensor_manager;
 
 // Module optionnel - décommentez si vous voulez utiliser le watchdog
 pub mod x_watchdog;

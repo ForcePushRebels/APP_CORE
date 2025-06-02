@@ -307,7 +307,7 @@ pub mod luminosity {
     }
 
     /// Lit la valeur du capteur de luminosité (0-1300)
-    pub fn read() -> Result<u16> {
+    pub fn get_floor_luminosity() -> Result<u16> {
         let ret = unsafe { ffi::lumpiz::lumpiz_luminosity_get() };
         if ret >= 0 {
             Ok(ret as u16)

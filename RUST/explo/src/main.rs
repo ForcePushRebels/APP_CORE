@@ -17,6 +17,7 @@ use common::{
     network::{
         server::{Server, ServerConfig}, 
     },
+    sensor_manager::SensorManager,
 };
 
 fn main() {
@@ -59,8 +60,12 @@ fn main() {
         write_log(&format!("Erreur init watchdog: {}", e));
     }
 
+    //demarrer le gestionnaire de capteurs
+    let mut sensor_manager = SensorManager::new();
+    x_assert(sensor_manager.start().is_ok());
+
     //start the server sur un thread dédié
-    let mut server = Server::new(ServerConfig::new("127.0.0.1".to_string(), 8080)).unwrap();
+    let mut server = Server::new(ServerConfig::new("0.0.0.0".to_string(), 8080)).unwrap();
     x_assert(server.start().is_ok());
 
 

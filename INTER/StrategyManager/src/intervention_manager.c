@@ -123,7 +123,8 @@ void intervention_manager__followTrajectory(InterventionManager *self) {
 
 	intervention_manager__computeAngleToPoint(self);
 
-	int max_speed, relative = 1;
+	int max_speed = 1;
+	int relative = 1;
 
 	if(self->angleToNextPoint == +M_PI_2)
 	{
@@ -277,7 +278,7 @@ void intervention_manager__startInter(InterventionManager *self)
 
 	intervention_manager__startTimer(self);
 
-	int roleRobot;
+	int roleRobot = 0;
 	sensor_manager__startMonitoring(roleRobot); // 📌
 
 	X_LOG_TRACE("exiting intervention_manager__startInter()");
@@ -302,7 +303,7 @@ void intervention_manager__stopInter(InterventionManager *self)
 	// Déclare les variables temporaires
 
 	/* ===== Logique principale ===== */
-	int decelerationFactor;
+	int decelerationFactor = 1;
 	pilot__stop(decelerationFactor); // 📌
 
 	intervention_manager__updateStatus(self, FIN_DE_MISSION);

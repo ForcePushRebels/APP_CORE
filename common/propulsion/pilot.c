@@ -402,7 +402,7 @@ void pilot_action_startMoves(void* arg)
     if (sz > 0)
     {
         Move move;
-        move_queue_pop(&g_moveQueue, &move);
+        move_queue_pop(&g_pilot.moveQueue, &move);
 
         // Notifier le début du mouvement
         intervention_manager__startMove();

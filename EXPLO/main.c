@@ -280,8 +280,8 @@ void testPositionControl(void)
     }
     if(start == 0)
     {
-        position_control_advance(500, 2.0);
-        //position_control_turn(-M_PI, 1.0);
+        //position_control_advance(1000, 2.0);
+        position_control_turn(M_PI, 1.0);
         start = 1;
     }
     
@@ -347,7 +347,7 @@ int main()
 
     // Configuration des logs - le chemin complet sera construit automatiquement
     t_logCtx t_LogConfig;
-    t_LogConfig.t_bLogToFile = true;
+    t_LogConfig.t_bLogToFile = false;
     t_LogConfig.t_bLogToConsole = true;
     strncpy(t_LogConfig.t_cLogPath, (const char*)s_aCLogPath, sizeof(t_LogConfig.t_cLogPath) - 1);
     t_LogConfig.t_cLogPath[sizeof(t_LogConfig.t_cLogPath) - 1] = '\0';
@@ -415,6 +415,8 @@ int main()
 
     // start server
     l_iReturn = networkServerStart();
+
+    X_LOG_TRACE("Lireturn %x", l_iReturn);
     X_ASSERT(l_iReturn == SERVER_OK);
 
     // init map engine
@@ -430,9 +432,9 @@ int main()
 
         // Envoyer le signal SOS en morse
         // sendMorseSOS();
-        testPilot(); // <-- Active cette ligne pour tester le pilotage
+        //testPilot(); // <-- Active cette ligne pour tester le pilotage
         // xTimerDelay(100); // Ajoute un petit délai pour éviter de saturer le CPU
-        // testPositionControl();
+        testPositionControl();
         // Pour envoyer des mises à jour périodiques, on devra attendre d'avoir un client connecté
         // et utiliser serverSendMessage à ce moment-là.
     }

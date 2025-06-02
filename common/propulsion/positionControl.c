@@ -15,7 +15,7 @@
 #define CORRECTION 1
 
 // Variable de position globale
-static Position_t g_robot_position = {0, 0, 0.0f};
+static Position_t g_robot_position = {0, 0, 0.0};
 static xOsMutexCtx g_position_mutex;
 
 // Structure de contrôle de position pour chaque roue
@@ -101,21 +101,20 @@ static int32_t angle_to_ticks(double angle_rad)
 // Fonction utilitaire pour mettre à jour la position du robot
 static void update_robot_position(int32_t left_ticks, int32_t right_ticks)
 {
-    mutexLock(&g_position_mutex);
-    static int32_t prev_left_ticks = 0;
-    static int32_t prev_right_ticks = 0;
-    int32_t delta_left_ticks = left_ticks - prev_left_ticks;
-    int32_t delta_right_ticks = right_ticks - prev_right_ticks;
-    prev_left_ticks = left_ticks;
-    prev_right_ticks = right_ticks;
-    
     // Calculer la variation d'angle en radians
     // 1 tick = 0.21 degrés = 0.00366 radians
-    double delta_angle = (delta_right_ticks * -ANGLE_PER_TICK_RAD) + (delta_left_ticks * ANGLE_PER_TICK_RAD);
+    double delta_angle = (right_ticks * -ANGLE_PER_TICK_RAD) + (left_ticks * ANGLE_PER_TICK_RAD);
     
     // Calculer la distance parcourue en cm
-    // 1 tick = 0.03 cm
-    double center_distance = ((delta_left_ticks + delta_right_ticks) * 0.039) / 2.0;
+    // 1 tick = 0.028 cm
+    double center_distance = ((abs(left_ticks) + abs(right_ticks)) * 0.028) / 2.0;
+    
+    // Déterminer le sens du mouvement
+    if (left_ticks < 0 || right_ticks < 0) {
+        center_distance = -center_distance;
+    }
+    
+    mutexLock(&g_position_mutex);
     
     // Mettre à jour l'angle absolu
     g_robot_position.angle_rad += delta_angle;
@@ -131,17 +130,16 @@ static void update_robot_position(int32_t left_ticks, int32_t right_ticks)
     double dy = center_distance * 10.0 * sin(avg_angle); // Calcul en double
     
     // Accumuler les changements de position directement en double
-    g_robot_position.x_mm += dx;
-    g_robot_position.y_mm += dy;
+    if (g_current_move_type == FORWARD) {
+        g_robot_position.x_mm += dx;
+        g_robot_position.y_mm += dy;
+    }
     
     X_LOG_TRACE("Position mise à jour - left_ticks: %d, right_ticks: %d",
                 left_ticks, right_ticks);
 
-    X_LOG_TRACE("Position mise à jour - X: %.2f mm, Y: %.2f mm, Angle: %.2f rad",
-                g_robot_position.x_mm, g_robot_position.y_mm, g_robot_position.angle_rad);
-    
-    X_LOG_TRACE("Position mise à jour - delta_left_ticks: %d, delta_right_ticks: %d, delta_angle: %.4f rad",
-                delta_left_ticks, delta_right_ticks, delta_angle);
+    X_LOG_TRACE("Position mise à jour - X: %.2f mm, Y: %.2f mm, Angle: %.2f°",
+                g_robot_position.x_mm, g_robot_position.y_mm, g_robot_position.angle_rad * 180.0 / M_PI);
     
     mutexUnlock(&g_position_mutex);
 }
@@ -160,10 +158,15 @@ static void* wheel_position_control_task(void* arg)
     double right_wheel_speed = 0.0, left_wheel_speed = 0.0;
     int32_t nb_decc_tick = 0, nb_acc_tick = 0;
     
-    // Variables pour stocker les valeurs précédentes des encodeurs
+    // Variables pour stocker les valeurs précédentes des encodeurs  
+    int32_t encoder_values[2] = {0, 0};
     static int32_t prev_left_ticks = 0;
     static int32_t prev_right_ticks = 0;
     static bool first_run = true;
+
+    GetMotorEncoderValues(encoder_values);
+    prev_left_ticks = encoder_values[0];
+    prev_right_ticks = encoder_values[1];
 
     while (control->running) 
     {
@@ -187,9 +190,6 @@ static void* wheel_position_control_task(void* arg)
         }
         first_run = false;
         
-        X_LOG_TRACE("Position mise à jour - X: %d mm, Y: %d mm, Angle: %.2f rad",
-                g_robot_position.x_mm, g_robot_position.y_mm, g_robot_position.angle_rad);
-
         // Mettre à jour les ticks actuels
         g_left_wheel.current_ticks = encoder_values[0];
         g_right_wheel.current_ticks = encoder_values[1];
@@ -365,6 +365,9 @@ static void* wheel_position_control_task(void* arg)
             motor_control_set_right_speed(right_wheel_speed);
         }
 
+        //TODO reset encoder values after limit reached
+        
+
         mutexUnlock(&control->mutex);
         xTimerDelay(REGULATION_PERIOD_MS);
     }
@@ -376,8 +379,7 @@ static void* wheel_position_control_task(void* arg)
 
 bool position_control_is_motion_finished(void)
 {
-    if (!g_initialized)
-        return true;
+    if (!g_initialized) return true;
 
     bool finished = false;
     mutexLock(&g_left_wheel.mutex);

@@ -404,6 +404,8 @@ int main()
 
     // start server
     l_iReturn = networkServerStart();
+
+    X_LOG_TRACE("Lireturn %x", l_iReturn);
     X_ASSERT(l_iReturn == SERVER_OK);
 
     // init map engine

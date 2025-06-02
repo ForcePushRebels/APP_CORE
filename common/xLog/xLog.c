@@ -7,24 +7,23 @@
 // Intellectual property of Christophe Benedetti
 ////////////////////////////////////////////////////////////
 
-
 #include "xLog.h"
 #include "xAssert.h"
 #include "xOsHorodateur.h"
-#include "xOsMutex.h"
 #include "xOsMemory.h"
+#include "xOsMutex.h"
 
-#include <stdio.h>
-#include <stdarg.h>
-#include <string.h>
-#include <stdatomic.h>
-#include <unistd.h>
+#include <ctype.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <libgen.h>
 #include <limits.h>
-#include <errno.h>
+#include <stdarg.h>
+#include <stdatomic.h>
+#include <stdio.h>
+#include <string.h>
 #include <sys/stat.h>
-#include <fcntl.h>
-#include <ctype.h>
+#include <unistd.h>
 
 // Logger state
 typedef enum
@@ -57,11 +56,11 @@ int xLogInit(t_logCtx *p_ptConfig)
     {
         return XOS_LOG_INVALID;
     }
-    
+
     // Store dereferenced values once for security
     const bool l_bLogToFile = p_ptConfig->t_bLogToFile;
     const bool l_bLogToConsole = p_ptConfig->t_bLogToConsole;
-    
+
     // Fixed bounds buffers
     char l_cConfigPath[XOS_LOG_PATH_SIZE] = {0};
     snprintf(l_cConfigPath, sizeof(l_cConfigPath), "%s", p_ptConfig->t_cLogPath);
@@ -108,10 +107,22 @@ int xLogInit(t_logCtx *p_ptConfig)
         char l_cExecutablePath[XOS_LOG_TEMP_BUFFER_SIZE] = {0};
         char l_cFullLogPath[XOS_LOG_PATH_SIZE] = {0};
         char l_cOriginalFileName[XOS_LOG_MAX_FILENAME_SIZE] = {0};
-        
-        // Copy original filename with fixed bounds
-        snprintf(l_cOriginalFileName, sizeof(l_cOriginalFileName), "%s", l_cConfigPath);
-        
+
+        // Check if the config path is too long for our filename buffer
+        size_t l_iConfigPathLen = strlen(l_cConfigPath);
+        if (l_iConfigPathLen >= sizeof(l_cOriginalFileName))
+        {
+            // Log filename too long - cannot use X_LOG_TRACE here as logging is not initialized yet
+            XOS_MEMORY_SANITIZE(&s_tLogConfig, sizeof(s_tLogConfig));
+            mutexUnlock(&s_tLogMutex);
+            mutexDestroy(&s_tLogMutex);
+            return XOS_LOG_SECURITY_ERROR;
+        }
+
+        // Copy original filename with fixed bounds - use strncpy for safety
+        strncpy(l_cOriginalFileName, l_cConfigPath, sizeof(l_cOriginalFileName) - 1);
+        l_cOriginalFileName[sizeof(l_cOriginalFileName) - 1] = '\0';
+
         // Validate filename security
         if (!isValidLogFileName(l_cOriginalFileName))
         {
@@ -121,7 +132,7 @@ int xLogInit(t_logCtx *p_ptConfig)
             mutexDestroy(&s_tLogMutex);
             return XOS_LOG_SECURITY_ERROR;
         }
-        
+
         // Get executable directory
         int l_iPathRet = xLogGetExecutablePath(l_cExecutablePath, sizeof(l_cExecutablePath));
         if (l_iPathRet < 0)
@@ -130,14 +141,15 @@ int xLogInit(t_logCtx *p_ptConfig)
             strncpy(l_cExecutablePath, ".", sizeof(l_cExecutablePath) - 1);
             l_cExecutablePath[sizeof(l_cExecutablePath) - 1] = '\0';
         }
-        
+
         // Construct full path securely with fixed bounds
-        int l_iSnprintfRet = snprintf(l_cFullLogPath, sizeof(l_cFullLogPath), "%s/%s", 
-                                      l_cExecutablePath, l_cOriginalFileName);
-        
-        // Check for formatting errors
-        if (l_iSnprintfRet < 0)
+        int l_iSnprintfRet
+            = snprintf(l_cFullLogPath, sizeof(l_cFullLogPath), "%s/%s", l_cExecutablePath, l_cOriginalFileName);
+
+        // Check for formatting errors or truncation
+        if (l_iSnprintfRet < 0 || l_iSnprintfRet >= (int)sizeof(l_cFullLogPath))
         {
+            // Full log path too long - cannot use X_LOG_TRACE here as logging is not initialized yet
             XOS_MEMORY_SANITIZE(&s_tLogConfig, sizeof(s_tLogConfig));
             XOS_MEMORY_SANITIZE(l_cOriginalFileName, sizeof(l_cOriginalFileName));
             XOS_MEMORY_SANITIZE(l_cExecutablePath, sizeof(l_cExecutablePath));
@@ -146,11 +158,11 @@ int xLogInit(t_logCtx *p_ptConfig)
             mutexDestroy(&s_tLogMutex);
             return XOS_LOG_ERROR;
         }
-        
+
         // Copy the constructed path back to config
         strncpy(s_tLogConfig.t_cLogPath, l_cFullLogPath, sizeof(s_tLogConfig.t_cLogPath) - 1);
         s_tLogConfig.t_cLogPath[sizeof(s_tLogConfig.t_cLogPath) - 1] = '\0';
-        
+
         // Clear sensitive temporary data
         XOS_MEMORY_SANITIZE(l_cOriginalFileName, sizeof(l_cOriginalFileName));
         XOS_MEMORY_SANITIZE(l_cExecutablePath, sizeof(l_cExecutablePath));
@@ -233,7 +245,7 @@ int xLogWrite(const char *p_ptkcFile, uint32_t p_ulLine, const char *p_ptkcForma
         char l_cFileCopy[XOS_LOG_PATH_SIZE] = {0};
         strncpy(l_cFileCopy, p_ptkcFile, sizeof(l_cFileCopy) - 1);
         l_cFileCopy[sizeof(l_cFileCopy) - 1] = '\0';
-        
+
         const char *l_pcBaseName = l_cFileCopy;
         const char *l_pcForwardSlashPtr = strrchr(l_cFileCopy, '/');
         if (l_pcForwardSlashPtr != NULL)
@@ -248,14 +260,14 @@ int xLogWrite(const char *p_ptkcFile, uint32_t p_ulLine, const char *p_ptkcForma
                 l_pcBaseName = l_pcBackSlashPtr + 1;
             }
         }
-        
+
         // Copy basename securely with fixed bounds
         strncpy(l_cSafeFileName, l_pcBaseName, sizeof(l_cSafeFileName) - 1);
         l_cSafeFileName[sizeof(l_cSafeFileName) - 1] = '\0';
-        
+
         // Sanitize filename to prevent log injection
         sanitizeLogContent(l_cSafeFileName, sizeof(l_cSafeFileName));
-        
+
         // Clear temporary file copy
         XOS_MEMORY_SANITIZE(l_cFileCopy, sizeof(l_cFileCopy));
     }
@@ -271,22 +283,22 @@ int xLogWrite(const char *p_ptkcFile, uint32_t p_ulLine, const char *p_ptkcForma
     int l_iVsnprintfRet = vsnprintf(l_cUserMsg, sizeof(l_cUserMsg) - 1, l_cFormatCopy, args);
     l_cUserMsg[sizeof(l_cUserMsg) - 1] = '\0';
     va_end(args);
-    
+
     // Check for formatting errors
     if (l_iVsnprintfRet < 0)
     {
         strncpy(l_cUserMsg, "[FORMAT_ERROR]", sizeof(l_cUserMsg) - 1);
         l_cUserMsg[sizeof(l_cUserMsg) - 1] = '\0';
     }
-    
+
     // Sanitize user message to prevent log injection
     sanitizeLogContent(l_cUserMsg, sizeof(l_cUserMsg));
 
     // Format complete log message with fixed bounds
-    int l_iSnprintfRet = snprintf(l_cFullMsg, sizeof(l_cFullMsg) - 1, "%s | %s:%u | %s\n",
-                                 l_cTimestamp, l_cSafeFileName, l_ulLineNumber, l_cUserMsg);
+    int l_iSnprintfRet = snprintf(
+        l_cFullMsg, sizeof(l_cFullMsg) - 1, "%s | %s:%u | %s\n", l_cTimestamp, l_cSafeFileName, l_ulLineNumber, l_cUserMsg);
     l_cFullMsg[sizeof(l_cFullMsg) - 1] = '\0';
-    
+
     // Check for formatting errors
     if (l_iSnprintfRet < 0)
     {
@@ -344,7 +356,7 @@ int xLogWrite(const char *p_ptkcFile, uint32_t p_ulLine, const char *p_ptkcForma
     XOS_MEMORY_SANITIZE(l_cUserMsg, sizeof(l_cUserMsg));
     XOS_MEMORY_SANITIZE(l_cFullMsg, sizeof(l_cFullMsg));
     XOS_MEMORY_SANITIZE(l_cFormatCopy, sizeof(l_cFormatCopy));
-    
+
     mutexUnlock(&s_tLogMutex);
     return (l_iRet == (int)MUTEX_OK) ? XOS_LOG_OK : l_iRet;
 }
@@ -382,12 +394,12 @@ int xLogClose(void)
         {
             // Flush failed, but continue with cleanup
         }
-        
+
         if (fclose(s_ptLogFile) == EOF)
         {
             // Close failed, but continue with cleanup
         }
-        
+
         s_ptLogFile = NULL;
     }
 
@@ -421,14 +433,14 @@ static int xLogGetExecutablePath(char *p_pcExecutablePath, size_t p_iSize)
     // Fixed bounds buffers
     char l_cExePath[XOS_LOG_TEMP_BUFFER_SIZE] = {0};
     char l_cExePathCopy[XOS_LOG_TEMP_BUFFER_SIZE] = {0};
-    
+
     ssize_t l_lPathLen = readlink("/proc/self/exe", l_cExePath, sizeof(l_cExePath) - 1);
     if (l_lPathLen == -1 || l_lPathLen == 0)
     {
         XOS_MEMORY_SANITIZE(l_cExePath, sizeof(l_cExePath));
         return -1;
     }
-    
+
     // Ensure null termination
     l_cExePath[l_lPathLen] = '\0';
 
@@ -477,7 +489,7 @@ static bool isValidLogFileName(const char *p_pcFileName)
     {
         return false;
     }
-    
+
     // Store filename pointer once for security
     const char *l_pcFilenamePtr = p_pcFileName;
     size_t l_iLen = strlen(l_pcFilenamePtr);
@@ -485,15 +497,14 @@ static bool isValidLogFileName(const char *p_pcFileName)
     {
         return false;
     }
-    
+
     // Check for path traversal attempts - single dereference per call
-    if (strstr(l_pcFilenamePtr, "..") != NULL ||
-        strstr(l_pcFilenamePtr, "/") != NULL ||
-        strstr(l_pcFilenamePtr, "\\") != NULL)
+    if (strstr(l_pcFilenamePtr, "..") != NULL || strstr(l_pcFilenamePtr, "/") != NULL
+        || strstr(l_pcFilenamePtr, "\\") != NULL)
     {
         return false;
     }
-    
+
     // Check for valid characters only - single dereference with local copy
     for (size_t i = 0; i < l_iLen; i++)
     {
@@ -503,14 +514,14 @@ static bool isValidLogFileName(const char *p_pcFileName)
             return false;
         }
     }
-    
+
     // Ensure it doesn't start with a dot - single dereference
     char l_cFirstChar = l_pcFilenamePtr[0];
     if (l_cFirstChar == '.')
     {
         return false;
     }
-    
+
     return true;
 }
 
@@ -522,17 +533,17 @@ static int secureOpenLogFile(const char *p_pcPath, FILE **p_ppFile)
     {
         return XOS_LOG_INVALID;
     }
-    
+
     // Store path pointer once for security
     const char *l_pcPathPtr = p_pcPath;
-    
+
     // Open with restricted permissions (owner read/write only)
     int l_iFd = open(l_pcPathPtr, O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW, S_IRUSR | S_IWUSR);
     if (l_iFd == -1)
     {
         return XOS_LOG_ERROR;
     }
-    
+
     // Convert file descriptor to FILE* - single dereference
     FILE *l_pFile = fdopen(l_iFd, "w");
     if (l_pFile == NULL)
@@ -540,10 +551,10 @@ static int secureOpenLogFile(const char *p_pcPath, FILE **p_ppFile)
         close(l_iFd);
         return XOS_LOG_ERROR;
     }
-    
+
     // Store result with single dereference
     *p_ppFile = l_pFile;
-    
+
     return XOS_LOG_OK;
 }
 
@@ -555,14 +566,14 @@ static void sanitizeLogContent(char *p_pcContent, size_t p_iMaxSize)
     {
         return;
     }
-    
+
     // Store content pointer once for security
     char *l_pcContentPtr = p_pcContent;
-    
+
     for (size_t i = 0; i < p_iMaxSize && l_pcContentPtr[i] != '\0'; i++)
     {
         char c = l_pcContentPtr[i];
-        
+
         // Replace control characters (except tab and space) with underscore
         if ((c < 0x20 && c != '\t') || c == 0x7F)
         {

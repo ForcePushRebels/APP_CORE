@@ -135,11 +135,14 @@ static void update_robot_position(int32_t left_ticks, int32_t right_ticks)
         g_robot_position.y_mm += dy;
     }
     
-    X_LOG_TRACE("Position mise à jour - left_ticks: %d, right_ticks: %d",
-                left_ticks, right_ticks);
+    //X_LOG_TRACE("Position mise à jour - left_ticks: %d, right_ticks: %d",
+    //            left_ticks, right_ticks);
 
-    X_LOG_TRACE("Position mise à jour - X: %.2f mm, Y: %.2f mm, Angle: %.2f°",
-                g_robot_position.x_mm, g_robot_position.y_mm, g_robot_position.angle_rad * 180.0 / M_PI);
+    //X_LOG_TRACE("Position mise à jour - X: %.2f mm, Y: %.2f mm, Angle: %.2f rad",
+    //        g_robot_position.x_mm, g_robot_position.y_mm, g_robot_position.angle_rad);
+    
+    //X_LOG_TRACE("Position mise à jour - delta_left_ticks: %d, delta_right_ticks: %d, delta_angle: %.4f rad",
+    //            delta_left_ticks, delta_right_ticks, delta_angle);
     
     mutexUnlock(&g_position_mutex);
 }
@@ -190,6 +193,9 @@ static void* wheel_position_control_task(void* arg)
         }
         first_run = false;
         
+        //X_LOG_TRACE("Position mise à jour - X: %d mm, Y: %d mm, Angle: %.2f rad",
+        //        g_robot_position.x_mm, g_robot_position.y_mm, g_robot_position.angle_rad);
+
         // Mettre à jour les ticks actuels
         g_left_wheel.current_ticks = encoder_values[0];
         g_right_wheel.current_ticks = encoder_values[1];

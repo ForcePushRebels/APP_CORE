@@ -525,5 +525,3 @@ file(WRITE ${PRESETS_FILE} [=[
   ]
 }
 ]=])
-
-

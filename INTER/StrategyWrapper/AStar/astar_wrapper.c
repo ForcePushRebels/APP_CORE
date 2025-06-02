@@ -32,7 +32,6 @@ void astar_wrapper__delete(AStarWrapper *self) {
 
 	strategy_wrapper__delete(self);
 	
-	return 1;
 }
 
 //@Override

@@ -243,7 +243,7 @@ void intervention_manager__sendPointsSelection(InterventionManager *self, Point 
 	// Déclare les variables temporaires
 
 	/* ===== Logique principale ===== */
-	self->listZI = listPoints;
+	// self->listZI = listPoints;
 
 	X_LOG_TRACE("exiting intervention_manager__sendPointsSelection()");
 

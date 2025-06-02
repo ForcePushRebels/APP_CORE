@@ -30,6 +30,7 @@
 #include "../../common/supervisor/supervisor.h"
 
 #include "../../config.h"
+#include <stdio.h>
 #include "xLog.h"
 
 #define LOG_TAG "StrategyManager"

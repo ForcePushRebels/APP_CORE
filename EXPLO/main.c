@@ -325,7 +325,18 @@ void testPilot(void)
         break;
 
     case 3:
-        // Tu peux ajouter d'autres phases ici si besoin
+        // Attendre 5 secondes à l'arrêt, puis goTo
+        if (now - phase_start_time > 5000)
+        {
+            X_LOG_TRACE("Pilot test: GoTo (1000, 1000)");
+            pilot_goTo(1000, 1000, 2); // Va à (1000, 1000) depuis (0,0)
+            phase_start_time = now;
+            phase = 4;
+        }
+        break;
+
+    case 4:
+        // Fin du test, tu peux ajouter d'autres phases ici si besoin
         break;
     }
 }

@@ -497,6 +497,10 @@ int16_t position_control_stop(void)
     mutexUnlock(&g_right_wheel.mutex);
     mutexUnlock(&g_left_wheel.mutex);
 
+    mutexLock(&g_speed_mutex);
+    g_common_target_speed = 0.0;
+    mutexUnlock(&g_speed_mutex);
+
     return 0;
 }
 

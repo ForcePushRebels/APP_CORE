@@ -348,7 +348,7 @@ static void *pilot_task(void *p_pttArg)
         }   
         else
         {
-            X_LOG_TRACE("pilot_task: polling, state=%d, motion_finished=%d", g_state, position_control_is_motion_finished());
+            //X_LOG_TRACE("pilot_task: polling, state=%d, motion_finished=%d", g_state, position_control_is_motion_finished());
 
             if ((g_state == PILOT_STATE_MOVING || g_state == PILOT_STATE_MOVE_IN_PROGRESS) &&
                 position_control_is_motion_finished())

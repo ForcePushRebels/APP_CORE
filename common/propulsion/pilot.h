@@ -174,6 +174,10 @@ typedef struct
     Direction currentDirection;
     void* moveTodo; // mq<Move>
     float distanceMeter;
+    // Champs pour la commande goTo
+    double gotoTargetX;
+    double gotoTargetY;
+    int gotoMaxSpeed;
     xOsTimerCtx positionWatcherTimer;
     xOsTimerCtx movementTimer;
     xOsTaskCtx pilotTask;

@@ -15,6 +15,7 @@
 #include "sensorManager.h"
 #include <stdio.h>
 #include "math.h"
+#include "positionControl.h"
 
 /* **************************************************** Private macros *************************************************** */
 #define MAP_DEBUG 0
@@ -32,13 +33,6 @@ typedef struct
     uint8_t discovery_percent;
     int interest_area_count;
 } map_engine_t;
-
-typedef struct
-{
-    int16_t x_mm;
-    int16_t y_mm;
-    float angle_rad;
-} position_t;
 
 typedef struct
 {
@@ -232,14 +226,6 @@ int map_engine_get_discovery_percent()
     return map_engine.discovery_percent;
 }
 
-position_t get_pos()
-{
-    return (position_t){
-        .x_mm = 150,
-        .y_mm = 150,
-        .angle_rad = 0,
-    };
-}
 
 int map_engine_update_vision(uint16_t *sensor_data, uint8_t sensor_count)
 {
@@ -257,7 +243,8 @@ int map_engine_update_vision(uint16_t *sensor_data, uint8_t sensor_count)
     point_t points[SENSOR_MANAGER_SENSORS_COUNT] = {0};
     uint8_t points_count = 0;
 
-    position_t robot_pos = get_pos();
+    Position_t robot_pos;
+    position_control_get_position(&robot_pos);
     float angle = robot_pos.angle_rad;               // + lidar angle relative
     int16_t offset_x = robot_pos.x_mm + cosf(angle); // * lidar->dist_to_center;
     int16_t offset_y = robot_pos.y_mm + sinf(angle); // * lidar->dist_to_center;
@@ -310,7 +297,8 @@ int map_engine_update_floor_sensor(uint16_t floor_sensor)
         return MAP_ENGINE_OK;
     }
 
-    position_t robot_pos = get_pos();
+    Position_t robot_pos;
+    position_control_get_position(&robot_pos);
     int16_t grid_x = robot_pos.x_mm / MAP_CELL_SIZE_MM;
     int16_t grid_y = robot_pos.y_mm / MAP_CELL_SIZE_MM;
     if (grid_x < 0 || grid_x >= MAP_WIDTH || grid_y < 0 || grid_y >= MAP_HEIGHT)

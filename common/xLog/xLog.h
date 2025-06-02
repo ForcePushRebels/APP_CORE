@@ -10,9 +10,9 @@
 #ifndef XOS_LOG_H_
 #define XOS_LOG_H_
 
-#include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
 // Log error codes
 #define XOS_LOG_OK 0x9E82F70
@@ -23,13 +23,13 @@
 #define XOS_LOG_SECURITY_ERROR 0x9E82F75
 
 // Log buffer sizes - FIXED BOUNDS for security
-#define XOS_LOG_PATH_SIZE 256
+#define XOS_LOG_PATH_SIZE 512
 #define XOS_LOG_MSG_SIZE 1024
 #define XOS_LOG_MAX_FILENAME_SIZE 128
 #define XOS_LOG_TIMESTAMP_SIZE 32
 #define XOS_LOG_BASENAME_SIZE 64
-#define XOS_LOG_FULL_MSG_SIZE (XOS_LOG_MSG_SIZE + 128)  // Fixed calculation
-#define XOS_LOG_TEMP_BUFFER_SIZE 256  // For temporary operations
+#define XOS_LOG_FULL_MSG_SIZE (XOS_LOG_MSG_SIZE + 128) // Fixed calculation
+#define XOS_LOG_TEMP_BUFFER_SIZE 256                   // For temporary operations
 
 // Log configuration structure
 typedef struct

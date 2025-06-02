@@ -7,25 +7,26 @@
 ////////////////////////////////////////////////////////////
 
 // system includes
-#include <stdio.h>
-#include <unistd.h>
-#include <string.h>
 #include <math.h>
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
 
 // project includes
-#include "hardwareAbstraction.h"
-#include "xNetwork.h"
-#include "xLog.h"
-#include "xAssert.h"
-#include "watchdog.h"
-#include "networkServer.h"
 #include "handleNetworkMessage.h"
+#include "hardwareAbstraction.h"
 #include "idCard.h"
-#include "sensorManager.h"
 #include "motorControl.h"
-#include "xTimer.h"
+#include "networkServer.h"
 #include "pilot.h"
 #include "positionControl.h"
+#include "sensorManager.h"
+#include "watchdog.h"
+#include "xAssert.h"
+#include "xLog.h"
+#include "xNetwork.h"
+#include "xTimer.h"
+#include "safetyController.h"
 
 #include "map_engine.h"
 
@@ -106,53 +107,53 @@ void testMotors(void)
     // Différentes phases de test
     switch (test_phase)
     {
-    case 0:                                // Moteur gauche en avant
-        motor_control_set_left_speed(2.0); // 2 rad/s
-        motor_control_set_right_speed(0.0);
-        X_LOG_TRACE("Test phase 0: Left motor forward");
-        break;
+        case 0:                                // Moteur gauche en avant
+            motor_control_set_left_speed(2.0); // 2 rad/s
+            motor_control_set_right_speed(0.0);
+            X_LOG_TRACE("Test phase 0: Left motor forward");
+            break;
 
-    case 1:                                 // Moteur gauche en arrière
-        motor_control_set_left_speed(-2.0); // -2 rad/s
-        motor_control_set_right_speed(0.0);
-        X_LOG_TRACE("Test phase 1: Left motor backward");
-        break;
+        case 1:                                 // Moteur gauche en arrière
+            motor_control_set_left_speed(-2.0); // -2 rad/s
+            motor_control_set_right_speed(0.0);
+            X_LOG_TRACE("Test phase 1: Left motor backward");
+            break;
 
-    case 2:                                 // Moteur droit en avant
-        motor_control_set_right_speed(2.0); // 2 rad/s
-        motor_control_set_left_speed(0.0);
-        X_LOG_TRACE("Test phase 2: Right motor forward");
-        break;
+        case 2:                                 // Moteur droit en avant
+            motor_control_set_right_speed(2.0); // 2 rad/s
+            motor_control_set_left_speed(0.0);
+            X_LOG_TRACE("Test phase 2: Right motor forward");
+            break;
 
-    case 3:                                  // Moteur droit en arrière
-        motor_control_set_right_speed(-2.0); // -2 rad/s
-        motor_control_set_left_speed(0.0);
-        X_LOG_TRACE("Test phase 3: Right motor backward");
-        break;
+        case 3:                                  // Moteur droit en arrière
+            motor_control_set_right_speed(-2.0); // -2 rad/s
+            motor_control_set_left_speed(0.0);
+            X_LOG_TRACE("Test phase 3: Right motor backward");
+            break;
 
-    case 4: // Les deux moteurs en avant
-        motor_control_set_left_speed(2.0);
-        motor_control_set_right_speed(2.0);
-        X_LOG_TRACE("Test phase 4: Both motors forward");
-        break;
+        case 4: // Les deux moteurs en avant
+            motor_control_set_left_speed(2.0);
+            motor_control_set_right_speed(2.0);
+            X_LOG_TRACE("Test phase 4: Both motors forward");
+            break;
 
-    case 5: // Les deux moteurs en arrière
-        motor_control_set_left_speed(-2.0);
-        motor_control_set_right_speed(-2.0);
-        X_LOG_TRACE("Test phase 5: Both motors backward");
-        break;
+        case 5: // Les deux moteurs en arrière
+            motor_control_set_left_speed(-2.0);
+            motor_control_set_right_speed(-2.0);
+            X_LOG_TRACE("Test phase 5: Both motors backward");
+            break;
 
-    case 6: // Rotation gauche (moteur gauche en arrière, droit en avant)
-        motor_control_set_left_speed(-2.0);
-        motor_control_set_right_speed(2.0);
-        X_LOG_TRACE("Test phase 6: Left rotation");
-        break;
+        case 6: // Rotation gauche (moteur gauche en arrière, droit en avant)
+            motor_control_set_left_speed(-2.0);
+            motor_control_set_right_speed(2.0);
+            X_LOG_TRACE("Test phase 6: Left rotation");
+            break;
 
-    case 7: // Rotation droite (moteur gauche en avant, droit en arrière)
-        motor_control_set_left_speed(2.0);
-        motor_control_set_right_speed(-2.0);
-        X_LOG_TRACE("Test phase 7: Right rotation");
-        break;
+        case 7: // Rotation droite (moteur gauche en avant, droit en arrière)
+            motor_control_set_left_speed(2.0);
+            motor_control_set_right_speed(-2.0);
+            X_LOG_TRACE("Test phase 7: Right rotation");
+            break;
     }
 
     // Afficher les vitesses actuelles
@@ -245,10 +246,12 @@ void testPositionControl(void)
     static uint64_t last_position_update = 0;
     uint64_t current_time = xTimerGetCurrentMs();
     Position_t current_position;
-    
+
     // Afficher la position toutes les 500ms
-    if (current_time - last_position_update > 500) {
-        if (position_control_get_position(&current_position) == 0) {
+    if (current_time - last_position_update > 500)
+    {
+        if (position_control_get_position(&current_position) == 0)
+        {
             X_LOG_TRACE("Robot position - X: %d mm, Y: %d mm, Angle: %.2f rad (%.1f°)",
                         current_position.x_mm,
                         current_position.y_mm,
@@ -257,7 +260,7 @@ void testPositionControl(void)
         }
         last_position_update = current_time;
     }
-    
+
     // Changer de phase toutes les 5 secondes
     if (current_time - last_phase_time > 5000)
     {
@@ -267,9 +270,10 @@ void testPositionControl(void)
         // Arrêter le mouvement avant de changer de phase
         position_control_stop();
         xTimerDelay(1000); // Attendre 1000ms pour stabilisation
-        
+
         // Afficher la position finale de la phase précédente
-        if (position_control_get_position(&current_position) == 0) {
+        if (position_control_get_position(&current_position) == 0)
+        {
             X_LOG_TRACE("Phase %d completed - Final position: X: %d mm, Y: %d mm, Angle: %.2f rad (%.1f°)",
                         test_phase,
                         current_position.x_mm,
@@ -278,13 +282,12 @@ void testPositionControl(void)
                         current_position.angle_rad * 180.0 / M_PI);
         }
     }
-    if(start == 0)
+    if (start == 0)
     {
-        position_control_advance(500, 2.0);
-        //position_control_turn(-M_PI, 1.0);
+        //position_control_advance(1000, 2.0);
+        position_control_turn(M_PI, 1.0);
         start = 1;
     }
-    
 }
 void testPilot(void)
 {
@@ -295,40 +298,114 @@ void testPilot(void)
 
     switch (phase)
     {
-    case 0:
-        X_LOG_TRACE("Pilot test: Advance 1000mm");
-        pilot_advance(1000, 2.0);
-        phase_start_time = now;
-        phase = 1;
-        break;
-
-    case 1:
-        // Stop après 3 secondes
-        if (now - phase_start_time > 3000)
-        {
-            X_LOG_TRACE("Pilot test: STOP");
-            pilot_stop();
+        case 0:
+            X_LOG_TRACE("Pilot test: Advance 1000mm");
+            pilot_advance(1000, 2.0);
             phase_start_time = now;
-            phase = 2;
-        }
-        break;
+            phase = 1;
+            break;
 
-    case 2:
-        // Attendre 2 secondes à l'arrêt, puis rotation
-        if (now - phase_start_time > 2000)
-        {
-            X_LOG_TRACE("Pilot test: Turn 90 deg left");
-            pilot_turn(M_PI/2, 1.0, true); // Tourner de 90° à gauche (relatif)
-            phase_start_time = now;
-            phase = 3;
-        }
-        break;
+        case 1:
+            // Stop après 3 secondes
+            if (now - phase_start_time > 3000)
+            {
+                X_LOG_TRACE("Pilot test: STOP");
+                pilot_stop();
+                phase_start_time = now;
+                phase = 2;
+            }
+            break;
+
+        case 2:
+            // Attendre 2 secondes à l'arrêt, puis rotation
+            if (now - phase_start_time > 2000)
+            {
+                X_LOG_TRACE("Pilot test: Turn 90 deg left");
+                pilot_turn(M_PI / 2, 1.0, true); // Tourner de 90° à gauche (relatif)
+                phase_start_time = now;
+                phase = 3;
+            }
+            break;
 
     case 3:
-        // Tu peux ajouter d'autres phases ici si besoin
+        // Attendre 5 secondes à l'arrêt, puis goTo
+        if (now - phase_start_time > 5000)
+        {
+            X_LOG_TRACE("Pilot test: GoTo (1000, 1000)");
+            pilot_goTo(1000, 1000, 2); // Va à (1000, 1000) depuis (0,0)
+            phase_start_time = now;
+            phase = 4;
+        }
+        break;
+
+    case 4:
+        // Fin du test, tu peux ajouter d'autres phases ici si besoin
         break;
     }
 }
+
+void *testNetworkCommunicationThread(void *p_ptTaskArg)
+{
+    X_LOG_TRACE("Test network communication");
+
+    xOsTaskCtx *l_ptTask = (xOsTaskCtx *)p_ptTaskArg;
+
+    int batteryLevel = 92;
+    short xPosition = 128;
+    short yPosition = 129;
+    float theta = 130.0f;
+
+    char l_cPosition[sizeof(short) + sizeof(short) + sizeof(float)] = {0};
+    memcpy(l_cPosition, &xPosition, sizeof(xPosition));
+    memcpy(l_cPosition + sizeof(xPosition), &yPosition, sizeof(yPosition));
+    memcpy(l_cPosition + sizeof(xPosition) + sizeof(yPosition), &theta, sizeof(theta));
+
+    while (true)
+    {
+        batteryLevel = GetBatteryLevel();
+
+        //exit(0);
+        int l_iReturn = networkServerSendMessage(1, ID_INF_BATTERY, (uint8_t *)&batteryLevel, sizeof(batteryLevel));
+        if (l_iReturn != SERVER_OK)
+        {
+            // X_LOG_TRACE("Failed to send battery level");
+        }
+        l_iReturn = networkServerSendMessage(1, ID_INF_POS, (uint8_t *)l_cPosition, sizeof(l_cPosition));
+        if (l_iReturn != SERVER_OK)
+        {
+            // X_LOG_TRACE("Failed to send position");
+        }
+
+        // 500ms
+        usleep(500 * 1000);
+    }
+
+    return NULL;
+}
+
+int testNetworkCommunication(void)
+{
+    //create a thread
+    xOsTaskCtx l_tTask;
+    l_tTask.t_ptTask = (void *)testNetworkCommunicationThread;
+    l_tTask.t_ptTaskArg = NULL;
+    l_tTask.t_iPriority = 10;
+    l_tTask.t_ulStackSize = 1024;
+    l_tTask.t_iId = 0;
+    l_tTask.t_iState = OS_TASK_STATUS_READY;
+    atomic_init(&l_tTask.a_iStopFlag, OS_TASK_SECURE_FLAG);
+
+    osTaskCreate(&l_tTask);
+
+    return 0;
+}
+
+
+void test_setMovementHandler(clientCtx *p_ptClient, const network_message_t *p_ptMessage)
+{
+    X_LOG_TRACE("Received set movement id: %d", p_ptMessage->t_ptucPayload[0]);
+}
+
 
 int main()
 {
@@ -336,9 +413,9 @@ int main()
 
     // Configuration des logs - le chemin complet sera construit automatiquement
     t_logCtx t_LogConfig;
-    t_LogConfig.t_bLogToFile = true;
+    t_LogConfig.t_bLogToFile = false;
     t_LogConfig.t_bLogToConsole = true;
-    strncpy(t_LogConfig.t_cLogPath, (const char*)s_aCLogPath, sizeof(t_LogConfig.t_cLogPath) - 1);
+    strncpy(t_LogConfig.t_cLogPath, (const char *)s_aCLogPath, sizeof(t_LogConfig.t_cLogPath) - 1);
     t_LogConfig.t_cLogPath[sizeof(t_LogConfig.t_cLogPath) - 1] = '\0';
 
     // initialisation des logs
@@ -364,7 +441,7 @@ int main()
 
     ServerConfig l_tServerConfig = networkServerCreateDefaultConfig();
     l_tServerConfig.t_usPort = 8080;
-    l_tServerConfig.t_pcBindAddress = "127.0.0.1";
+    l_tServerConfig.t_pcBindAddress = "0.0.0.0";
     l_tServerConfig.t_iMaxClients = 10;
     l_tServerConfig.t_iBacklog = 5;
     l_tServerConfig.t_bUseTimeout = false;
@@ -404,6 +481,8 @@ int main()
 
     // start server
     l_iReturn = networkServerStart();
+
+    X_LOG_TRACE("Lireturn %x", l_iReturn);
     X_ASSERT(l_iReturn == SERVER_OK);
 
     // init map engine
@@ -411,6 +490,10 @@ int main()
     X_ASSERT(l_iReturn == MAP_ENGINE_OK);
 
     // main loop
+    //
+    //testNetworkCommunication();
+
+    safetyControllerInit();
 
     while (1)
     {
@@ -419,9 +502,9 @@ int main()
 
         // Envoyer le signal SOS en morse
         // sendMorseSOS();
-        testPilot(); // <-- Active cette ligne pour tester le pilotage
+        //testPilot(); // <-- Active cette ligne pour tester le pilotage
         // xTimerDelay(100); // Ajoute un petit délai pour éviter de saturer le CPU
-        // testPositionControl();
+        testPositionControl();
         // Pour envoyer des mises à jour périodiques, on devra attendre d'avoir un client connecté
         // et utiliser serverSendMessage à ce moment-là.
     }

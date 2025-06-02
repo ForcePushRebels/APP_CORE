@@ -1,10 +1,6 @@
 {
-    "files.associations": {
-        "crc32.h": "c",
-        "xtask.h": "c",
-        "hardwareabstraction.h": "c",
-        "error.h": "c",
-        "xosmutex.h": "c",
-        "xoshorodateur.h": "c"
-    }
+    "cmake.copyCompileCommands": "${workspaceFolder}/build/compile_commands.json",
+    "clangd.arguments": [
+        "--compile-commands-dir=${workspaceFolder}/build"
+    ]
 }

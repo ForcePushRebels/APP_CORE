@@ -312,7 +312,7 @@ int main()
     // Configuration des logs - le chemin complet sera construit automatiquement
     t_logCtx t_LogConfig;
     t_LogConfig.t_bLogToFile = true;
-    t_LogConfig.t_bLogToConsole = true;
+    t_LogConfig.t_bLogToConsole = false;
     strncpy(t_LogConfig.t_cLogPath, (const char*)s_aCLogPath, sizeof(t_LogConfig.t_cLogPath) - 1);
     t_LogConfig.t_cLogPath[sizeof(t_LogConfig.t_cLogPath) - 1] = '\0';
 

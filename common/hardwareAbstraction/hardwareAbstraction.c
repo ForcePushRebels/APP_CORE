@@ -185,7 +185,15 @@ int GetBatteryLevel()
 {
     X_ASSERT(t_bHardwareAbstractionInitialized == true);
 
-    return mrpiz_battery_level();
+    int l_iValue = mrpiz_battery_level();
+
+    if (l_iValue == -1)
+    {
+        X_LOG_TRACE("Failed to read battery level");
+        return -1;
+    }
+
+    return l_iValue;
 }
 
 ////////////////////////////////////////////////////////////
@@ -267,7 +275,7 @@ int GetFloorSensorValue()
     int l_iValue = lumpiz_luminosity_get();
     if (l_iValue == -1)
     {
-        X_LOG_TRACE("Failed to read floor sensor");
+        //X_LOG_TRACE("Failed to read floor sensor");
         return -1;
     }
 

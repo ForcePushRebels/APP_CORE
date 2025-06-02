@@ -580,6 +580,7 @@ int32_t pilot_init()
     // Configure task function
     g_pilot.pilotTask.t_ptTask = pilot_task;
     g_pilot.pilotTask.t_ptTaskArg = NULL;
+    atomic_init(&g_pilot.pilotTask.a_iStopFlag, OS_TASK_SECURE_FLAG);
 
     l_iret = osTaskCreate(&g_pilot.pilotTask);
     if (l_iret != OS_TASK_SUCCESS)

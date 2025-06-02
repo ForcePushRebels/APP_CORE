@@ -1,0 +1,9 @@
+---
+BasedOnStyle: Microsoft
+ColumnLimit: 125
+IndentCaseLabels: true
+BinPackArguments: false
+BinPackParameters : false
+BreakBeforeBinaryOperators: All
+CommentPragmas: '^'
+...

@@ -31,7 +31,7 @@
 
 // chemin des logs avec l'executable en chemin de l'executable
 static const uint8_t s_aCLogPath[] = "explo.log";
-
+int start = 0;
 // Définition des durées pour le code morse (en millisecondes)
 #define UNIT_TIME 300
 #define SHORT_SIGNAL (UNIT_TIME)
@@ -163,6 +163,7 @@ void testMotors(void)
 }
 
 // Fonction de test du hardware abstraction layer
+/*
 void testHardwareAbstraction(void)
 {
     static uint8_t test_phase = 0;
@@ -235,14 +236,28 @@ void testHardwareAbstraction(void)
         break;
     }
 }
-
+*/
 // Fonction de test du contrôle de position
 void testPositionControl(void)
 {
     static uint8_t test_phase = 0;
     static uint64_t last_phase_time = 0;
+    static uint64_t last_position_update = 0;
     uint64_t current_time = xTimerGetCurrentMs();
-
+    Position_t current_position;
+    
+    // Afficher la position toutes les 500ms
+    if (current_time - last_position_update > 500) {
+        if (position_control_get_position(&current_position) == 0) {
+            X_LOG_TRACE("Robot position - X: %d mm, Y: %d mm, Angle: %.2f rad (%.1f°)",
+                        current_position.x_mm,
+                        current_position.y_mm,
+                        current_position.angle_rad,
+                        current_position.angle_rad * 180.0 / M_PI);
+        }
+        last_position_update = current_time;
+    }
+    
     // Changer de phase toutes les 5 secondes
     if (current_time - last_phase_time > 5000)
     {
@@ -252,56 +267,66 @@ void testPositionControl(void)
         // Arrêter le mouvement avant de changer de phase
         position_control_stop();
         xTimerDelay(1000); // Attendre 1000ms pour stabilisation
+        
+        // Afficher la position finale de la phase précédente
+        if (position_control_get_position(&current_position) == 0) {
+            X_LOG_TRACE("Phase %d completed - Final position: X: %d mm, Y: %d mm, Angle: %.2f rad (%.1f°)",
+                        test_phase,
+                        current_position.x_mm,
+                        current_position.y_mm,
+                        current_position.angle_rad,
+                        current_position.angle_rad * 180.0 / M_PI);
+        }
     }
-
-    // Différentes phases de test
-    switch (test_phase)
+    if(start == 0)
     {
-    case 0: // Avancer de 500mm
-        X_LOG_TRACE("Test phase 0: Advance 500mm");
-        position_control_advance(500, 2.0); // 500mm à 2 rad/s
-        break;
-
-    case 1: // Rotation à gauche de π/2 radians (90 degrés)
-        X_LOG_TRACE("Test phase 1: Rotate left π/2 rad (90°)");
-        position_control_turn(M_PI / 2, 2.0); // π/2 rad à 2 rad/s
-        break;
-
-    case 2: // Avancer de 300mm
-        X_LOG_TRACE("Test phase 2: Advance 300mm");
-        position_control_advance(300, 2.0); // 300mm à 2 rad/s
-        break;
-
-    case 3: // Rotation à droite de π radians (180 degrés)
-        X_LOG_TRACE("Test phase 3: Rotate right π rad (180°)");
-        position_control_turn(-M_PI, 2.0); // -π rad à 2 rad/s
-        break;
-
-    case 4: // Avancer de 200mm
-        X_LOG_TRACE("Test phase 4: Advance 200mm");
-        position_control_advance(200, 2.0); // 200mm à 2 rad/s
-        break;
-
-    case 5: // Rotation à gauche de π/2 radians (90 degrés)
-        X_LOG_TRACE("Test phase 5: Rotate left π/2 rad (90°)");
-        position_control_turn(M_PI / 2, 2.0); // π/2 rad à 2 rad/s
-        break;
+        //position_control_advance(1000, 2.0);
+        position_control_turn(M_PI, 1.0);
+        start = 1;
     }
+    
 }
 void testPilot(void)
 {
-    static bool command_sent = false;
+    static int phase = 0;
+    static uint64_t phase_start_time = 0;
 
-    // // Afficher la position courante
-    // Position pos = pilot_getPosition();
-    // X_LOG_TRACE("Pilot position: x=%.1f mm, y=%.1f mm, theta=%.2f rad", pos.x, pos.y, pos.theta);
+    uint64_t now = xTimerGetCurrentMs();
 
-    // N'envoie la commande qu'une seule fois
-    if (!command_sent)
+    switch (phase)
     {
+    case 0:
         X_LOG_TRACE("Pilot test: Advance 1000mm");
-        pilot_advance(1000, 2.0); // 500mm à 2 rad/s
-        command_sent = true;
+        pilot_advance(1000, 2.0);
+        phase_start_time = now;
+        phase = 1;
+        break;
+
+    case 1:
+        // Stop après 3 secondes
+        if (now - phase_start_time > 3000)
+        {
+            X_LOG_TRACE("Pilot test: STOP");
+            pilot_stop();
+            phase_start_time = now;
+            phase = 2;
+        }
+        break;
+
+    case 2:
+        // Attendre 2 secondes à l'arrêt, puis rotation
+        if (now - phase_start_time > 2000)
+        {
+            X_LOG_TRACE("Pilot test: Turn 90 deg left");
+            pilot_turn(M_PI/2, 1.0, true); // Tourner de 90° à gauche (relatif)
+            phase_start_time = now;
+            phase = 3;
+        }
+        break;
+
+    case 3:
+        // Tu peux ajouter d'autres phases ici si besoin
+        break;
     }
 }
 
@@ -311,8 +336,8 @@ int main()
 
     // Configuration des logs - le chemin complet sera construit automatiquement
     t_logCtx t_LogConfig;
-    t_LogConfig.t_bLogToFile = true;
-    t_LogConfig.t_bLogToConsole = false;
+    t_LogConfig.t_bLogToFile = false;
+    t_LogConfig.t_bLogToConsole = true;
     strncpy(t_LogConfig.t_cLogPath, (const char*)s_aCLogPath, sizeof(t_LogConfig.t_cLogPath) - 1);
     t_LogConfig.t_cLogPath[sizeof(t_LogConfig.t_cLogPath) - 1] = '\0';
 
@@ -373,12 +398,14 @@ int main()
     X_LOG_TRACE("Position control initialized");
 
     // Initialisation du pilotage
-    l_iReturn = pilot_init(10, 0.03, 0.15); // Exemple: (max_speed, rayon_roue_m, entraxe_m)
-    X_ASSERT(l_iReturn == 0);
+    l_iReturn = pilot_init(); // Exemple: (max_speed, rayon_roue_m, entraxe_m)
+    X_ASSERT(l_iReturn == PILOT_OK);
     X_LOG_TRACE("Pilot initialized");
 
     // start server
     l_iReturn = networkServerStart();
+
+    X_LOG_TRACE("Lireturn %x", l_iReturn);
     X_ASSERT(l_iReturn == SERVER_OK);
 
     // init map engine
@@ -386,6 +413,7 @@ int main()
     X_ASSERT(l_iReturn == MAP_ENGINE_OK);
 
     // main loop
+
     while (1)
     {
         // Test des moteurs
@@ -393,9 +421,9 @@ int main()
 
         // Envoyer le signal SOS en morse
         // sendMorseSOS();
-        testPilot(); // <-- Active cette ligne pour tester le pilotage
+        //testPilot(); // <-- Active cette ligne pour tester le pilotage
         // xTimerDelay(100); // Ajoute un petit délai pour éviter de saturer le CPU
-        // testPositionControl();
+        testPositionControl();
         // Pour envoyer des mises à jour périodiques, on devra attendre d'avoir un client connecté
         // et utiliser serverSendMessage à ce moment-là.
     }

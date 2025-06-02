@@ -19,7 +19,7 @@
 #include "robotConfiguration.h"
 
 
-#define REGULATION_PERIOD_MS 50
+#define REGULATION_MOTOR_PERIOD_MS 50
 #define KP                  30.0    // Gain proportionnel à adapter
 #define KI                  0.1     // Gain intégral
 #define MAX_INTEGRAL_ERROR  100.0   // Limite de l'erreur intégrale

@@ -26,6 +26,7 @@
 #include "xLog.h"
 #include "xNetwork.h"
 #include "xTimer.h"
+#include "safetyController.h"
 
 #include "map_engine.h"
 
@@ -489,10 +490,10 @@ int main()
     X_ASSERT(l_iReturn == MAP_ENGINE_OK);
 
     // main loop
+    //
+    //testNetworkCommunication();
 
-    testNetworkCommunication();
-
-registerMessageHandler(ID_SET_MOVEMENT, test_setMovementHandler);
+    safetyControllerInit();
 
     while (1)
     {

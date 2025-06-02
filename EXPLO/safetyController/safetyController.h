@@ -17,7 +17,7 @@
 #include "handleNetworkMessage.h"
 #include "xAssert.h"
 #include "sensorManager.h"
-#include "positionControl.h"
+#include "pilot.h"
 
 ///////////////////////////////////////////
 /// @brief Movement type

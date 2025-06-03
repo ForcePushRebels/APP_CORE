@@ -8,6 +8,7 @@
 #include <math.h>
 #include <string.h>
 
+
 // Définition de la marge de correction en ticks
 #define CORRECTION_MARGIN_TICKS 2
 
@@ -53,10 +54,6 @@ static xOsMutexCtx g_speed_mutex;          // Mutex pour la vitesse commune
 static move_type_t g_current_move_type;    // Type de mouvement en cours
 StateMove g_state = WAIT;
 
-
-// Prototypes de fonctions statiques
-static void wheel_position_control_init(wheel_position_control_t* control);
-static void wheel_position_control_shutdown(wheel_position_control_t* control);
 
 
 // Fonction utilitaire pour convertir la distance en ticks d'encodeur
@@ -137,7 +134,7 @@ static void update_robot_position(int32_t left_ticks, int32_t right_ticks)
     // X_LOG_TRACE("Position mise à jour - left_ticks: %d, right_ticks: %d",
     //             left_ticks, right_ticks);
 
-    // X_LOG_TRACE("Position mise à jour - X: %.2f mm, Y: %.2f mm, Angle: %.2f°",
+    //X_LOG_TRACE("Position mise à jour - X: %.2f mm, Y: %.2f mm, Angle: %.2f°",
     //             g_robot_position.x_mm, g_robot_position.y_mm, g_robot_position.angle_rad * 180.0 / M_PI);
     
     mutexUnlock(&g_position_mutex);
@@ -151,13 +148,6 @@ static void* wheel_position_control_task(void* arg)
     mutexLock(&g_right_wheel.mutex);
 
     X_LOG_TRACE("Position control task started");
-
-    //wheel_position_control_t *control = (wheel_position_control_t *)arg;
-    /*
-    if (!control)
-    {
-        return (void*)OS_TASK_EXIT_FAILURE;
-    }*/
     
     double step_acc = ACCELERATION_COEF * REGULATION_PERIOD_MS / 1000.0, step_decc = DECELERATION_COEF * REGULATION_PERIOD_MS / 1000.0;
     double right_wheel_speed = 0.0, left_wheel_speed = 0.0;
@@ -310,31 +300,15 @@ static void* wheel_position_control_task(void* arg)
             case CORR :
                 X_LOG_TRACE("État: CORR");
 
-                // Logs de debug pour la correction
-                X_LOG_TRACE("CORR - État des roues - Left_finished: %d, Right_finished: %d", 
-                    g_left_wheel.motion_finished, g_right_wheel.motion_finished);
-                
-                X_LOG_TRACE("CORR - Ticks actuels - Left: %d, Right: %d", 
-                    g_left_wheel.current_ticks, g_right_wheel.current_ticks);
-                
-                X_LOG_TRACE("CORR - Ticks cibles - Left: %d, Right: %d", 
-                    g_left_wheel.target_ticks, g_right_wheel.target_ticks);
-                
-                X_LOG_TRACE("CORR - Différence - Left: %d, Right: %d", 
-                    g_left_wheel.current_ticks - g_left_wheel.target_ticks,
-                    g_right_wheel.current_ticks - g_right_wheel.target_ticks);
-
                 if (abs(g_left_wheel.current_ticks - g_left_wheel.target_ticks) > CORRECTION_MARGIN_TICKS && !g_left_wheel.motion_finished) 
                 {
                     // Appliquer une petite vitesse de correction
                     double correction = (g_left_wheel.current_ticks - g_left_wheel.target_ticks > 0) ? -CORRECTION_SPEED : CORRECTION_SPEED;
-                    X_LOG_TRACE("CORR - Correction roue gauche: %lf", correction);
                     motor_control_set_left_speed(correction);
                 } 
                 else if (!(abs(g_left_wheel.current_ticks - g_left_wheel.target_ticks) > CORRECTION_MARGIN_TICKS) && !g_left_wheel.motion_finished) 
                 {
                     // Si la correction est terminée, arrêter la roue gauche
-                    X_LOG_TRACE("CORR - Roue gauche terminée, arrêt");
                     motor_control_set_left_speed(0.0);
                     g_left_wheel.motion_finished = true;
                 }
@@ -343,20 +317,17 @@ static void* wheel_position_control_task(void* arg)
                 {
                     // Appliquer une petite vitesse de correction
                     double correction = (g_right_wheel.current_ticks - g_right_wheel.target_ticks > 0) ? -CORRECTION_SPEED : CORRECTION_SPEED;
-                    X_LOG_TRACE("CORR - Correction roue droite: %lf", correction);
                     motor_control_set_right_speed(correction);
                 } 
                 else if (!(abs(g_right_wheel.current_ticks - g_right_wheel.target_ticks) > CORRECTION_MARGIN_TICKS) && !g_right_wheel.motion_finished) 
                 {
                     // Si la correction est terminée, arrêter la roue droite
-                    X_LOG_TRACE("CORR - Roue droite terminée, arrêt");
                     motor_control_set_right_speed(0.0);
                     g_right_wheel.motion_finished = true;
                 }
 
                 if(g_left_wheel.motion_finished && g_right_wheel.motion_finished)
                 {
-                    X_LOG_TRACE("CORR - Correction terminée pour les deux roues");
                     g_state = WAIT;
                 }
                 break; 
@@ -423,144 +394,6 @@ static void* wheel_position_control_task(void* arg)
     return (void*)OS_TASK_EXIT_SUCCESS;
 }
 
-// --- Fonctions publiques ---
-
-bool position_control_is_motion_finished(void)
-{
-    if (!g_initialized) return true;
-
-    bool finished = false;
-    mutexLock(&g_left_wheel.mutex);
-    mutexLock(&g_right_wheel.mutex);
-    finished = g_left_wheel.motion_finished && g_right_wheel.motion_finished && (g_state == WAIT);
-    mutexUnlock(&g_right_wheel.mutex);
-    mutexUnlock(&g_left_wheel.mutex);
-    return finished;
-}
-
-int16_t position_control_advance(int16_t distance_mm, float speed_rad_s_max)
-{
-    if (!g_initialized) return -1;
-    int32_t distance_patch = (int32_t)((float)distance_mm * 0.909);
-
-    // Convertir la distance en ticks d'encodeur
-    int32_t target_ticks = distance_to_ticks(distance_patch);
-    
-    X_LOG_TRACE("Advance - Distance: %d mm, Patch: %d mm, Speed: %.2f rad/s", 
-                distance_mm, distance_patch, speed_rad_s_max);
-    
-    mutexLock(&g_left_wheel.mutex);
-    mutexLock(&g_right_wheel.mutex);
-
-    // Obtenir les positions actuelles des encodeurs
-    int32_t encoder_values[2] = {0, 0};
-    GetMotorEncoderValues(encoder_values);
-
-    // Définir les cibles pour les deux roues
-    g_left_wheel.current_ticks = encoder_values[0];
-    g_right_wheel.current_ticks = encoder_values[1];
-    g_left_wheel.target_ticks = g_left_wheel.current_ticks + target_ticks;
-    g_right_wheel.target_ticks = g_right_wheel.current_ticks + target_ticks;
-    g_left_wheel.max_speed = speed_rad_s_max;
-    g_right_wheel.max_speed = speed_rad_s_max;
-    g_left_wheel.motion_finished = false;
-    g_right_wheel.motion_finished = false;
-    g_left_wheel.should_stop = false;
-    g_right_wheel.should_stop = false;
-
-    // Définir le type de mouvement
-    g_current_move_type = FORWARD;
-
-    X_LOG_TRACE("Advance - Current ticks - Left: %d, Right: %d", encoder_values[0], encoder_values[1]);
-    X_LOG_TRACE("Advance - Target ticks - Left: %d, Right: %d", g_left_wheel.target_ticks, g_right_wheel.target_ticks);
-
-    mutexUnlock(&g_right_wheel.mutex);
-    mutexUnlock(&g_left_wheel.mutex);
-    return 0;
-}
-
-int16_t position_control_turn(float angle_rad, float speed_rad_s_max)
-{
-    if (!g_initialized)
-        return -1;
-
-    // Convertir l'angle en ticks d'encodeur
-    int32_t target_ticks = angle_to_ticks(angle_rad);
-
-    X_LOG_TRACE("Turn - Angle: %.2f rad, Speed: %.2f rad/s", angle_rad, speed_rad_s_max);
-
-    mutexLock(&g_left_wheel.mutex);
-    mutexLock(&g_right_wheel.mutex);
-
-    // Obtenir les positions actuelles des encodeurs
-    int32_t encoder_values[2] = {0, 0};
-    GetMotorEncoderValues(encoder_values);
-
-    // Définir les cibles pour les deux roues
-    g_left_wheel.current_ticks = encoder_values[0];
-    g_right_wheel.current_ticks = encoder_values[1];
-
-    g_left_wheel.target_ticks = g_left_wheel.current_ticks + target_ticks;
-    g_right_wheel.target_ticks = g_right_wheel.current_ticks - target_ticks;
-    // Si angle négatif = tourner à gauche
-    // Si angle positif = tourner à droite
-    if (angle_rad < 0)
-    {
-        // Tourner à gauche : roue gauche en arrière, roue droite en avant
-        g_current_move_type = LEFT;
-    }
-    else
-    {
-        // Tourner à droite : roue gauche en avant, roue droite en arrière
-        g_current_move_type = RIGHT;
-    }
-
-    g_left_wheel.max_speed = speed_rad_s_max;
-    g_right_wheel.max_speed = speed_rad_s_max;
-    g_left_wheel.motion_finished = false;
-    g_right_wheel.motion_finished = false;
-    g_left_wheel.should_stop = false;
-    g_right_wheel.should_stop = false;
-
-    X_LOG_TRACE("Turn - Current ticks - Left: %d, Right: %d", encoder_values[0], encoder_values[1]);
-    X_LOG_TRACE("Turn - Target ticks - Left: %d, Right: %d", g_left_wheel.target_ticks, g_right_wheel.target_ticks);
-    X_LOG_TRACE("Turn - Type: %s", g_current_move_type == LEFT ? "GAUCHE" : "DROITE");
-
-    mutexUnlock(&g_right_wheel.mutex);
-    mutexUnlock(&g_left_wheel.mutex);
-    return 0;
-}
-
-int16_t position_control_stop(void)
-{
-    X_LOG_TRACE("Stopping position control");
-    
-    if (!g_initialized) return -1;
-
-    mutexLock(&g_left_wheel.mutex);
-    mutexLock(&g_right_wheel.mutex);
-    X_LOG_TRACE("aaaaaaa");
-
-    g_left_wheel.should_stop = true;
-    g_right_wheel.should_stop = true;
-
-    mutexUnlock(&g_right_wheel.mutex);
-    mutexUnlock(&g_left_wheel.mutex);
-    
-    return 0;
-}
-
-int16_t position_control_get_position(Position_t *position)
-{
-    if (!position) return -1;
-    
-    mutexLock(&g_position_mutex);
-    *position = g_robot_position;
-    mutexUnlock(&g_position_mutex);
-
-    return 0;
-}
-
 static void wheel_position_control_init(wheel_position_control_t* control) 
 {
     if (!control)
@@ -611,52 +444,182 @@ static void wheel_position_control_shutdown(wheel_position_control_t *control)
     mutexDestroy(&control->mutex);
 }
 
-int16_t position_control_init(void)
+
+// --- Fonctions publiques ---
+
+bool position_control_is_motion_finished(void)
+{
+    if (!g_initialized) return false;
+
+    bool finished = false;
+    mutexLock(&g_left_wheel.mutex);
+    mutexLock(&g_right_wheel.mutex);
+    finished = g_left_wheel.motion_finished && g_right_wheel.motion_finished && (g_state == WAIT);
+    mutexUnlock(&g_right_wheel.mutex);
+    mutexUnlock(&g_left_wheel.mutex);
+    return finished;
+}
+
+int32_t position_control_advance(int16_t distance_mm, float speed_rad_s_max)
+{
+    if (!g_initialized) return POSITION_NOT_INITIALIZED;
+    int32_t distance_patch = (int32_t)((float)distance_mm * 0.909);
+
+    // Convertir la distance en ticks d'encodeur
+    int32_t target_ticks = distance_to_ticks(distance_patch);
+    
+    X_LOG_TRACE("Advance - Distance: %d mm, Patch: %d mm, Speed: %.2f rad/s", 
+                distance_mm, distance_patch, speed_rad_s_max);
+    
+    mutexLock(&g_left_wheel.mutex);
+    mutexLock(&g_right_wheel.mutex);
+
+    // Obtenir les positions actuelles des encodeurs
+    int32_t encoder_values[2] = {0, 0};
+    GetMotorEncoderValues(encoder_values);
+
+    // Définir les cibles pour les deux roues
+    g_left_wheel.current_ticks = encoder_values[0];
+    g_right_wheel.current_ticks = encoder_values[1];
+    g_left_wheel.target_ticks = g_left_wheel.current_ticks + target_ticks;
+    g_right_wheel.target_ticks = g_right_wheel.current_ticks + target_ticks;
+    g_left_wheel.max_speed = speed_rad_s_max;
+    g_right_wheel.max_speed = speed_rad_s_max;
+    g_left_wheel.motion_finished = false;
+    g_right_wheel.motion_finished = false;
+    g_left_wheel.should_stop = false;
+    g_right_wheel.should_stop = false;
+
+    // Définir le type de mouvement
+    g_current_move_type = FORWARD;
+
+    X_LOG_TRACE("Advance - Current ticks - Left: %d, Right: %d", encoder_values[0], encoder_values[1]);
+    X_LOG_TRACE("Advance - Target ticks - Left: %d, Right: %d", g_left_wheel.target_ticks, g_right_wheel.target_ticks);
+
+    mutexUnlock(&g_right_wheel.mutex);
+    mutexUnlock(&g_left_wheel.mutex);
+    return POSITION_OK;
+}
+
+int32_t position_control_turn(float angle_rad, float speed_rad_s_max)
+{
+    if (!g_initialized)
+        return POSITION_NOT_INITIALIZED;
+
+    // Convertir l'angle en ticks d'encodeur
+    int32_t target_ticks = angle_to_ticks(angle_rad);
+
+    X_LOG_TRACE("Turn - Angle: %.2f rad, Speed: %.2f rad/s", angle_rad, speed_rad_s_max);
+
+    mutexLock(&g_left_wheel.mutex);
+    mutexLock(&g_right_wheel.mutex);
+
+    // Obtenir les positions actuelles des encodeurs
+    int32_t encoder_values[2] = {0, 0};
+    GetMotorEncoderValues(encoder_values);
+
+    // Définir les cibles pour les deux roues
+    g_left_wheel.current_ticks = encoder_values[0];
+    g_right_wheel.current_ticks = encoder_values[1];
+
+    g_left_wheel.target_ticks = g_left_wheel.current_ticks + target_ticks;
+    g_right_wheel.target_ticks = g_right_wheel.current_ticks - target_ticks;
+    // Si angle négatif = tourner à gauche
+    // Si angle positif = tourner à droite
+    if (angle_rad < 0)
+    {
+        // Tourner à gauche : roue gauche en arrière, roue droite en avant
+        g_current_move_type = LEFT;
+    }
+    else
+    {
+        // Tourner à droite : roue gauche en avant, roue droite en arrière
+        g_current_move_type = RIGHT;
+    }
+
+    g_left_wheel.max_speed = speed_rad_s_max;
+    g_right_wheel.max_speed = speed_rad_s_max;
+    g_left_wheel.motion_finished = false;
+    g_right_wheel.motion_finished = false;
+    g_left_wheel.should_stop = false;
+    g_right_wheel.should_stop = false;
+
+    X_LOG_TRACE("Turn - Current ticks - Left: %d, Right: %d", encoder_values[0], encoder_values[1]);
+    X_LOG_TRACE("Turn - Target ticks - Left: %d, Right: %d", g_left_wheel.target_ticks, g_right_wheel.target_ticks);
+    X_LOG_TRACE("Turn - Type: %s", g_current_move_type == LEFT ? "GAUCHE" : "DROITE");
+
+    mutexUnlock(&g_right_wheel.mutex);
+    mutexUnlock(&g_left_wheel.mutex);
+    return POSITION_OK;
+}
+
+int32_t position_control_stop(void)
+{
+    X_LOG_TRACE("Stopping position control");
+    
+    if (!g_initialized) return POSITION_NOT_INITIALIZED;
+
+    mutexLock(&g_left_wheel.mutex);
+    mutexLock(&g_right_wheel.mutex);
+
+    g_left_wheel.should_stop = true;
+    g_right_wheel.should_stop = true;
+
+    mutexUnlock(&g_right_wheel.mutex);
+    mutexUnlock(&g_left_wheel.mutex);
+    
+    return POSITION_OK;
+}
+
+int32_t position_control_get_position(Position_t *position)
+{
+    if (!position) return POSITION_INVALID_PARAM;
+    
+    mutexLock(&g_position_mutex);
+    *position = g_robot_position;
+    mutexUnlock(&g_position_mutex);
+
+    return POSITION_OK;
+}
+
+int32_t position_control_init(void)
 {
     if (g_initialized)
     {
-        // X_LOG_TRACE("Contrôle de position déjà initialisé");
-        return 0;
+        return POSITION_OK;
     }
-
-    // X_LOG_TRACE("Initialisation du contrôle de position");
 
     // Initialiser le mutex de position
     if (mutexCreate(&g_position_mutex) != MUTEX_OK)
     {
-        // X_LOG_TRACE("Échec de la création du mutex de position");
-        return -1;
+        return POSITION_MUTEX_ERROR;
     }
 
     // Initialiser le mutex de vitesse
     if (mutexCreate(&g_speed_mutex) != MUTEX_OK)
     {
-        // X_LOG_TRACE("Échec de la création du mutex de vitesse");
         mutexDestroy(&g_position_mutex);
-        return -1;
+        return POSITION_MUTEX_ERROR;
     }
 
     // Initialiser d'abord le contrôle moteur
     int16_t motor_init_result = motor_control_init();
     if (motor_init_result != 0)
     {
-        // X_LOG_TRACE("Échec de l'initialisation du contrôle moteur: %d", motor_init_result);
         mutexDestroy(&g_position_mutex);
         mutexDestroy(&g_speed_mutex);
-        return -1;
+        return POSITION_MOTOR_ERROR;
     }
-    // X_LOG_TRACE("Contrôle moteur initialisé avec succès");
 
     // Initialiser les deux contrôleurs de roue
     wheel_position_control_init(&g_left_wheel);
     wheel_position_control_init(&g_right_wheel);
     
     g_initialized = true;
-    // X_LOG_TRACE("Contrôle de position initialisé avec succès");
-    return 0;
+    return POSITION_OK;
 }
 
-int16_t position_control_shutdown(void)
+int32_t position_control_shutdown(void)
 {
     if (!g_initialized)
     {

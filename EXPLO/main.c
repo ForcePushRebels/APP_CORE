@@ -249,11 +249,7 @@ void testPositionControl(void)
     // Afficher la position toutes les 500ms
     if (current_time - last_position_update > 500) {
         if (position_control_get_position(&current_position) == 0) {
-            X_LOG_TRACE("Robot position - X: %d mm, Y: %d mm, Angle: %.2f rad (%.1f°)",
-                        current_position.x_mm,
-                        current_position.y_mm,
-                        current_position.angle_rad,
-                        current_position.angle_rad * 180.0 / M_PI);
+            //TODO
         }
         last_position_update = current_time;
     }
@@ -265,7 +261,7 @@ void testPositionControl(void)
         last_phase_time = current_time;
 
         // Arrêter le mouvement avant de changer de phase
-        position_control_stop();
+        //position_control_stop();
         xTimerDelay(1000); // Attendre 1000ms pour stabilisation
         
         // Afficher la position finale de la phase précédente
@@ -280,10 +276,17 @@ void testPositionControl(void)
     }
     if(start == 0)
     {
-        //position_control_advance(1000, 2.0);
-        position_control_turn(M_PI, 1.0);
+        position_control_advance(1000, 2.0);
+        //position_control_turn(-M_PI, 1.0);
         sleep(10);
+        //X_LOG_TRACE("STOP !");
+
         position_control_stop();
+        
+        while(!position_control_is_motion_finished());
+        //X_LOG_TRACE("STOP DONE");
+        position_control_turn(M_PI, 1.0);
+        
         start = 1;
     }
     

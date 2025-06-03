@@ -20,7 +20,7 @@ typedef struct position_to_send_t
     int16_t y_mm;
     float angle_rad;
 }position_to_send_t;
-
+/*
 //mettre local
 Position g_tPosition;
 Status  g_tStatus;

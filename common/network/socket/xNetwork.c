@@ -274,8 +274,6 @@ int networkSend(NetworkSocket *p_ptSocket, const void *p_pBuffer, unsigned long 
     // Lock mutex before accessing socket
     mutexLock(&p_ptSocket->t_Mutex);
 
-    X_LOG_TRACE("networkSend: Sending on socket %d, %lu bytes",
-                p_ptSocket->t_iSocketFd, p_ulSize);
     l_iReturn = send(p_ptSocket->t_iSocketFd, p_pBuffer, p_ulSize, 0);
     if (l_iReturn < 0)
     {
@@ -317,8 +315,6 @@ int networkReceive(NetworkSocket *p_ptSocket, void *p_pBuffer, unsigned long p_u
     // Lock mutex before accessing socket
     mutexLock(&p_ptSocket->t_Mutex);
 
-    X_LOG_TRACE("networkReceive: Receiving on socket %d, buffer size %lu",
-                p_ptSocket->t_iSocketFd, p_ulSize);
     l_iReturn = recv(p_ptSocket->t_iSocketFd, p_pBuffer, p_ulSize, 0);
     if (l_iReturn < 0)
     {

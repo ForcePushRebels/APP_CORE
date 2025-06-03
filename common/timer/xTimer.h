@@ -12,26 +12,25 @@
 #ifndef XOS_TIMER_H_
 #define XOS_TIMER_H_
 
+#include "xOsMutex.h"
 #include <stdint.h>
 #include <time.h>
-#include "xOsMutex.h"
 
 // Timer error codes
-#define XOS_TIMER_OK            0x9A84B10
-#define XOS_TIMER_ERROR         0x9A84B11
-#define XOS_TIMER_INVALID       0x9A84B12
-#define XOS_TIMER_TIMEOUT       0x9A84B13
-#define XOS_TIMER_NOT_INIT      0x9A84B14
-
+#define XOS_TIMER_OK 0x9A84B10
+#define XOS_TIMER_ERROR 0x9A84B11
+#define XOS_TIMER_INVALID 0x9A84B12
+#define XOS_TIMER_TIMEOUT 0x9A84B13
+#define XOS_TIMER_NOT_INIT 0x9A84B14
 
 // Timer modes
 #define XOS_TIMER_MODE_ONESHOT 0
 #define XOS_TIMER_MODE_PERIODIC 1
 
 // Security limits
-#define XOS_TIMER_MAX_PERIOD_MS UINT32_MAX  // Maximum period in milliseconds (uint32_t max value)
-#define XOS_TIMER_MIN_PERIOD_MS 1           // Minimum period in milliseconds
-#define XOS_TIMER_MAX_CALLBACKS 1000        // Maximum callbacks per call to prevent DoS
+#define XOS_TIMER_MAX_PERIOD_MS UINT32_MAX // Maximum period in milliseconds (uint32_t max value)
+#define XOS_TIMER_MIN_PERIOD_MS 1          // Minimum period in milliseconds
+#define XOS_TIMER_MAX_CALLBACKS 1000       // Maximum callbacks per call to prevent DoS
 
 /**
  * Timer context structure
@@ -39,12 +38,13 @@
  */
 typedef struct xos_timer_t
 {
-    uint32_t t_ulPeriod;      // Timer period in milliseconds
-    uint8_t t_ucMode;         // Timer mode (one-shot or periodic)
-    uint8_t t_ucActive;       // Timer active flag
-    struct timespec t_tStart; // Start time
-    struct timespec t_tNext;  // Next trigger time
-    xOsMutexCtx t_tMutex;     // Mutex for thread-safety
+    uint32_t t_ulPeriod;             // Timer period in milliseconds
+    uint8_t t_ucMode;                // Timer mode (one-shot or periodic)
+    uint8_t t_ucActive;              // Timer active flag
+    struct timespec t_tStart;        // Start time
+    struct timespec t_tNext;         // Next trigger time (for periodic mode)
+    xOsMutexCtx t_tMutex;            // Mutex for thread-safety
+    atomic_bool t_bPeriodicLockFlag; // Flag for periodic lock
 } xOsTimerCtx;
 
 //////////////////////////////////

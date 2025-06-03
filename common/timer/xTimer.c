@@ -107,6 +107,11 @@ int xTimerStart(xOsTimerCtx *p_ptTimer)
         return l_iResult;
     }
 
+    if (p_ptTimer->t_ucMode == XOS_TIMER_MODE_PERIODIC)
+    {
+        atomic_store(&p_ptTimer->t_bPeriodicLockFlag, true);
+    }
+
     return XOS_TIMER_OK;
 }
 
@@ -118,6 +123,11 @@ int xTimerStop(xOsTimerCtx *p_ptTimer)
     X_ASSERT(p_ptTimer != NULL);
 
     int l_iResult;
+
+    if (p_ptTimer->t_ucMode == XOS_TIMER_MODE_PERIODIC)
+    {
+        atomic_store(&p_ptTimer->t_bPeriodicLockFlag, false);
+    }
 
     // Lock mutex for thread safety
     l_iResult = mutexLock(&p_ptTimer->t_tMutex);
@@ -422,4 +432,72 @@ int xTimerProcessElapsedPeriods(xOsTimerCtx *p_ptTimer, void (*p_pfCallback)(voi
     }
 
     return l_iPeriodCount;
+}
+
+////////////////////////////////////////////////////////////
+/// xTimerProcessPeriodicCallback 
+////////////////////////////////////////////////////////////
+int xTimerProcessPeriodicCallback(xOsTimerCtx *p_ptTimer, void (*p_pfCallback)(void *), void *p_pvData)
+{
+    X_ASSERT(p_ptTimer != NULL);
+    X_ASSERT(p_pfCallback != NULL);
+
+    int l_iResult;
+    int l_iTotalCallbacks = 0;
+    int l_iCallbacksThisRound = 0;
+
+    // Vérifier que c'est bien un timer périodique
+    l_iResult = mutexLock(&p_ptTimer->t_tMutex);
+    if (l_iResult != MUTEX_OK)
+    {
+        return l_iResult;
+    }
+
+    if (p_ptTimer->t_ucMode != XOS_TIMER_MODE_PERIODIC)
+    {
+        mutexUnlock(&p_ptTimer->t_tMutex);
+        return XOS_TIMER_INVALID;
+    }
+
+    mutexUnlock(&p_ptTimer->t_tMutex);
+
+    // Boucle tant que le flag périodique est actif
+    while (atomic_load(&p_ptTimer->t_bPeriodicLockFlag))
+    {
+        // Appeler la fonction standard pour traiter les périodes écoulées
+        l_iCallbacksThisRound = xTimerProcessElapsedPeriods(p_ptTimer, p_pfCallback, p_pvData);
+        
+        if (l_iCallbacksThisRound < 0)
+        {
+            // Erreur dans le traitement
+            return l_iCallbacksThisRound;
+        }
+
+        l_iTotalCallbacks += l_iCallbacksThisRound;
+
+        // Vérifier si le timer est toujours actif
+        l_iResult = mutexLock(&p_ptTimer->t_tMutex);
+        if (l_iResult != MUTEX_OK)
+        {
+            return l_iResult;
+        }
+
+        if (!p_ptTimer->t_ucActive)
+        {
+            mutexUnlock(&p_ptTimer->t_tMutex);
+            break;
+        }
+
+        mutexUnlock(&p_ptTimer->t_tMutex);
+
+        // Petite pause pour éviter une boucle trop agressive
+        if (l_iCallbacksThisRound == 0)
+        {
+            // Aucune période écoulée, attendre un peu
+            struct timespec l_tSleep = {0, 1000000}; // 1ms
+            nanosleep(&l_tSleep, NULL);
+        }
+    }
+
+    return l_iTotalCallbacks;
 }

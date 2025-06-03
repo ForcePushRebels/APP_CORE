@@ -94,13 +94,10 @@ pilot_transition_t pilot_transitions[PILOT_STATE_COUNT][PILOT_EVT_COUNT] = {
         [PILOT_EVT_CHECK_NEXT_MOVE] = {.next_state = PILOT_STATE_CHECK_NEXT_MOVE, .action = pilot_action_check_next_move},
     },
     [PILOT_STATE_CHECK_NEXT_MOVE] = {
-        [PILOT_EVT_NEXT_MOVE] = {.next_state = PILOT_STATE_MOVE_IN_PROGRESS, .action = pilot_action_nextMove},
+        [PILOT_EVT_NEXT_MOVE] = {.next_state = PILOT_STATE_MOVING, .action = pilot_action_nextMove},
         [PILOT_EVT_END_ALL_MOVES] = {.next_state = PILOT_STATE_WAIT_MOVE, .action = pilot_action_endMove},
     },
-    [PILOT_STATE_MOVE_IN_PROGRESS] = {
-        [PILOT_EVT_STOP] = {.next_state = PILOT_STATE_MOVE_IN_PROGRESS, .action = pilot_action_computeStop},
-        [PILOT_EVT_END_MOVE] = {.next_state = PILOT_STATE_END_MOVE, .action = pilot_action_endMove},
-    },
+    
 };
 
 /////////////////////////////////
@@ -350,7 +347,7 @@ static void *pilot_task(void *p_pttArg)
         {
             //X_LOG_TRACE("pilot_task: polling, state=%d, motion_finished=%d", g_state, position_control_is_motion_finished());
 
-            if ((g_state == PILOT_STATE_MOVING || g_state == PILOT_STATE_MOVE_IN_PROGRESS) &&
+            if ((g_state == PILOT_STATE_MOVING) &&
                 position_control_is_motion_finished())
             {
                 X_LOG_TRACE("pilot_task: Detected motion finished, posting END_MOVE");

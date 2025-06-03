@@ -154,8 +154,10 @@ pub fn write_log(message: &str)
             if let Some(file_log) = &mut log.file_log {
                 let _ = writeln!(
                     file_log,
-                    "{} | {}",
+                    "{} | {}:{} | {}",
                     chrono::Local::now().format("%Y-%m-%d %H:%M:%S.%f"),
+                    caller_file,
+                    caller_line,
                     message
                 );
                 let _ = file_log.flush();

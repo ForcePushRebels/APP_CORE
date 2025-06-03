@@ -28,6 +28,7 @@
 #include "xTimer.h"
 #include "safetyController.h"
 
+#include "ihm.h"
 #include "map_engine.h"
 
 // chemin des logs avec l'executable en chemin de l'executable
@@ -291,42 +292,85 @@ void testPositionControl(void)
 }
 void testPilot(void)
 {
-    static int phase = 0;
     static uint64_t phase_start_time = 0;
 
     uint64_t now = xTimerGetCurrentMs();
 
-    switch (phase)
+    enum state
     {
-        case 0:
+        STATE_PREWAIT,
+        STATE_WAIT,
+
+        STATE_ADVANCE,
+        STATE_TURN,
+        STATE_ADVANCE2,
+        STATE_TURN2,
+        STATE_ADVANCE3,
+
+        STATE_END
+    };
+
+    static enum state state = STATE_ADVANCE;
+    static enum state next_state = STATE_ADVANCE;
+
+    // X_LOG_TRACE("Pilot test: State %d", state);
+    switch (state)
+    {
+
+        case STATE_WAIT:
+            if (position_control_is_motion_finished())
+            {
+                X_LOG_TRACE("Pilot test: Wait finished");
+                state = next_state;
+            }
+            break;
+
+        case STATE_ADVANCE:
             X_LOG_TRACE("Pilot test: Advance 1000mm");
-            pilot_advance(1000, 2.0);
-            phase_start_time = now;
-            phase = 1;
+            pilot_advance(100, 200);
+            state = STATE_WAIT;
+            next_state = STATE_TURN;
+            usleep(100000);
             break;
 
-        case 1:
-            // Stop après 3 secondes
-            if (now - phase_start_time > 3000)
-            {
-                X_LOG_TRACE("Pilot test: STOP");
-                pilot_stop();
-                phase_start_time = now;
-                phase = 2;
-            }
+        case STATE_TURN:
+            X_LOG_TRACE("Pilot test: Turn 90° left");
+            pilot_turn(M_PI / 2, 200, true); // Tourner de 90° à gauche (relatif)
+            state = STATE_WAIT;
+            next_state = STATE_ADVANCE2;
+            usleep(100000);
             break;
 
-        case 2:
-            // Attendre 2 secondes à l'arrêt, puis rotation
-            if (now - phase_start_time > 2000)
-            {
-                X_LOG_TRACE("Pilot test: Turn 90 deg left");
-                pilot_turn(M_PI / 2, 1.0, true); // Tourner de 90° à gauche (relatif)
-                phase_start_time = now;
-                phase = 3;
-            }
+        case STATE_ADVANCE2:
+            X_LOG_TRACE("Pilot test: Advance 1000mm");
+            pilot_advance(100, 200);
+            state = STATE_WAIT;
+            next_state = STATE_TURN2;
+            usleep(100000);
             break;
 
+        case STATE_TURN2:
+            X_LOG_TRACE("Pilot test: Turn 90° right");
+            pilot_turn(-M_PI / 2, 200, true); // Tourner de 90° à droite (relatif)
+            state = STATE_WAIT;
+            next_state = STATE_ADVANCE3;
+            usleep(100000);
+            break;
+
+        case STATE_ADVANCE3:
+            X_LOG_TRACE("Pilot test: Advance 1000mm");
+            pilot_advance(600, 300);
+            state = STATE_END;
+            usleep(100000);
+
+            break;
+
+        case STATE_END:
+            // X_LOG_TRACE("Pilot test: End");
+            break;
+        default:
+            X_LOG_TRACE("Pilot test: Unknown state");
+            break;
     }
 }
 
@@ -386,12 +430,10 @@ int testNetworkCommunication(void)
     return 0;
 }
 
-
 void test_setMovementHandler(clientCtx *p_ptClient, const network_message_t *p_ptMessage)
 {
     X_LOG_TRACE("Received set movement id: %d", p_ptMessage->t_ptucPayload[0]);
 }
-
 
 int main()
 {
@@ -475,20 +517,27 @@ int main()
     l_iReturn = map_engine_init();
     X_ASSERT(l_iReturn == MAP_ENGINE_OK);
 
+    // init ihm
+    l_iReturn = ihm_init();
+    X_ASSERT(l_iReturn == IHM_OK);
+    X_LOG_TRACE("IHM initialized");
+
     // main loop
     //
     //testNetworkCommunication();
 
-    safetyControllerInit();
+    testNetworkCommunication();
+
+    registerMessageHandler(ID_SET_MOVEMENT, test_setMovementHandler);
 
     while (1)
     {
+        testPilot(); // <-- Active cette ligne pour tester le pilotage
         // Test des moteurs
         // testMotors();
 
         // Envoyer le signal SOS en morse
         // sendMorseSOS();
-        testPilot(); // <-- Active cette ligne pour tester le pilotage
         // xTimerDelay(100); // Ajoute un petit délai pour éviter de saturer le CPU
         // testPositionControl();
         // Pour envoyer des mises à jour périodiques, on devra attendre d'avoir un client connecté

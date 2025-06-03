@@ -1,5 +1,5 @@
 #include "astar_wrapper.h"
-#include "AStar/AStar.h"
+#include "AStar.h"
 
 // Define your node structure
 typedef struct {
@@ -18,13 +18,13 @@ static AStarWrapper astar_wrapper;
 
 int astar_wrapper__init()
 {	
-	strategy_wrapper__init(
+	int ret = strategy_wrapper__addStrategy(
 		"AStar",
 		astar_wrapper__prepare,
 		astar_wrapper__execute
 	);
 	
-	return 1;
+	return ret;
 }
 
 //@Override

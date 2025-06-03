@@ -21,8 +21,7 @@
 #include "handleNetworkMessage.h"
 #include "idCard.h"
 #include "sensorManager.h"
-#include "../common/InterventionManager/intervention_manager.h"
-#include "AStar/astar_wrapper.h"
+#include "intervention_manager.h"
 
 static const uint8_t s_aCLogPath[] = "inter.log";
 
@@ -94,9 +93,14 @@ int main()
     l_iReturn = xLogInit(&t_LogConfig);
     X_ASSERT(l_iReturn == XOS_LOG_OK);
 
-	intervention_manager__init();
+	l_iReturn = intervention_manager__init();
+	X_ASSERT(l_iReturn == 0);
+
 	intervention_manager__giveIDStrategieToFollow(0);
+	X_ASSERT(l_iReturn == 0);
+
 	intervention_manager__startInter();
+    X_ASSERT(l_iReturn == 0);
 
     // init hardware abstraction
     l_iReturn = hardwareAbstractionInit();

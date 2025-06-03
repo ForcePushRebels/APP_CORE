@@ -118,6 +118,10 @@ void strategy_manager__reportStatus(MoveReason);
 
 void strategy_manager__interlockManuMode();
 
+/* Assertions */
+
+void strategy_manager__getInstance(StrategyManager *instance);
+
 /* Private methods */
 
 	// Strategy computation

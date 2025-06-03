@@ -20,14 +20,14 @@
 #include <assert.h>
 #include <stdlib.h>
 
-#include "../../helpers/util_macros.h"
+#include "util_macros.h"
 
 #define STRATEGY_MANAGER_IMPL_VERSION VER(1, 0, 0)
 #include "strategy_manager.h"
-#include "../../StrategyWrapper/strategy_wrapper.h"
+#include "strategy_wrapper.h"
 
-#include "../../symbols/ret_codes.h"
-#include "../../common/supervisor/supervisor.h"
+#include "ret_codes.h"
+#include "supervisor.h"
 
 #include <stdio.h>
 #include "xLog.h"
@@ -54,7 +54,6 @@ struct strategy_manager_s
 	struct timespec start_time, end_time;
 };
 
-__attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
 int strategy_manager__init()
 {
 	/* ===== Préconditions ===== */
@@ -82,7 +81,6 @@ void strategy_manager__setMap()
 	strategy_wrapper__bindMap(strategyManager.matrix);
 }
 
-__attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
 void strategy_manager__askStrat()
 {
 	/* ===== Préconditions ===== */
@@ -105,7 +103,6 @@ void strategy_manager__askStrat()
 	return; // ⬅️ À conserver. Retour explicite (void)
 }
 
-__attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
 void strategy_manager__giveIDStrategieToFollow(int idStrat)
 {
 	/* ===== Préconditions ===== */
@@ -116,7 +113,7 @@ void strategy_manager__giveIDStrategieToFollow(int idStrat)
 	X_LOG_TRACE("entering strategy_manager__giveIDStrategieToFollow()");
 
 	/* ===== Variables locales ===== */
-    // Déclare les variables temporaires
+	int ret = RET_NOT_IMPL_INT; // ⬅️ "Rater-vite". Initialisé par un code d'erreur (prog défensive)
 
 	/* ===== Logique principale ===== */
 	strategy_wrapper__giveIDStrategieToFollow(idStrat); // 📌
@@ -127,10 +124,9 @@ void strategy_manager__giveIDStrategieToFollow(int idStrat)
 	/* ===== Postconditions ===== */
 	// Vérifie les invariants après logique
 
-	return; // ⬅️ À conserver. Retour explicite (void)
+	return ret; // ⬅️ À conserver. Retour explicite (void)
 }
 
-__attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
 void strategy_manager__startMove()
 {
 	/* ===== Préconditions ===== */
@@ -162,7 +158,6 @@ void strategy_manager__startMove()
 	return; // ⬅️ À conserver. Retour explicite (void)
 }
 
-__attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
 void strategy_manager__endMove()
 {
 	/* ===== Préconditions ===== */
@@ -194,7 +189,6 @@ void strategy_manager__endMove()
 	return; // ⬅️ À conserver. Retour explicite (void)
 }
 
-__attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
 bool strategy_manager__alertWallNear()
 {
 	/* ===== Préconditions ===== */
@@ -219,7 +213,6 @@ bool strategy_manager__alertWallNear()
 	return ret; // ⬅️ À remplacer par la vraie valeur de retour une fois implémenté
 }
 
-__attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
 void strategy_manager__alertEndConditionReach()
 {
 	/* ===== Préconditions ===== */
@@ -250,7 +243,6 @@ void strategy_manager__alertEndConditionReach()
 	return; // ⬅️ À conserver. Retour explicite (void)
 }
 
-__attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
 int strategy_manager__getStatus()
 {
 	/* ===== Préconditions ===== */
@@ -282,7 +274,6 @@ int strategy_manager__getStatus()
 	return ret; // ⬅️ Constante temporaire, à remplacer par un vrai code de statut
 }
 
-__attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
 void strategy_manager__reportStatus(MoveReason pilotStatus)
 {
 	/* ===== Préconditions ===== */
@@ -317,7 +308,6 @@ void strategy_manager__reportStatus(MoveReason pilotStatus)
 	return; // ⬅️ À conserver. Retour explicite (void)
 }
 
-__attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
 void strategy_manager__interlockManuMode()
 {
 	/* ===== Préconditions ===== */
@@ -345,7 +335,6 @@ void strategy_manager__interlockManuMode()
 	return; // ⬅️ À conserver. Retour explicite (void)
 }
 
-__attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
 void strategy_manager__computeStrat(seq_t *sequence)
 {
 	/* ===== Préconditions ===== */
@@ -373,7 +362,6 @@ void strategy_manager__computeStrat(seq_t *sequence)
 	return; // ⬅️ À conserver. Retour explicite (void)
 }
 
-__attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
 int strategy_manager__startTimer()
 {
 	/* ===== Préconditions ===== */
@@ -396,7 +384,6 @@ int strategy_manager__startTimer()
     return ret;
 }
 
-__attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
 int strategy_manager__stopTimer()
 {
 	/* ===== Préconditions ===== */
@@ -423,7 +410,6 @@ int strategy_manager__getTimeElapsed() {
 	return strategyManager.end_time.tv_sec - strategyManager.start_time.tv_sec;
 }
 
-__attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
 void strategy_manager__updateStatus(Status status)
 {
 	/* ===== Préconditions ===== */
@@ -442,6 +428,24 @@ void strategy_manager__updateStatus(Status status)
 	strategyManager.status = status;
    
 	X_LOG_TRACE("exiting strategy_manager__updateStatus()");
+
+	/* ===== Postconditions ===== */
+	// Vérifie les invariants après logique
+
+	return; // ⬅️ À conserver. Retour explicite (void)
+}
+
+void strategy_manager__getInstance(StrategyManager *instance)
+{
+	/* ===== Préconditions ===== */
+	X_ASSERT(instance != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
+
+	X_LOG_TRACE("entering strategy_manager__getInstance()");
+
+	/* ===== Logique principale ===== */
+	*instance = strategyManager;
+
+	X_LOG_TRACE("exiting strategy_manager__getInstance()");
 
 	/* ===== Postconditions ===== */
 	// Vérifie les invariants après logique

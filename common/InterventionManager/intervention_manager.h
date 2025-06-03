@@ -37,15 +37,19 @@
 
 #include <time.h> // For timer management
 
-#include "../../helpers/util_macros.h"
+#include "util_macros.h"
 
-#include "../StrategyManager/strategy_manager.h"
+#include "strategy_manager.h"
 
 #include "strategy_wrapper.h"
 
+#include "astar_wrapper.h"
+
+#include "xAssert.h"
+
 #include "map_engine.h"
-#include "../propulsion/pilot.h"
-#include "../SensorManager/sensorManager.h"
+#include "pilot.h"
+#include "sensorManager.h"
 
 
 #define INTERVENTION_MANAGER_API_VERSION 	VER(1, 0, 0) // current header API version
@@ -67,41 +71,44 @@ int intervention_manager__init(void);
 
 	// Strategy management
 
-void intervention_manager__askStrat();
+void intervention_manager__askStrat(); // @Override
 
-void intervention_manager__giveIDStrategieToFollow(int);
+void intervention_manager__giveIDStrategieToFollow(int); // @Override
 
 	// Movement control
 
-void intervention_manager__startMove();
+void intervention_manager__startMove(); // @Override
 
-void intervention_manager__endMove();
+void intervention_manager__endMove(); // @Override
 
 	// External alert
 
-bool intervention_manager__alertWallNear();
+bool intervention_manager__alertWallNear(); // @Override
 
 void intervention_manager__alertEndConditionReach();
 
 	// Status management
 
-int intervention_manager__getStatus();
+int intervention_manager__getStatus(); // @Override
 
-void intervention_manager__reportStatus(MoveReason);
+void intervention_manager__reportStatus(MoveReason); // @Override
 
 	// Manual interlock
 	
-void intervention_manager__interlockManuMode();
+void intervention_manager__interlockManuMode(); // @Override
  
 	// Points selection
+
 void intervention_manager__sendPointsSelection(Point **);
 
 	// Intervention control
+
 void intervention_manager__startInter();
 
 void intervention_manager__stopInter();
 
 	// Time management
+
 int intervention_manager__getTimeInter();
 
 #endif /* __INTERVENTION_MANAGER_H__ */

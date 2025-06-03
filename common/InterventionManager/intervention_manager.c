@@ -39,8 +39,6 @@
 
 struct intervention_manager_s
 {
-	StrategyManager *strategyManager;
-	
 	int interventionPriority;
 
 	seq_t pathPoints[100];
@@ -64,29 +62,56 @@ static int intervention_manager__updateTrace();
 
 static InterventionManager interventionManager;
 
-__attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
+/////////////////////////////////
+/// intervention_manager__init
+/////////////////////////////////
 int intervention_manager__init()
 {
 	/* ===== Préconditions ===== */
-	assert(true); // ⬅️ À conserver. Indique explicitement qu'il n'y a pas de précondition
+	X_ASSERT(&interventionManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
 
 	X_LOG_TRACE("entering intervention_manager__init()");
 
-
 	/* ===== Variables locales ===== */
+	int ret = RET_ERR_GENERIC; // ⬅️ "Rater-vite". Initialisé par un code d'erreur (prog défensive)
 
 	/* ===== Logique principale ===== */
-	strategy_manager__init();
+	memset(&interventionManager, 0, sizeof(interventionManager)); // Initialisation de la structure d'interventionManager à zéro
+
+	ret = astar_wrapper__init(); // Initialisation de la stratégie AStar
+	if (ret != RET_OK)
+	{
+		X_LOG_TRACE("Failed to initialize AStar wrapper");
+		goto func_exit; // ⬅️ Sortie anticipée en cas d'erreur
+	}
+
+	X_LOG_TRACE("AStar wrapper initialized successfully");
+
+func_exit:
 
 	X_LOG_TRACE("exiting intervention_manager__create()");
 
 	/* ===== Postconditions ===== */
-    // assert(interventionManager != NULL); // ⬅️ À décommenter. Pour les plus téméraires
+	X_ASSERT(interventionManager.interventionPriority == 0); // ⬅️ Initial value after memset
+	X_ASSERT(interventionManager.currentPointIdx == 0); // ⬅️ Initial value after memset
+	X_ASSERT(interventionManager.nextPointIdx == 0); // ⬅️ Initial value after memset
+	X_ASSERT(interventionManager.angleToNextPoint == 0); // ⬅️ Initial value after memset 
+	X_ASSERT(interventionManager.distanceToNextPoint == 0); // ⬅️ Initial value after memset
 
-	return 1;
+	for(int i = 0; i < 100; i++)
+	{
+		X_ASSERT(interventionManager.pathPoints[i].x == 0 && interventionManager.pathPoints[i].y == 0); // ⬅️ Initial values after memset
+		X_ASSERT(interventionManager.listZI[i].x == 0 && interventionManager.listZI[i].y == 0); // ⬅️ Initial values after memset
+	}
+
+	X_ASSERT(ret == RET_OK || ret == RET_ERR_GENERIC); // ⬅️ À conserver. Vérifie que le retour est correct
+
+	return ret;
 }
 
-// TODO Ajouter à la conception
+/////////////////////////////////
+/// intervention_manager__followTrajectory
+/////////////////////////////////
 void intervention_manager__followTrajectory() {
 
 	intervention_manager__retrieveNextPoint();
@@ -114,8 +139,9 @@ void intervention_manager__followTrajectory() {
 	// geo_positionner__sendTrace(); // 📌
 }
 
-// @Override
-__attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
+/////////////////////////////////
+/// intervention_manager__askStrat
+/////////////////////////////////
 void intervention_manager__askStrat()
 {
 	strategy_manager__askStrat();
@@ -123,26 +149,28 @@ void intervention_manager__askStrat()
 	return; // ⬅️ À conserver. Retour explicite (void)
 }
 
-// @Override
-__attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
+/////////////////////////////////
+/// intervention_manager__giveIDStrategieToFollow
+/////////////////////////////////
 void intervention_manager__giveIDStrategieToFollow(int idStrat)
 {
 	strategy_manager__giveIDStrategieToFollow(idStrat);
-
-	return; // ⬅️ À conserver. Retour explicite (void)
 }
 
-// @Override
-__attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
+/////////////////////////////////
+/// intervention_manager__startMove
+/////////////////////////////////
 void intervention_manager__startMove()
 {
+	// @Override
 	strategy_manager__startMove();
 
 	return; // ⬅️ À conserver. Retour explicite (void)
 }
 
-// @Override
-__attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
+/////////////////////////////////
+/// intervention_manager__endMove
+/////////////////////////////////
 void intervention_manager__endMove()
 {
 	strategy_manager__endMove();
@@ -150,15 +178,17 @@ void intervention_manager__endMove()
 	return; // ⬅️ À conserver. Retour explicite (void)
 }
 
-// @Override
-__attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
+/////////////////////////////////
+/// intervention_manager__alertWallNear
+/////////////////////////////////
 bool intervention_manager__alertWallNear()
 {
 	return strategy_manager__alertWallNear();
 }
 
-// @Override
-__attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
+/////////////////////////////////
+/// intervention_manager__alertEndConditionReach
+/////////////////////////////////
 void intervention_manager__alertEndConditionReach()
 {
 	intervention_manager__stopInter();
@@ -166,15 +196,17 @@ void intervention_manager__alertEndConditionReach()
 	return; // ⬅️ À conserver. Retour explicite (void)
 }
 
-// @Override
-__attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
+/////////////////////////////////
+/// intervention_manager__getStatus
+/////////////////////////////////
 int intervention_manager__getStatus()
 {
 	return strategy_manager__getStatus();
 }
 
-// @Override
-__attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
+/////////////////////////////////
+/// intervention_manager__reportStatus
+/////////////////////////////////
 void intervention_manager__reportStatus(MoveReason pilotStatus)
 {
 	strategy_manager__reportStatus(pilotStatus);
@@ -182,8 +214,9 @@ void intervention_manager__reportStatus(MoveReason pilotStatus)
 	return; // ⬅️ À conserver. Retour explicite (void)
 }
 
-// @Override
-__attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
+/////////////////////////////////
+/// intervention_manager__interlockManuMode
+/////////////////////////////////
 void intervention_manager__interlockManuMode()
 {
 	strategy_manager__interlockManuMode();
@@ -191,7 +224,9 @@ void intervention_manager__interlockManuMode()
 	return; // ⬅️ À conserver. Retour explicite (void)
 }
 
-__attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
+/////////////////////////////////
+/// intervention_manager__sendPointsSelection
+/////////////////////////////////
 void intervention_manager__sendPointsSelection(Point **listPoints)
 {
 	/* ===== Préconditions ===== */
@@ -216,7 +251,9 @@ void intervention_manager__sendPointsSelection(Point **listPoints)
 	return; // ⬅️ À conserver. Retour explicite (void)
 }
 
-__attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
+/////////////////////////////////
+/// intervention_manager__startInter
+/////////////////////////////////
 void intervention_manager__startInter()
 {
 	/* ===== Préconditions ===== */
@@ -241,6 +278,8 @@ void intervention_manager__startInter()
 	int roleRobot = 0;
 	sensor_manager__startMonitoring(roleRobot); // 📌
 
+	intervention_manager__followTrajectory();
+
 	X_LOG_TRACE("exiting intervention_manager__startInter()");
 
 	/* ===== Postconditions ===== */
@@ -249,7 +288,9 @@ void intervention_manager__startInter()
 	return; // ⬅️ À conserver. Retour explicite (void)
 }
 
-__attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
+/////////////////////////////////
+/// intervention_manager__stopInter
+/////////////////////////////////
 void intervention_manager__stopInter()
 {
 	/* ===== Préconditions ===== */
@@ -278,7 +319,9 @@ void intervention_manager__stopInter()
 	return; // ⬅️ À conserver. Retour explicite (void)
 }
 
-__attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
+/////////////////////////////////
+/// intervention_manager__getTimeInter
+/////////////////////////////////
 int intervention_manager__getTimeInter()
 {
 	/* ===== Préconditions ===== */
@@ -300,31 +343,44 @@ int intervention_manager__getTimeInter()
 	return timeInter; // ⬅️ Retourne le temps d'intervention calculé
 }
 
-// @Override
-__attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
+/////////////////////////////////
+/// intervention_manager__computeStrat
+/////////////////////////////////
 static void intervention_manager__computeStrat()
 {
+	/* ===== Variables locales ===== */
+	StrategyManager *strategyManager; // Instance locale de StrategyManager
+
+	/* ===== Préconditions ===== */
+	strategy_manager__getInstance(&strategyManager); // Récupère l'instance de StrategyManager
+	X_ASSERT(&interventionManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
+	X_ASSERT(strategyManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
+
+	// @Override
 	strategy_manager__computeStrat(interventionManager.pathPoints);
 
 	return; // ⬅️ À conserver. Retour explicite (void)
 }
 
-// @Override
-__attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
+/////////////////////////////////
+/// intervention_manager__startTimer
+/////////////////////////////////
 static int intervention_manager__startTimer()
 {
 	return strategy_manager__startTimer();
 }
 
-// @Override
-__attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
+/////////////////////////////////
+/// intervention_manager__stopTimer
+/////////////////////////////////
 static int intervention_manager__stopTimer()
 {
 	return strategy_manager__stopTimer();
 }
 
-// @Override
-__attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
+/////////////////////////////////
+/// intervention_manager__updateStatus
+/////////////////////////////////
 static void intervention_manager__updateStatus(Status status)
 {
 	strategy_manager__updateStatus(status);
@@ -332,7 +388,9 @@ static void intervention_manager__updateStatus(Status status)
 	return; // ⬅️ À conserver. Retour explicite (void)
 }
 
-__attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
+/////////////////////////////////
+/// intervention_manager__computeAngleToPoint
+/////////////////////////////////
 static int intervention_manager__computeAngleToPoint()
 {
 	/* ===== Préconditions ===== */
@@ -357,7 +415,9 @@ static int intervention_manager__computeAngleToPoint()
 	return ret; // ⬅️ Retourne l'angle calculé ou un code d'erreur
 }
 
-__attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
+/////////////////////////////////
+/// intervention_manager__computeDistanceToPoint
+/////////////////////////////////
 static int intervention_manager__computeDistanceToPoint()
 {
 	/* ===== Préconditions ===== */
@@ -381,7 +441,9 @@ static int intervention_manager__computeDistanceToPoint()
 
 }
 
-__attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
+/////////////////////////////////
+/// intervention_manager__generatePathOfPoints
+/////////////////////////////////
 static int intervention_manager__generatePathOfPoints()
 {
 	/* ===== Préconditions ===== */
@@ -409,7 +471,9 @@ static int intervention_manager__generatePathOfPoints()
 	return 1;
 }
 
-__attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
+/////////////////////////////////
+/// intervention_manager__retrieveNextPoint
+/////////////////////////////////
 static void intervention_manager__retrieveNextPoint()
 {
 	/* ===== Préconditions ===== */
@@ -435,7 +499,9 @@ static void intervention_manager__retrieveNextPoint()
 	return; // ⬅️ À conserver. Retour explicite (void)
 }
 
-__attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
+/////////////////////////////////
+/// intervention_manager__updateTrace
+/////////////////////////////////
 static int intervention_manager__updateTrace()
 {
 	/* ===== Préconditions ===== */

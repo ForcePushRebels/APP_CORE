@@ -1,7 +1,7 @@
 #ifndef __STRATEGY_WRAPPER__
 #define __STRATEGY_WRAPPER__
 
-#include <map_engine.h>
+#include "map_engine.h"
 
 typedef struct Point {
 	int x, y;
@@ -25,7 +25,7 @@ typedef enum strategy_e {
 	STRATEGY_NB,
 } Strategy;
 
-int strategy_wrapper__init(char *, prep_func_cb *, exec_func_cb *);
+int strategy_wrapper__addStrategy(char *, prep_func_cb *, exec_func_cb *);
 
 void strategy_wrapper__prepare(mat_t (*)[10]);
 

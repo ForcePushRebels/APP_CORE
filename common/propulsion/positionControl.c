@@ -15,7 +15,7 @@
 #define CORRECTION 1
 
 // Variable de position globale
-static Position_t g_robot_position = {0, 0, 0.0};
+static Position_t g_robot_position = {200, 200, 0.0};
 static xOsMutexCtx g_position_mutex;
 
 // Structure de contrôle de position pour chaque roue

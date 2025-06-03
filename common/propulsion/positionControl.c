@@ -143,6 +143,7 @@ static void update_robot_position(int32_t left_ticks, int32_t right_ticks)
 
 static void* wheel_position_control_task(void* arg) 
 {
+    xOsTaskCtx* self = (xOsTaskCtx*)arg;
 
     mutexLock(&g_left_wheel.mutex);
     mutexLock(&g_right_wheel.mutex);
@@ -164,7 +165,7 @@ static void* wheel_position_control_task(void* arg)
     prev_right_ticks = encoder_values[1];
     
 
-    while (1)//(control->running) 
+    while (atomic_load(&self->a_iStopFlag) == OS_TASK_SECURE_FLAG)//(control->running) 
     {
 
         mutexUnlock(&g_left_wheel.mutex);

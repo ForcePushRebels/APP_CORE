@@ -144,7 +144,6 @@ static void update_robot_position(int32_t left_ticks, int32_t right_ticks)
 static void* wheel_position_control_task(void* arg) 
 {
     (void)arg;
-    //xOsTaskCtx* self = (xOsTaskCtx*)arg;
 
     X_LOG_TRACE("Position control task started");
     
@@ -166,9 +165,6 @@ static void* wheel_position_control_task(void* arg)
     while (1)//(atomic_load(&self->a_iStopFlag) == OS_TASK_SECURE_FLAG)//(control->running) 
     {
 
-        mutexLock(&g_left_wheel.mutex);
-        mutexLock(&g_right_wheel.mutex);
-
         // Obtenir les positions actuelles des encodeurs
         int32_t encoder_values[2] = {0, 0};
         GetMotorEncoderValues(encoder_values);
@@ -183,11 +179,16 @@ static void* wheel_position_control_task(void* arg)
         
         // Mettre à jour la position du robot si ce n'est pas le premier passage
         if (!first_run) {
+            mutexLock(&g_position_mutex);
             update_robot_position(delta_left_ticks, delta_right_ticks);
+            mutexUnlock(&g_position_mutex);
         }
         first_run = false;
         
         // Mettre à jour les ticks actuels
+        mutexLock(&g_left_wheel.mutex);
+        mutexLock(&g_right_wheel.mutex);
+
         g_left_wheel.current_ticks = encoder_values[0];
         g_right_wheel.current_ticks = encoder_values[1];
 
@@ -207,6 +208,8 @@ static void* wheel_position_control_task(void* arg)
             g_state = DECC;
             step_decc *=2;
             g_bCorrection = false;
+            mutexUnlock(&g_right_wheel.mutex);
+            mutexUnlock(&g_left_wheel.mutex);
             continue;
         }
 
@@ -250,14 +253,13 @@ static void* wheel_position_control_task(void* arg)
 
             case ACC :
                 //X_LOG_TRACE("État: ACC");
-                //mutexLock(&g_speed_mutex);
+                mutexLock(&g_speed_mutex);
                 g_common_target_speed += step_acc;
-
                 if (g_common_target_speed >= g_left_wheel.max_speed) {
                     g_common_target_speed = g_left_wheel.max_speed;
                     g_state = MOVE;
                 }
-                //mutexUnlock(&g_speed_mutex);
+                mutexUnlock(&g_speed_mutex);
 
                 // Vérifier si on a parcouru la moitié des ticks
                 if (abs(g_left_wheel.target_ticks - nb_decc_tick) <= abs(g_left_wheel.current_ticks)) {
@@ -280,7 +282,7 @@ static void* wheel_position_control_task(void* arg)
                 //X_LOG_TRACE("État: DECC");
 
                 //X_LOG_TRACE("État: DECC - Roue: %s", g_left_wheel.is_left_wheel ? "GAUCHE" : "DROITE");
-                //mutexLock(&g_speed_mutex);
+                mutexLock(&g_speed_mutex);
                 g_common_target_speed -= step_decc;
                 if (g_common_target_speed < MIN_SPEED_RAD_S) 
                 {
@@ -296,7 +298,7 @@ static void* wheel_position_control_task(void* arg)
                     }
 
                 }
-                //mutexUnlock(&g_speed_mutex);
+                mutexUnlock(&g_speed_mutex);
                 break; 
 
             case CORR :
@@ -363,7 +365,9 @@ static void* wheel_position_control_task(void* arg)
 
         // Appliquer la vitesse au moteur avec le signe approprié selon le type de mouvement
         if (g_state != CORR && g_state != STOP ) {  // Ne pas appliquer la vitesse pendant la phase de correction
-            double wheel_speed = g_common_target_speed; 
+            mutexLock(&g_speed_mutex);
+            double wheel_speed = g_common_target_speed;
+            mutexUnlock(&g_speed_mutex);
             
             switch (g_current_move_type) {
                 case FORWARD:
@@ -462,10 +466,10 @@ bool position_control_is_motion_finished(void)
     return finished;
 }
 
-int32_t position_control_advance(int16_t distance_mm, float speed_rad_s_max)
+int32_t position_control_advance(int32_t distance_mm, float speed_rad_s_max)
 {
     if (!g_initialized) return POSITION_NOT_INITIALIZED;
-    int32_t distance_patch = (int32_t)((float)distance_mm * 0.909);
+    int32_t distance_patch = (int32_t)((double)distance_mm * 0.909);
 
     // Convertir la distance en ticks d'encodeur
     int32_t target_ticks = distance_to_ticks(distance_patch);

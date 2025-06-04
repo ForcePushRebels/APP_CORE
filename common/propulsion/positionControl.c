@@ -470,9 +470,6 @@ int32_t position_control_advance(int16_t distance_mm, float speed_rad_s_max)
     // Convertir la distance en ticks d'encodeur
     int32_t target_ticks = distance_to_ticks(distance_patch);
     
-    X_LOG_TRACE("Advance - Distance: %d mm, Patch: %d mm, Speed: %.2f rad/s", 
-                distance_mm, distance_patch, speed_rad_s_max);
-    
     mutexLock(&g_left_wheel.mutex);
     mutexLock(&g_right_wheel.mutex);
 
@@ -495,9 +492,6 @@ int32_t position_control_advance(int16_t distance_mm, float speed_rad_s_max)
     // Définir le type de mouvement
     g_current_move_type = FORWARD;
 
-    X_LOG_TRACE("Advance - Current ticks - Left: %d, Right: %d", encoder_values[0], encoder_values[1]);
-    X_LOG_TRACE("Advance - Target ticks - Left: %d, Right: %d", g_left_wheel.target_ticks, g_right_wheel.target_ticks);
-
     mutexUnlock(&g_right_wheel.mutex);
     mutexUnlock(&g_left_wheel.mutex);
     return POSITION_OK;
@@ -510,8 +504,6 @@ int32_t position_control_turn(float angle_rad, float speed_rad_s_max)
 
     // Convertir l'angle en ticks d'encodeur
     int32_t target_ticks = angle_to_ticks(angle_rad);
-
-    X_LOG_TRACE("Turn - Angle: %.2f rad, Speed: %.2f rad/s", angle_rad, speed_rad_s_max);
 
     mutexLock(&g_left_wheel.mutex);
     mutexLock(&g_right_wheel.mutex);
@@ -546,10 +538,6 @@ int32_t position_control_turn(float angle_rad, float speed_rad_s_max)
     g_left_wheel.should_stop = false;
     g_right_wheel.should_stop = false;
 
-    X_LOG_TRACE("Turn - Current ticks - Left: %d, Right: %d", encoder_values[0], encoder_values[1]);
-    X_LOG_TRACE("Turn - Target ticks - Left: %d, Right: %d", g_left_wheel.target_ticks, g_right_wheel.target_ticks);
-    X_LOG_TRACE("Turn - Type: %s", g_current_move_type == LEFT ? "GAUCHE" : "DROITE");
-
     mutexUnlock(&g_right_wheel.mutex);
     mutexUnlock(&g_left_wheel.mutex);
     return POSITION_OK;
@@ -557,8 +545,6 @@ int32_t position_control_turn(float angle_rad, float speed_rad_s_max)
 
 int32_t position_control_stop(void)
 {
-    X_LOG_TRACE("Stopping position control");
-    
     if (!g_initialized) return POSITION_NOT_INITIALIZED;
 
     mutexLock(&g_left_wheel.mutex);

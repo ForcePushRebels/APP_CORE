@@ -331,16 +331,12 @@ static void *pilot_task(void *p_pttArg)
         PilotEvent evt;
         if (event_queue_pop(&g_pilot.evtQueue, &evt))
         {
-            X_LOG_TRACE("pilot_task: event popped: %d in state %d", evt, g_state);
-
             pilot_transition_t *t = &pilot_transitions[g_state][evt];
             if (t->action)
             {
-                X_LOG_TRACE("pilot_task: calling action for evt=%d, state=%d", evt, g_state);
                 t->action(NULL);
             }
             g_state = t->next_state;
-            X_LOG_TRACE("pilot_task: after action, new state=%d", g_state);
 
         }   
         else
@@ -350,8 +346,6 @@ static void *pilot_task(void *p_pttArg)
             if ((g_state == PILOT_STATE_MOVING) &&
                 position_control_is_motion_finished())
             {
-                X_LOG_TRACE("pilot_task: Detected motion finished, posting END_MOVE");
-
                 pilot_post_event(PILOT_EVT_END_MOVE);
             }
             xTimerDelay(10);

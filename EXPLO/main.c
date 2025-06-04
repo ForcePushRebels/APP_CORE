@@ -16,19 +16,19 @@
 #include "handleNetworkMessage.h"
 #include "hardwareAbstraction.h"
 #include "idCard.h"
+#include "map_engine.h"
 #include "motorControl.h"
 #include "networkServer.h"
 #include "pilot.h"
 #include "positionControl.h"
 #include "safetyController.h"
 #include "sensorManager.h"
+#include "supervisor.h"
 #include "watchdog.h"
 #include "xAssert.h"
 #include "xLog.h"
 #include "xNetwork.h"
 #include "xTimer.h"
-
-#include "map_engine.h"
 
 // chemin des logs avec l'executable en chemin de l'executable
 static const uint8_t s_aCLogPath[] = "explo.log";
@@ -248,8 +248,10 @@ void testPositionControl(void)
     Position_t current_position;
 
     // Afficher la position toutes les 500ms
-    if (current_time - last_position_update > 500) {
-        if (position_control_get_position(&current_position) == 0) {
+    if (current_time - last_position_update > 500)
+    {
+        if (position_control_get_position(&current_position) == 0)
+        {
             //TODO
         }
         last_position_update = current_time;
@@ -284,11 +286,12 @@ void testPositionControl(void)
         //X_LOG_TRACE("STOP !");
 
         position_control_stop();
-        
-        while(!position_control_is_motion_finished());
+
+        while (!position_control_is_motion_finished())
+            ;
         //X_LOG_TRACE("STOP DONE");
         position_control_turn(M_PI, 1.0);
-        
+
         start = 1;
     }
 }
@@ -300,7 +303,8 @@ void testPilot(void)
     uint64_t now = xTimerGetCurrentMs();
 
     // Initialiser la séquence
-    if (!sequence_started) {
+    if (!sequence_started)
+    {
         X_LOG_TRACE("Starting pilot test sequence");
         phase = 0;
         phase_start_time = now;
@@ -308,8 +312,10 @@ void testPilot(void)
     }
 
     // Attendre que le mouvement précédent soit terminé
-    if (phase > 0 && phase < 10) {
-        if (!position_control_is_motion_finished()) {
+    if (phase > 0 && phase < 10)
+    {
+        if (!position_control_is_motion_finished())
+        {
             return;
         }
         xTimerDelay(1000); // Pause d'une seconde entre les mouvements
@@ -325,7 +331,7 @@ void testPilot(void)
 
         case 1: // Test 2: Rotation droite 90°
             X_LOG_TRACE("Test 2: Turn right 90 degrees");
-            pilot_turn(M_PI/2, 2.0, false);
+            pilot_turn(M_PI / 2, 2.0, false);
             phase++;
             break;
 
@@ -337,7 +343,7 @@ void testPilot(void)
 
         case 3: // Test 4: Rotation gauche 45°
             X_LOG_TRACE("Test 4: Turn left 45 degrees");
-            pilot_turn(-M_PI/4, 2.0, false);
+            pilot_turn(-M_PI / 4, 2.0, false);
             phase++;
             break;
 
@@ -349,7 +355,7 @@ void testPilot(void)
 
         case 5: // Test 6: Rotation droite 135°
             X_LOG_TRACE("Test 6: Turn right 135 degrees");
-            pilot_turn(3*M_PI/4, 2.0, false);
+            pilot_turn(3 * M_PI / 4, 2.0, false);
             phase++;
             break;
 
@@ -381,11 +387,15 @@ void testPilot(void)
             break;
 
         case 10: // Fin de la séquence
-            if (position_control_is_motion_finished()) {
+            if (position_control_is_motion_finished())
+            {
                 Position final_pos;
-                if (pilot_getPosition(&final_pos) == PILOT_OK) {
+                if (pilot_getPosition(&final_pos) == PILOT_OK)
+                {
                     X_LOG_TRACE("Final position - X: %d mm, Y: %d mm, Angle: %.2f rad",
-                                final_pos.positionX, final_pos.positionY, final_pos.angle);
+                                final_pos.positionX,
+                                final_pos.positionY,
+                                final_pos.angle);
                 }
                 X_LOG_TRACE("Pilot test sequence completed");
                 sequence_started = false; // Réinitialiser pour pouvoir recommencer
@@ -555,9 +565,10 @@ int main()
     l_iReturn = map_engine_init();
     X_ASSERT(l_iReturn == MAP_ENGINE_OK);
 
-    // main loop
-    //
-    testNetworkCommunication();
+    // init supervisor
+    l_iReturn = supervisor_init();
+    X_ASSERT(l_iReturn == SUPERVISOR_OK);
+    X_LOG_TRACE("Supervisor initialized");
 
     safetyControllerInit();
 
@@ -568,7 +579,7 @@ int main()
 
         // Envoyer le signal SOS en morse
         // sendMorseSOS();
-        testPilot(); // <-- Active cette ligne pour tester le pilotage
+        //testPilot(); // <-- Active cette ligne pour tester le pilotage
         // xTimerDelay(100); // Ajoute un petit délai pour éviter de saturer le CPU
         // testPositionControl();
         // Pour envoyer des mises à jour périodiques, on devra attendre d'avoir un client connecté

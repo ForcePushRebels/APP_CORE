@@ -253,7 +253,7 @@ int networkConnect(NetworkSocket *p_ptSocket, const NetworkAddress *p_pAddress)
 //////////////////////////////////
 /// networkSend
 //////////////////////////////////
-int networkSend(NetworkSocket *p_ptSocket, const void *p_pBuffer, unsigned long p_ulSize)
+int  networkSend(NetworkSocket *p_ptSocket, const void *p_pBuffer, unsigned long p_ulSize)
 {
     int l_iReturn;
 

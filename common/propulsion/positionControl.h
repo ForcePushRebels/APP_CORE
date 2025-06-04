@@ -7,16 +7,10 @@
 #ifndef POSITION_CONTROL_H
 #define POSITION_CONTROL_H
 
-#include <stdint.h>
-#include <stdbool.h>
-#include "mrpiz.h"
 #include "error.h"
-#include "xOsMutex.h"
-#include "xLog.h"
-#include "xAssert.h"
-#include "xTask.h"
 #include "hardwareAbstraction.h"
 #include "motorControl.h"
+#include "mrpiz.h"
 #include "robotConfiguration.h"
 
 // Error codes
@@ -33,7 +27,7 @@ typedef enum moveType
     FORWARD,
     LEFT,
     RIGHT
-}move_type_t;
+} move_type_t;
 
 // Position structure
 typedef struct {
@@ -55,6 +49,11 @@ typedef struct {
 #define DECELERATION_COEF   0.5     // Deceleration coefficient (0-1)
 #define MIN_SPEED_RAD_S     0.5     // Minimum speed to start movement
 #define CORRECTION_SPEED    0.1     // Speed for final position correction
+#define REGULATION_PERIOD_MS 5 // Regulation period in milliseconds
+#define ACCELERATION_COEF 0.5  // Acceleration coefficient (0-1)
+#define DECELERATION_COEF 0.5  // Deceleration coefficient (0-1)
+#define MIN_SPEED_RAD_S 0.5    // Minimum speed to start movement
+#define CORRECTION_SPEED 0.1   // Speed for final position correction
 
 // Public functions
 

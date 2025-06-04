@@ -33,21 +33,24 @@ int astar_wrapper__init()
 int astar_wrapper__prepare(mat_t (*mat)[10]) {
     X_LOG_DEBUG("Preparing AStar grid");
 
-	int obstacleCount = 0;
+    // Clear grid first
+    memset(grid, 0, sizeof(grid));
 
-	// Initialize the grid with a static maze (0 = empty, 1 = obstacle)
-	for (int i = 0; i < GRID_SIZE; i++) {
-		for (int j = 0; j < GRID_SIZE; j++) {
-			if(mat[i][j].type == MAP_CELL_WALL) {
-				grid[i][j] = 1;
-				obstacleCount++;
+    int obstacleCount = 0;
 
-			}
-		}	
-	}
+    // Copy map to grid
+    for (int i = 0; i < GRID_SIZE; i++) {
+        for (int j = 0; j < GRID_SIZE; j++) {
+            if(mat[i][j].type == MAP_CELL_WALL) {
+                grid[i][j] = 1;  // Mark as obstacle
+                obstacleCount++;
+                X_LOG_DEBUG("Obstacle at (%d,%d)", i, j);
+            }
+        }   
+    }
 
     X_LOG_INFO("AStar grid prepared with %d obstacles", obstacleCount);
-	return 0;
+    return 0;
 }
 
 //@Override
@@ -76,12 +79,12 @@ int astar_wrapper__execute(seq_t *seq, Point *initial, Point *final) {
         debug_print_sequence("AStar path", seq, pathCount);
     } else {
         X_LOG_WARN("No path found between points");
+        pathCount = 0;
     }
 
     // Clean up
     ASPathDestroy(path);
-
-    return 0;
+    return pathCount;  // Return the number of points in path
 }
 
 // Node neighbor function

@@ -20,14 +20,10 @@
 /* **************************************************** Private macros *************************************************** */
 #define MAP_DEBUG 0
 
-#define MAP_WIDTH_MM 1000
-#define MAP_HEIGHT_MM 1000
+#define MAP_WIDTH 10
+#define MAP_HEIGHT 10
 
-#define MAP_CELL_SIZE_MM 50
-
-
-#define MAP_WIDTH (MAP_WIDTH_MM / MAP_CELL_SIZE_MM)
-#define MAP_HEIGHT (MAP_HEIGHT_MM / MAP_CELL_SIZE_MM)
+#define MAP_CELL_SIZE_MM 100
 
 /* ************************************************ Private type definition ********************************************** */
 
@@ -67,11 +63,6 @@ static void print_map()
 {
     printf("=== MAP DISPLAY ===\n");
 
-    // Récupération de la position du robot
-    Position_t robot_pos;
-    position_control_get_position(&robot_pos);
-    int16_t robot_grid_x = robot_pos.x_mm / MAP_CELL_SIZE_MM;
-    int16_t robot_grid_y = robot_pos.y_mm / MAP_CELL_SIZE_MM;
     // Affichage de l'en-tête avec les numéros de colonnes
     printf("   ");
     for (int x = 0; x < MAP_WIDTH; x++)
@@ -95,22 +86,14 @@ static void print_map()
 
         for (int x = 0; x < MAP_WIDTH; x++)
         {
-            // Vérifier si c'est la position du robot
-            if (x == robot_grid_x && y == robot_grid_y)
+            uint8_t intensity = map_engine.map[x][y].wall.wall_intensity;
+            if (intensity == 0)
             {
-                printf(" R  "); // 'R' pour Robot
+                printf("  . "); // Point pour case vide
             }
             else
             {
-                uint8_t intensity = map_engine.map[x][y].wall.wall_intensity;
-                if (intensity == 0)
-                {
-                    printf("  . "); // Point pour case vide
-                }
-                else
-                {
-                    printf("%3d ", intensity); // Intensité sur 3 caractères
-                }
+                printf("%3d ", intensity); // Intensité sur 3 caractères
             }
         }
         printf("|\n"); // Fermeture de ligne
@@ -135,7 +118,7 @@ static void print_map()
     }
     printf("-\n");
 
-    printf("Legend: '.' = empty, numbers = wall intensity (0-255), 'R' = robot\n");
+    printf("Legend: '.' = empty, numbers = wall intensity (0-255)\n");
 }
 #endif
 
@@ -143,7 +126,93 @@ static void print_map()
 
 int map_engine_init()
 {
-    memset(map_engine.map, 0, sizeof(map_engine.map));
+	map_cell_t tmp[10][10] = {
+               {
+                       { MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_EMPTY, .empty = {0} },
+                       { MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+                       { MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+                       { MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+                       { MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} }
+               },
+               {
+                       { MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_EMPTY, .empty = {0} },
+                       { MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_EMPTY, .empty = {0} },
+                       { MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+                       { MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_EMPTY, .empty = {0} },
+                       { MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} }
+               },
+               {
+                       { MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+                       { MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+                       { MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+                       { MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+                       { MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} }
+               },
+               {
+                       { MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_EMPTY, .empty = {0} },
+                       { MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+                       { MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+                       { MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+                       { MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} }
+               },
+               {
+                       { MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+                       { MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+                       { MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+                       { MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} }
+               },
+               {
+                       { MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_EMPTY, .empty = {0} },
+                       { MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+                       { MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+                       { MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+                       { MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} }
+               },
+               {
+                       { MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_EMPTY, .empty = {0} },
+                       { MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+                       { MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+                       { MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+                       { MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} }
+               },
+               {
+                       { MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_EMPTY, .empty = {0} },
+                       { MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_EMPTY, .empty = {0} },
+                       { MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_EMPTY, .empty = {0} },
+                       { MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+                       { MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} }
+               },
+               {
+                       { MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_EMPTY, .empty = {0} },
+                       { MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_EMPTY, .empty = {0} },
+                       { MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+                       { MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+                       { MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} }
+               },
+               {
+                       { MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_EMPTY, .empty = {0} },
+                       { MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_EMPTY, .empty = {0} },
+                       { MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+                       { MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+                       { MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} }
+               },
+               {
+                       { MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+                       { MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+                       { MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+                       { MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+                       { MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} }
+               },
+               {
+                       { MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+                       { MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+                       { MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+                       { MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
+                       { MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_EMPTY, .empty = {0} }
+               }
+       };
+	memcpy(map_engine.map, tmp, sizeof(map_engine.map));
+	// memset(map_engine.map, tmp, sizeof(map_engine.map));
     map_engine.discovery_percent = 0;
 
     return MAP_ENGINE_OK;
@@ -161,81 +230,8 @@ size_t map_engine_get_map_size()
 
 int map_engine_get_map(map_cell_t (*map)[10])
 {
-	map_cell_t tmp[10][10] = {
-		{
-			{ MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_EMPTY, .empty = {0} },
-			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
-			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
-			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
-			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} }
-		},
-		{
-			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_EMPTY, .empty = {0} },
-			{ MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_EMPTY, .empty = {0} },
-			{ MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} },
-			{ MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_EMPTY, .empty = {0} },
-			{ MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} }
-		},
-		{
-			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
-			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
-			{ MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} },
-			{ MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} },
-			{ MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} }
-		},
-		{
-			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_EMPTY, .empty = {0} },
-			{ MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} },
-			{ MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} },
-			{ MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} },
-			{ MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} }
-		},
-		{
-			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_EMPTY, .empty = {0} },
-			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
-			{ MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} },
-			{ MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} },
-			{ MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} }
-		},
-		{
-			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_EMPTY, .empty = {0} },
-			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_EMPTY, .empty = {0} },
-			{ MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_EMPTY, .empty = {0} },
-			{ MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} },
-			{ MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} }
-		},
-		{
-			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_EMPTY, .empty = {0} },
-			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_EMPTY, .empty = {0} },
-			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
-			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
-			{ MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} }
-		},
-		{
-			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_EMPTY, .empty = {0} },
-			{ MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_EMPTY, .empty = {0} },
-			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
-			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
-			{ MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} }
-		},
-		{
-			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
-			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
-			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
-			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
-			{ MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_WALL,  .wall = {0} }
-		},
-		{
-			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
-			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
-			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
-			{ MAP_CELL_WALL,  .wall = {0} }, { MAP_CELL_WALL,  .wall = {0} },
-			{ MAP_CELL_EMPTY, .empty = {0} }, { MAP_CELL_EMPTY, .empty = {0} }
-		}
-	};
-	
-    memcpy(*map, tmp, sizeof(tmp));
-	return MAP_ENGINE_OK;
+    memcpy(map, map_engine.map, sizeof(map_engine.map));
+    return MAP_ENGINE_OK;
 }
 
 int map_engine_get_discovery_percent()

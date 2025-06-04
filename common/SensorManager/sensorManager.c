@@ -9,18 +9,8 @@
 #include "sensorManager.h"
 #include "idCard.h"
 #include "map_engine.h"
-#include "idCard.h"
 
 static sensorManager_t s_tSensorManager;
-////////////////////////////////////////////////////////////
-
-#include "sensorManager.h"
-#include "idCard.h"
-#include "map_engine.h"
-#include "idCard.h"
-
-static sensorManager_t s_tSensorManager;
-
 
 #define SENSOR_MANAGER_TASK_PERIOD 100
 #define SENSOR_OBSTACLE_THRESHOLD 150
@@ -41,10 +31,8 @@ int sensorManagerInit(void)
         return l_iRet;
     }
 
-    l_iRet = xTimerCreate(&s_tSensorManager.t_tTimer, 
-                          SENSOR_MANAGER_TASK_PERIOD, 
-                          XOS_TIMER_MODE_PERIODIC);
-                          
+    l_iRet = xTimerCreate(&s_tSensorManager.t_tTimer, SENSOR_MANAGER_TASK_PERIOD, XOS_TIMER_MODE_PERIODIC);
+
     if (l_iRet != XOS_TIMER_OK)
     {
         X_LOG_TRACE("Error creating timer");
@@ -150,14 +138,13 @@ static void updateSensorData(void *p_pvParam)
     {
         s_tSensorManager.t_tISensors[i] = rawValuesToMm(s_tSensorManager.t_tISensors[i]);
     }
-    
+
     s_tSensorManager.t_tFloorSensor = GetFloorSensorValue();
 
     if (idCardGetRole() == IDCARD_ROLE_EXPLO)
     {
         map_engine_update_vision(s_tSensorManager.t_tISensors, SENSOR_MANAGER_SENSORS_COUNT);
     }
-
 }
 
 ///////////////////////////////////////////
@@ -191,8 +178,6 @@ static void *sensorManagerTask(void *p_pvParam)
     return NULL;
 }
 
-
-
 ///////////////////////////////////////////
 /// rawValuesToMm
 ///////////////////////////////////////////
@@ -202,7 +187,9 @@ uint16_t rawValuesToMm(uint16_t rawValue)
     if (rawValue > 255)
         rawValue = 255;
 
-    uint16_t converted_value = (rawValue * (SENSOR_MAX_MM_VALUE - SENSOR_MIN_MM_VALUE)) / (SENSOR_MAX_RAW_VALUE - SENSOR_MIN_RAW_VALUE) + SENSOR_MIN_MM_VALUE;
+    uint16_t converted_value
+        = (rawValue * (SENSOR_MAX_MM_VALUE - SENSOR_MIN_MM_VALUE)) / (SENSOR_MAX_RAW_VALUE - SENSOR_MIN_RAW_VALUE)
+          + SENSOR_MIN_MM_VALUE;
     // X_LOG_TRACE("Conversion: %d -> %d", rawValue, converted_value);
     return (uint16_t)converted_value;
 }

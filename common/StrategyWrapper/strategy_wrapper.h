@@ -28,7 +28,6 @@ typedef enum strategy_e {
 } Strategy;
 
 int strategy_wrapper__addStrategy(char *, prep_func_cb *, exec_func_cb *);
-int strategy_wrapper__addStrategy(char *, prep_func_cb *, exec_func_cb *);
 
 void strategy_wrapper__prepare(mat_t (*)[10]);
 

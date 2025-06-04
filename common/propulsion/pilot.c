@@ -94,13 +94,10 @@ pilot_transition_t pilot_transitions[PILOT_STATE_COUNT][PILOT_EVT_COUNT] = {
         [PILOT_EVT_CHECK_NEXT_MOVE] = {.next_state = PILOT_STATE_CHECK_NEXT_MOVE, .action = pilot_action_check_next_move},
     },
     [PILOT_STATE_CHECK_NEXT_MOVE] = {
-        [PILOT_EVT_NEXT_MOVE] = {.next_state = PILOT_STATE_MOVE_IN_PROGRESS, .action = pilot_action_nextMove},
+        [PILOT_EVT_NEXT_MOVE] = {.next_state = PILOT_STATE_MOVING, .action = pilot_action_nextMove},
         [PILOT_EVT_END_ALL_MOVES] = {.next_state = PILOT_STATE_WAIT_MOVE, .action = pilot_action_endMove},
     },
-    [PILOT_STATE_MOVE_IN_PROGRESS] = {
-        [PILOT_EVT_STOP] = {.next_state = PILOT_STATE_MOVE_IN_PROGRESS, .action = pilot_action_computeStop},
-        [PILOT_EVT_END_MOVE] = {.next_state = PILOT_STATE_END_MOVE, .action = pilot_action_endMove},
-    },
+    
 };
 
 /////////////////////////////////
@@ -334,27 +331,21 @@ static void *pilot_task(void *p_pttArg)
         PilotEvent evt;
         if (event_queue_pop(&g_pilot.evtQueue, &evt))
         {
-            X_LOG_TRACE("pilot_task: event popped: %d in state %d", evt, g_state);
-
             pilot_transition_t *t = &pilot_transitions[g_state][evt];
             if (t->action)
             {
-                X_LOG_TRACE("pilot_task: calling action for evt=%d, state=%d", evt, g_state);
                 t->action(NULL);
             }
             g_state = t->next_state;
-            X_LOG_TRACE("pilot_task: after action, new state=%d", g_state);
 
         }   
         else
         {
-            // X_LOG_TRACE("pilot_task: polling, state=%d, motion_finished=%d", g_state, position_control_is_motion_finished());
+            //X_LOG_TRACE("pilot_task: polling, state=%d, motion_finished=%d", g_state, position_control_is_motion_finished());
 
-            if ((g_state == PILOT_STATE_MOVING || g_state == PILOT_STATE_MOVE_IN_PROGRESS) &&
+            if ((g_state == PILOT_STATE_MOVING) &&
                 position_control_is_motion_finished())
             {
-                X_LOG_TRACE("pilot_task: Detected motion finished, posting END_MOVE");
-
                 pilot_post_event(PILOT_EVT_END_MOVE);
             }
             xTimerDelay(10);
@@ -402,9 +393,17 @@ void pilot_action_computeGoTo(void *arg)
     int max_speed = g_pilot.gotoMaxSpeed;
 
     // Position de départ en dur pour les tests
-    double startX = 0.0;
-    double startY = 0.0;
-    double startAngle = 0.0;
+    Position_t current_position;
+    if (position_control_get_position(&current_position) != 0)
+    {
+        X_LOG_TRACE("pilot_action_computeGoTo: Failed to get current position");
+        return;
+    }
+    // Utilise la position actuelle pour le calcul
+    double startX = current_position.x_mm;
+    double startY = current_position.y_mm;
+    double startAngle = current_position.angle_rad;
+
 
     double dx = targetX - startX;
     double dy = targetY - startY;
@@ -455,7 +454,7 @@ void pilot_action_startMoves(void *arg)
     int sz = move_queue_size(&g_pilot.moveQueue);
     if (sz > 0)
     {
-        Move move;
+        Move move = {0};
         move_queue_pop(&g_pilot.moveQueue, &move);
 
         // Notifier le début du mouvement
@@ -489,8 +488,7 @@ void pilot_action_endMove(void *arg)
     (void)arg; // Unused parameter
     if (position_control_is_motion_finished())
     {
-        X_LOG_TRACE("pilot_action_endMove: motion finished");
-        X_LOG_TRACE("pilot_action_endMove: motion finished");
+        // Notifier la fin du mouvement pour Uriel
         intervention_manager__endMove();
 
         // X_LOG_TRACE("pilot_action_endMove: motion finished, posting CHECK_NEXT_MOVE");

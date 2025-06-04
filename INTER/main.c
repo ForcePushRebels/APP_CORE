@@ -80,7 +80,7 @@ static void l_fWatchdogExpiryHandler(void)
 
 int main()
 {
-	int l_iReturn = 0;
+    int l_iReturn = 0;
 
     // Configuration des logs - le chemin complet sera construit automatiquement
     t_logCtx t_LogConfig;
@@ -93,23 +93,12 @@ int main()
     l_iReturn = xLogInit(&t_LogConfig);
     X_ASSERT(l_iReturn == XOS_LOG_OK);
 
-	// Initialisation du gestionnaire d'intervention
-	l_iReturn = intervention_manager__init();
-	X_ASSERT(l_iReturn == INTERVENTION_MANAGER_OK);
-
-	// Configurer la stratégie à suivre
-	l_iReturn = intervention_manager__giveIDStrategieToFollow(0);
-	X_ASSERT(l_iReturn == INTERVENTION_MANAGER_OK);
-
-	l_iReturn = intervention_manager__startInter();
-	X_ASSERT(l_iReturn == INTERVENTION_MANAGER_OK);
-
     // init hardware abstraction
     l_iReturn = hardwareAbstractionInit();
     X_ASSERT(l_iReturn == 0);
 
     // init watchdog
-    l_iReturn = watchdog_init(300);
+    l_iReturn = watchdog_init(5000);
     X_ASSERT(l_iReturn == WATCHDOG_SUCCESS);
     watchdog_set_expiry_handler(l_fWatchdogExpiryHandler);
 
@@ -137,7 +126,6 @@ int main()
     // Configurer et initialiser la découverte UDP
     idCardNetworkInit();
 
-
     // init sensor manager
     l_iReturn = sensorManagerInit();
     X_ASSERT(l_iReturn == SENSOR_MANAGER_OK);
@@ -149,22 +137,31 @@ int main()
     // start server
     l_iReturn = networkServerStart();
     X_ASSERT(l_iReturn == SERVER_OK);
-    
+
+	l_iReturn = intervention_manager__init();
+    X_ASSERT(l_iReturn == INTERVENTION_MANAGER_OK);
+
+	l_iReturn = intervention_manager__giveIDStrategieToFollow(STRATEGY_ASTAR);
+    X_ASSERT(l_iReturn == INTERVENTION_MANAGER_OK);
+
+	l_iReturn = intervention_manager__startInter();
+    X_ASSERT(l_iReturn == INTERVENTION_MANAGER_OK);
+
     // main loop
     while (1)
     {
         // Envoyer le signal SOS en morse
         sendMorseSOS();
-        
+
         // Pour envoyer des mises à jour périodiques, on devra attendre d'avoir un client connecté
         // et utiliser serverSendMessage à ce moment-là.
     }
-    
+
     // Ce code ne sera jamais atteint, mais pour être complet:
     cleanupMessageHandlerSystem();
     idCardNetworkCleanup();
     networkServerStop();
     networkServerCleanup();
-    
+
     return 0;
 }

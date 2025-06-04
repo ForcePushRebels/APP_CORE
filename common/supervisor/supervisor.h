@@ -9,22 +9,34 @@
 #ifndef SUPERVISOR_H
 #define SUPERVISOR_H
 
-#include "xLog.h"
-#include "xTask.h"
-#include "xOsMutex.h"
+#include "networkEncode.h"
+#include "networkServer.h"
 #include "xAssert.h"
-//TODO : inclure la map 
-
-#include <mqueue.h>
+#include "xLog.h"
+#include "xOsMemory.h"
+#include "xOsMutex.h"
+#include "xTask.h"
+#include "xTimer.h"
 #include <stdatomic.h>
 
+#define SUPERVISOR_TIMER_PERIOD_MS 1000 // 1 second period
+
+#define SUPERVISOR_OK 0x6E00A000
+#define SUPERVISOR_ERROR_INVALID_PARAM 0x6E00A002
+
+////////////////////////////////////////////////////////////
+/// @brief Position structure
+////////////////////////////////////////////////////////////
 typedef struct position_t
 {
     int32_t t_iXPosition;
     int32_t t_iYPosition;
-    float   t_fOrientation;
-}tPosition;
+    float t_fOrientation;
+} tPosition;
 
+////////////////////////////////////////////////////////////
+/// @brief Report structure
+////////////////////////////////////////////////////////////
 typedef struct report_t
 {
     uint64_t t_ulTime;
@@ -33,24 +45,45 @@ typedef struct report_t
     int32_t t_iSpeed;
     int32_t t_iDistance;
     tPosition t_tCurrentPosition;
-}tReportCtx;
+} tReportCtx;
 
-
+////////////////////////////////////////////////////////////
+/// @brief Supervisor context structure
+////////////////////////////////////////////////////////////
 typedef struct supervisorCtx
 {
     xOsTaskCtx t_tTask;
     xOsMutexCtx t_tMutex;
+    xOsTimerCtx t_tTimer;
     uint32_t t_iBatteryLevel;
     uint64_t t_ulTime;
     tPosition t_tPosition;
     tReportCtx t_tLastReport;
     tReportCtx t_tCurrentReport;
-}tSupervisorCtx;
+} tSupervisorCtx;
 
+////////////////////////////////////////////////////////////
+/// @brief Initialize the supervisor
+/// @return 0 if success, error code otherwise
+////////////////////////////////////////////////////////////
+int32_t supervisor_init(void);
 
+////////////////////////////////////////////////////////////
+/// @brief Shutdown the supervisor
+/// @return 0 if success, error code otherwise
+////////////////////////////////////////////////////////////
+int32_t supervisor_shutdown(void);
 
+////////////////////////////////////////////////////////////
+/// @brief Start the supervisor
+/// @return 0 if success, error code otherwise
+////////////////////////////////////////////////////////////
+int32_t supervisor_start(void);
 
-
-
+////////////////////////////////////////////////////////////
+/// @brief Stop the supervisor
+/// @return 0 if success, error code otherwise
+////////////////////////////////////////////////////////////
+int32_t supervisor_stop(void);
 
 #endif // SUPERVISOR_H

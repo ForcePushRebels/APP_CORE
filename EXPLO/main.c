@@ -8,30 +8,27 @@
 
 // system includes
 #include <math.h>
-#include <math.h>
 #include <stdio.h>
-#include <string.h>
 #include <string.h>
 #include <unistd.h>
 
 // project includes
 #include "handleNetworkMessage.h"
 #include "hardwareAbstraction.h"
-#include "hardwareAbstraction.h"
 #include "idCard.h"
+#include "map_engine.h"
 #include "motorControl.h"
-#include "networkServer.h"
 #include "networkServer.h"
 #include "pilot.h"
 #include "positionControl.h"
+#include "safetyController.h"
 #include "sensorManager.h"
+#include "supervisor.h"
 #include "watchdog.h"
 #include "xAssert.h"
 #include "xLog.h"
 #include "xNetwork.h"
 #include "xTimer.h"
-
-#include "map_engine.h"
 
 // chemin des logs avec l'executable en chemin de l'executable
 static const uint8_t s_aCLogPath[] = "explo.log";
@@ -115,17 +112,7 @@ void testMotors(void)
             motor_control_set_right_speed(0.0);
             X_LOG_TRACE("Test phase 0: Left motor forward");
             break;
-        case 0:                                // Moteur gauche en avant
-            motor_control_set_left_speed(2.0); // 2 rad/s
-            motor_control_set_right_speed(0.0);
-            X_LOG_TRACE("Test phase 0: Left motor forward");
-            break;
 
-        case 1:                                 // Moteur gauche en arrière
-            motor_control_set_left_speed(-2.0); // -2 rad/s
-            motor_control_set_right_speed(0.0);
-            X_LOG_TRACE("Test phase 1: Left motor backward");
-            break;
         case 1:                                 // Moteur gauche en arrière
             motor_control_set_left_speed(-2.0); // -2 rad/s
             motor_control_set_right_speed(0.0);
@@ -137,17 +124,7 @@ void testMotors(void)
             motor_control_set_left_speed(0.0);
             X_LOG_TRACE("Test phase 2: Right motor forward");
             break;
-        case 2:                                 // Moteur droit en avant
-            motor_control_set_right_speed(2.0); // 2 rad/s
-            motor_control_set_left_speed(0.0);
-            X_LOG_TRACE("Test phase 2: Right motor forward");
-            break;
 
-        case 3:                                  // Moteur droit en arrière
-            motor_control_set_right_speed(-2.0); // -2 rad/s
-            motor_control_set_left_speed(0.0);
-            X_LOG_TRACE("Test phase 3: Right motor backward");
-            break;
         case 3:                                  // Moteur droit en arrière
             motor_control_set_right_speed(-2.0); // -2 rad/s
             motor_control_set_left_speed(0.0);
@@ -159,17 +136,7 @@ void testMotors(void)
             motor_control_set_right_speed(2.0);
             X_LOG_TRACE("Test phase 4: Both motors forward");
             break;
-        case 4: // Les deux moteurs en avant
-            motor_control_set_left_speed(2.0);
-            motor_control_set_right_speed(2.0);
-            X_LOG_TRACE("Test phase 4: Both motors forward");
-            break;
 
-        case 5: // Les deux moteurs en arrière
-            motor_control_set_left_speed(-2.0);
-            motor_control_set_right_speed(-2.0);
-            X_LOG_TRACE("Test phase 5: Both motors backward");
-            break;
         case 5: // Les deux moteurs en arrière
             motor_control_set_left_speed(-2.0);
             motor_control_set_right_speed(-2.0);
@@ -181,17 +148,7 @@ void testMotors(void)
             motor_control_set_right_speed(2.0);
             X_LOG_TRACE("Test phase 6: Left rotation");
             break;
-        case 6: // Rotation gauche (moteur gauche en arrière, droit en avant)
-            motor_control_set_left_speed(-2.0);
-            motor_control_set_right_speed(2.0);
-            X_LOG_TRACE("Test phase 6: Left rotation");
-            break;
 
-        case 7: // Rotation droite (moteur gauche en avant, droit en arrière)
-            motor_control_set_left_speed(2.0);
-            motor_control_set_right_speed(-2.0);
-            X_LOG_TRACE("Test phase 7: Right rotation");
-            break;
         case 7: // Rotation droite (moteur gauche en avant, droit en arrière)
             motor_control_set_left_speed(2.0);
             motor_control_set_right_speed(-2.0);
@@ -290,25 +247,15 @@ void testPositionControl(void)
     uint64_t current_time = xTimerGetCurrentMs();
     Position_t current_position;
 
-
     // Afficher la position toutes les 500ms
     if (current_time - last_position_update > 500)
     {
         if (position_control_get_position(&current_position) == 0)
         {
-    if (current_time - last_position_update > 500)
-    {
-        if (position_control_get_position(&current_position) == 0)
-        {
-            X_LOG_TRACE("Robot position - X: %d mm, Y: %d mm, Angle: %.2f rad (%.1f°)",
-                        current_position.x_mm,
-                        current_position.y_mm,
-                        current_position.angle_rad,
-                        current_position.angle_rad * 180.0 / M_PI);
+            //TODO
         }
         last_position_update = current_time;
     }
-
 
     // Changer de phase toutes les 5 secondes
     if (current_time - last_phase_time > 5000)
@@ -317,13 +264,10 @@ void testPositionControl(void)
         last_phase_time = current_time;
 
         // Arrêter le mouvement avant de changer de phase
-        position_control_stop();
+        //position_control_stop();
         xTimerDelay(1000); // Attendre 1000ms pour stabilisation
 
-
         // Afficher la position finale de la phase précédente
-        if (position_control_get_position(&current_position) == 0)
-        {
         if (position_control_get_position(&current_position) == 0)
         {
             X_LOG_TRACE("Phase %d completed - Final position: X: %d mm, Y: %d mm, Angle: %.2f rad (%.1f°)",
@@ -335,106 +279,128 @@ void testPositionControl(void)
         }
     }
     if (start == 0)
-    if (start == 0)
     {
         //position_control_advance(1000, 2.0);
+        position_control_turn(-M_PI, 1.0);
+        sleep(2);
+        X_LOG_TRACE("STOP !");
+
+        position_control_stop();
+        
+        while(!position_control_is_motion_finished());
+        //X_LOG_TRACE("STOP DONE");
         position_control_turn(M_PI, 1.0);
+        
         start = 1;
     }
 }
 void testPilot(void)
 {
+    static int phase = 0;
     static uint64_t phase_start_time = 0;
-
+    static bool sequence_started = false;
     uint64_t now = xTimerGetCurrentMs();
+
+    // Initialiser la séquence
+    if (!sequence_started)
+    {
+        X_LOG_TRACE("Starting pilot test sequence");
+        phase = 0;
+        phase_start_time = now;
+        sequence_started = true;
+    }
+
+    // Attendre que le mouvement précédent soit terminé
+    if (phase > 0 && phase < 10)
+    {
+        if (!position_control_is_motion_finished())
+        {
+            return;
+        }
+        xTimerDelay(1000); // Pause d'une seconde entre les mouvements
+    }
 
     switch (phase)
     {
-        case 0:
-            X_LOG_TRACE("Pilot test: Advance 1000mm");
-            pilot_advance(1000, 2.0);
-            phase_start_time = now;
-            phase = 1;
+        case 0: // Test 1: Avance simple
+            X_LOG_TRACE("Test 1: Forward movement (500mm)");
+            pilot_advance(500, 2.0);
+            phase++;
             break;
 
-        case 1:
-            // Stop après 3 secondes
-            if (now - phase_start_time > 3000)
+        case 1: // Test 2: Rotation droite 90°
+            X_LOG_TRACE("Test 2: Turn right 90 degrees");
+            pilot_turn(M_PI / 2, 2.0, false);
+            phase++;
+            break;
+
+        case 2: // Test 3: Avance
+            X_LOG_TRACE("Test 3: Forward movement (300mm)");
+            pilot_advance(300, 2.0);
+            phase++;
+            break;
+
+        case 3: // Test 4: Rotation gauche 45°
+            X_LOG_TRACE("Test 4: Turn left 45 degrees");
+            pilot_turn(-M_PI / 4, 2.0, false);
+            phase++;
+            break;
+
+        case 4: // Test 5: Avance
+            X_LOG_TRACE("Test 5: Forward movement (400mm)");
+            pilot_advance(400, 2.0);
+            phase++;
+            break;
+
+        case 5: // Test 6: Rotation droite 135°
+            X_LOG_TRACE("Test 6: Turn right 135 degrees");
+            pilot_turn(3 * M_PI / 4, 2.0, false);
+            phase++;
+            break;
+
+        case 6: // Test 7: Avance
+            X_LOG_TRACE("Test 7: Forward movement (200mm)");
+            pilot_advance(200, 2.0);
+            phase++;
+            break;
+
+        case 7: // Test 8: Arrêt d'urgence
+            X_LOG_TRACE("Test 8: Emergency stop");
+            pilot_stop();
+            X_LOG_TRACE("Waiting for 2 seconds before resuming...");
+            //xTimerDelay(2000); // Attendre 2 secondes
+            sleep(2); // Attendre 2 secondes
+            phase++;
+            break;
+
+        case 8: // Test 9: Reprise du mouvement
+            X_LOG_TRACE("Test 9: Resume movement (100mm)");
+            pilot_advance(100, 1.0);
+            phase++;
+            break;
+
+        case 9: // Test 10: Rotation finale
+            X_LOG_TRACE("Test 10: Turn to original orientation");
+            pilot_turn(-M_PI, 2.0, false);
+            phase++;
+            break;
+
+        case 10: // Fin de la séquence
+            if (position_control_is_motion_finished())
             {
-                X_LOG_TRACE("Pilot test: STOP");
-                pilot_stop();
-                phase_start_time = now;
-                phase = 2;
+                Position final_pos;
+                if (pilot_getPosition(&final_pos) == PILOT_OK)
+                {
+                    X_LOG_TRACE("Final position - X: %d mm, Y: %d mm, Angle: %.2f rad",
+                                final_pos.positionX,
+                                final_pos.positionY,
+                                final_pos.angle);
+                }
+                X_LOG_TRACE("Pilot test sequence completed");
+                sequence_started = false; // Réinitialiser pour pouvoir recommencer
             }
             break;
-
-        case 2:
-            // Attendre 2 secondes à l'arrêt, puis rotation
-            if (now - phase_start_time > 2000)
-            {
-                X_LOG_TRACE("Pilot test: Turn 90 deg left");
-                pilot_turn(M_PI / 2, 1.0, true); // Tourner de 90° à gauche (relatif)
-                phase_start_time = now;
-                phase = 3;
-            }
-            break;
-
     }
-}
-
-void *testNetworkCommunicationThread(void *p_ptTaskArg)
-{
-    X_LOG_TRACE("Test network communication");
-
-    xOsTaskCtx *l_ptTask = (xOsTaskCtx *)p_ptTaskArg;
-
-    int batteryLevel = 92;
-    short xPosition = 128;
-    short yPosition = 129;
-    float theta = 130.0f;
-
-    char l_cPosition[sizeof(short) + sizeof(short) + sizeof(float)] = {0};
-    memcpy(l_cPosition, &xPosition, sizeof(xPosition));
-    memcpy(l_cPosition + sizeof(xPosition), &yPosition, sizeof(yPosition));
-    memcpy(l_cPosition + sizeof(xPosition) + sizeof(yPosition), &theta, sizeof(theta));
-
-    while (true)
-    {
-        batteryLevel = GetBatteryLevel();
-
-        //exit(0);
-        int l_iReturn = networkServerSendMessage(1, ID_INF_BATTERY, (uint8_t *)&batteryLevel, sizeof(batteryLevel));
-        if (l_iReturn != SERVER_OK)
-        {
-            X_LOG_TRACE("Failed to send battery level");
-        }
-        l_iReturn = networkServerSendMessage(1, ID_INF_POS, (uint8_t *)l_cPosition, sizeof(l_cPosition));
-        if (l_iReturn != SERVER_OK)
-        {
-            X_LOG_TRACE("Failed to send position");
-        }
-
-        sleep(1);
-    }
-
-    return NULL;
-}
-
-int testNetworkCommunication(void)
-{
-    //create a thread
-    xOsTaskCtx l_tTask;
-    l_tTask.t_ptTask = (void *)testNetworkCommunicationThread;
-    l_tTask.t_ptTaskArg = NULL;
-    l_tTask.t_iPriority = 10;
-    l_tTask.t_ulStackSize = 1024;
-    l_tTask.t_iId = 0;
-    l_tTask.t_iState = OS_TASK_STATUS_READY;
-    atomic_init(&l_tTask.a_iStopFlag, OS_TASK_SECURE_FLAG);
-
-    osTaskCreate(&l_tTask);
-
-    return 0;
 }
 
 int main()
@@ -445,7 +411,6 @@ int main()
     t_logCtx t_LogConfig;
     t_LogConfig.t_bLogToFile = false;
     t_LogConfig.t_bLogToConsole = true;
-    strncpy(t_LogConfig.t_cLogPath, (const char *)s_aCLogPath, sizeof(t_LogConfig.t_cLogPath) - 1);
     strncpy(t_LogConfig.t_cLogPath, (const char *)s_aCLogPath, sizeof(t_LogConfig.t_cLogPath) - 1);
     t_LogConfig.t_cLogPath[sizeof(t_LogConfig.t_cLogPath) - 1] = '\0';
 
@@ -502,7 +467,7 @@ int main()
 
     // Initialisation du contrôle de position
     l_iReturn = position_control_init();
-    X_ASSERT(l_iReturn == 0);
+    X_ASSERT(l_iReturn == POSITION_OK);
     X_LOG_TRACE("Position control initialized");
 
     // Initialisation du pilotage
@@ -520,26 +485,23 @@ int main()
     l_iReturn = map_engine_init();
     X_ASSERT(l_iReturn == MAP_ENGINE_OK);
 
-    // init ihm
-    l_iReturn = ihm_init();
-    X_ASSERT(l_iReturn == IHM_OK);
-    X_LOG_TRACE("IHM initialized");
+    // init supervisor
+    l_iReturn = supervisor_init();
+    X_ASSERT(l_iReturn == SUPERVISOR_OK);
+    X_LOG_TRACE("Supervisor initialized");
 
-    // main loop
-
-    testNetworkCommunication();
+    safetyControllerInit();
 
     while (1)
     {
-        testPilot(); // <-- Active cette ligne pour tester le pilotage
         // Test des moteurs
         // testMotors();
 
         // Envoyer le signal SOS en morse
         // sendMorseSOS();
-        testPilot(); // <-- Active cette ligne pour tester le pilotage
+        //testPilot(); // <-- Active cette ligne pour tester le pilotage
         // xTimerDelay(100); // Ajoute un petit délai pour éviter de saturer le CPU
-        // testPositionControl();
+        testPositionControl();
         // Pour envoyer des mises à jour périodiques, on devra attendre d'avoir un client connecté
         // et utiliser serverSendMessage à ce moment-là.
     }

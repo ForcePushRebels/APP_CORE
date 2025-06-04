@@ -401,7 +401,7 @@ void pilot_action_startMoves(void* arg)
     int sz = move_queue_size(&g_pilot.moveQueue);
     if (sz > 0)
     {
-        Move move = {0};  // Initialize all fields to 0
+        Move move;
         move_queue_pop(&g_pilot.moveQueue, &move);
 
         // Notifier le début du mouvement

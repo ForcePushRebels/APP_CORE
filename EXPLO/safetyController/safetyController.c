@@ -16,12 +16,15 @@ static void setMovementHandle(clientCtx *p_ptClient, const network_message_t *p_
     (void)p_ptClient; // unused parameter
     int l_iReturn = 0;
     int l_iPayloadSize = p_ptMessage->t_iPayloadSize;
-    if (l_iPayloadSize != sizeof(movement_type_t))
+
+    //cast the paayload from 1bytes to movement_type_t
+    if (p_ptMessage->t_ptucPayload == NULL)
     {
-        X_LOG_TRACE("Invalid payload size");
+        X_LOG_TRACE("Payload is NULL");
         atomic_store(&s_bEmergencyStopFlag, true);
         return;
     }
+
     movement_type_t l_eMovement = (movement_type_t)p_ptMessage->t_ptucPayload[0];
 
     // check if the movement is valid
@@ -46,26 +49,19 @@ static void setMovementHandle(clientCtx *p_ptClient, const network_message_t *p_
     switch (l_eMovement)
     {
     case FORWARD_MOVEMENT:
-        l_iReturn = position_control_advance(100, 100); // TODO Taper audren car ca marche pas
+        pilot_continuousAdvance(100);
         break;
     case LEFT_MOVEMENT:
-        l_iReturn = position_control_turn(90, 100); // TODO Taper audren car ca marche pas
+        pilot_turn(M_PI * 2, 100, true);
         break;
     case RIGHT_MOVEMENT:
-        l_iReturn = position_control_turn(-90, 100); // TODO Taper audren car ca marche pas
+        pilot_turn(-M_PI * 2, 100, true);
         break;
     case STOP_MOVEMENT:
-        l_iReturn = position_control_stop(); // TODO Taper audren car ca marche pas
+        pilot_stop();
         break;
     default:
-        l_iReturn = -1;
         break;
-    }
-
-    if (l_iReturn != 0)
-    {
-        X_LOG_TRACE("Movement failed with error code: %d", l_iReturn);
-        atomic_store(&s_bEmergencyStopFlag, true);
     }
 }
 

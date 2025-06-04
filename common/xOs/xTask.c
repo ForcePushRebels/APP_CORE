@@ -30,7 +30,7 @@ int osTaskInit(xOsTaskCtx *p_pttOSTask)
 #endif
     p_pttOSTask->t_iState = OS_TASK_STATUS_READY;
     p_pttOSTask->t_iExitCode = OS_TASK_EXIT_SUCCESS;
-    atomic_init(&p_pttOSTask->a_iStopFlag, 0);
+    atomic_init(&p_pttOSTask->a_iStopFlag, OS_TASK_SECURE_FLAG);
 
     return OS_TASK_SUCCESS;
 }
@@ -57,8 +57,7 @@ int osTaskCreate(xOsTaskCtx *p_pttOSTask)
 
     // Check t_iPriority values
 #ifdef OS_USE_RT_SCHEDULING
-    if (p_pttOSTask->t_iPriority < OS_TASK_LOWEST_PRIORITY ||
-        p_pttOSTask->t_iPriority > OS_TASK_HIGHEST_PRIORITY)
+    if (p_pttOSTask->t_iPriority < OS_TASK_LOWEST_PRIORITY || p_pttOSTask->t_iPriority > OS_TASK_HIGHEST_PRIORITY)
     {
         return OS_TASK_ERROR_PRIORITY;
     }
@@ -97,21 +96,21 @@ int osTaskCreate(xOsTaskCtx *p_pttOSTask)
     int policy;
     switch (p_pttOSTask->policy)
     {
-    case OS_SCHED_FIFO:
-        policy = SCHED_FIFO;
-        break;
-    case OS_SCHED_RR:
-        policy = SCHED_RR;
-        break;
-    case OS_SCHED_BATCH:
-        policy = SCHED_BATCH;
-        break;
-    case OS_SCHED_IDLE:
-        policy = SCHED_IDLE;
-        break;
-    default:
-        policy = SCHED_OTHER;
-        break;
+        case OS_SCHED_FIFO:
+            policy = SCHED_FIFO;
+            break;
+        case OS_SCHED_RR:
+            policy = SCHED_RR;
+            break;
+        case OS_SCHED_BATCH:
+            policy = SCHED_BATCH;
+            break;
+        case OS_SCHED_IDLE:
+            policy = SCHED_IDLE;
+            break;
+        default:
+            policy = SCHED_OTHER;
+            break;
     }
 
     if (pthread_attr_setschedpolicy(&l_tAttr, policy) != 0)
@@ -136,8 +135,7 @@ int osTaskCreate(xOsTaskCtx *p_pttOSTask)
 #endif
 
     // Create the thread
-    int l_iReturn = pthread_create(&p_pttOSTask->t_tHandle, &l_tAttr,
-                                   p_pttOSTask->t_ptTask, p_pttOSTask->t_ptTaskArg);
+    int l_iReturn = pthread_create(&p_pttOSTask->t_tHandle, &l_tAttr, p_pttOSTask->t_ptTask, p_pttOSTask->t_ptTaskArg);
     pthread_attr_destroy(&l_tAttr);
 
     if (l_iReturn != 0)
@@ -364,34 +362,34 @@ const char *osTaskGetErrorString(int p_iErrorCode)
 {
     switch (p_iErrorCode)
     {
-    case OS_TASK_SUCCESS:
-        return "Success";
-    case OS_TASK_ERROR_NULL_POINTER:
-        return "Null pointer provided";
-    case OS_TASK_ERROR_INVALID_PARAM:
-        return "Invalid parameter";
-    case OS_TASK_ERROR_INIT_FAILED:
-        return "Initialization failed";
-    case OS_TASK_ERROR_CREATE_FAILED:
-        return "Task creation failed";
-    case OS_TASK_ERROR_ALREADY_RUNNING:
-        return "Task already running";
-    case OS_TASK_ERROR_NOT_RUNNING:
-        return "Task not running";
-    case OS_TASK_ERROR_TERMINATE_FAILED:
-        return "Task termination failed";
-    case OS_TASK_ERROR_JOIN_FAILED:
-        return "Task join failed";
-    case OS_TASK_ERROR_TIMEOUT:
-        return "Timeout expired";
-    case OS_TASK_ERROR_PRIORITY:
-        return "Invalid task priority";
-    case OS_TASK_ERROR_STACK_SIZE:
-        return "Invalid stack size";
-    case OS_TASK_ERROR_POLICY:
-        return "Invalid scheduling policy";
-    default:
-        return "Unknown error code";
+        case OS_TASK_SUCCESS:
+            return "Success";
+        case OS_TASK_ERROR_NULL_POINTER:
+            return "Null pointer provided";
+        case OS_TASK_ERROR_INVALID_PARAM:
+            return "Invalid parameter";
+        case OS_TASK_ERROR_INIT_FAILED:
+            return "Initialization failed";
+        case OS_TASK_ERROR_CREATE_FAILED:
+            return "Task creation failed";
+        case OS_TASK_ERROR_ALREADY_RUNNING:
+            return "Task already running";
+        case OS_TASK_ERROR_NOT_RUNNING:
+            return "Task not running";
+        case OS_TASK_ERROR_TERMINATE_FAILED:
+            return "Task termination failed";
+        case OS_TASK_ERROR_JOIN_FAILED:
+            return "Task join failed";
+        case OS_TASK_ERROR_TIMEOUT:
+            return "Timeout expired";
+        case OS_TASK_ERROR_PRIORITY:
+            return "Invalid task priority";
+        case OS_TASK_ERROR_STACK_SIZE:
+            return "Invalid stack size";
+        case OS_TASK_ERROR_POLICY:
+            return "Invalid scheduling policy";
+        default:
+            return "Unknown error code";
     }
 }
 

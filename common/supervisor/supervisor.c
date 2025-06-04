@@ -164,9 +164,11 @@ static int32_t sendPosition(tPosition pNewPosition)
     };
 
     int ret = networkServerSendMessage(1, ID_INF_POS, &l_tPosition, sizeof(l_tPosition));
-
-    X_LOG_TRACE(
-        "Position sent: %d, %d, %f", pNewPosition.t_iXPosition, pNewPosition.t_iYPosition, pNewPosition.t_fOrientation);
+    if (ret == SERVER_OK)
+    {
+        X_LOG_TRACE(
+            "Position sent: %d, %d, %f", pNewPosition.t_iXPosition, pNewPosition.t_iYPosition, pNewPosition.t_fOrientation);
+    }
     return ret;
 }
 
@@ -330,6 +332,8 @@ static void checkInfo(void *arg)
         return;
     }
 
+    uint64_t last_position_update = 0;
+
     Position_t l_tCurrentPosition;
     int32_t l_iResult;
     (void)arg; // Unused parameter
@@ -355,11 +359,14 @@ static void checkInfo(void *arg)
         l_tConvertedPosition.t_fOrientation = l_tCurrentPosition.angle_rad;
 
         // Update position if changed
-        if (memcmp(&s_tSupervisorCtx.t_tPosition, &l_tConvertedPosition, sizeof(tPosition)) != 0)
+        if (memcmp(&s_tSupervisorCtx.t_tPosition, &l_tConvertedPosition, sizeof(tPosition)) != 0
+            || last_position_update + 1000 < xTimerGetCurrentMs())
         {
             s_tSupervisorCtx.t_tPosition = l_tConvertedPosition;
+            // get timestamp ms
+            last_position_update = xTimerGetCurrentMs();
+            sendPosition(l_tConvertedPosition);
         }
-        sendPosition(l_tConvertedPosition);
     }
 
     int32_t l_iBatteryLevel = GetBatteryLevel();

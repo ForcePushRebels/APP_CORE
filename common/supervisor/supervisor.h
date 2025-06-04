@@ -19,7 +19,7 @@
 #include "xTimer.h"
 #include <stdatomic.h>
 
-#define SUPERVISOR_TIMER_PERIOD_MS 1000 // 1 second period
+#define SUPERVISOR_TIMER_PERIOD_MS 200
 
 #define SUPERVISOR_OK 0x6E00A000
 #define SUPERVISOR_ERROR_INVALID_PARAM 0x6E00A002

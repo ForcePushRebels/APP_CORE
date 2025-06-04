@@ -26,9 +26,27 @@ static void setMovementHandle(clientCtx *p_ptClient, const network_message_t *p_
     }
 
     movement_type_t l_eMovement = (movement_type_t)p_ptMessage->t_ptucPayload[0];
+    X_LOG_TRACE("Received set movement message: %d", l_eMovement);
+    switch (l_eMovement)
+    {
+        case STOP_MOVEMENT:
+            X_LOG_TRACE("Stop movement");
+            break;
+        case FORWARD_MOVEMENT:
+            X_LOG_TRACE("Forward movement");
+            break;
+        case LEFT_MOVEMENT:
+            X_LOG_TRACE("Left movement");
+            break;
+        case RIGHT_MOVEMENT:
+            X_LOG_TRACE("Right movement");
+            break;
+        default:
+            break;
+    }
 
     // check if the movement is valid
-    if (l_eMovement < STOP_MOVEMENT || l_eMovement > LEFT_MOVEMENT)
+    if (l_eMovement >= MOVE_COUNT)
     {
         X_LOG_TRACE("Invalid movement: %d", l_eMovement);
         atomic_store(&s_bEmergencyStopFlag, true);

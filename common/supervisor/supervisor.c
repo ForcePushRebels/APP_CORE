@@ -95,28 +95,19 @@ static int32_t send_map_fragments(void)
     return SUPERVISOR_OK;
 }
 
-static int32_t sendFragmentMap(tPosition pNewPosition)
-{
-
-    // Get current map fragment based on position
-    /*tFragmentMap l_tFragmentMap;
-    int32_t l_iResult = getMapFragment(pNewPosition, &l_tFragmentMap);
-    if (l_iResult != MAP_ENGINE_OK)
-    {
-        return l_iResult;
-    }
-
-    return networkServerSendMessage(1, ID_MAP_FRAGMENT, &l_tFragmentMap, sizeof(tFragmentMap));
-    */
-    return SUPERVISOR_OK;
-}
-
+////////////////////////////////////////////////////////////
+/// sendFullMapHandle
+////////////////////////////////////////////////////////////
 static void sendFullMapHandle(clientCtx *p_ptClient, const network_message_t *p_ptMessage)
 {
+    (void)p_ptMessage; // unused parameter
     X_LOG_TRACE("sendFullMapHandle");
     supervisor_send_full_map(networkServerGetClientID(p_ptClient));
 }
 
+////////////////////////////////////////////////////////////
+/// supervisor_send_full_map
+////////////////////////////////////////////////////////////
 int32_t supervisor_send_full_map(ClientID client_id)
 {
     // get map size
@@ -185,12 +176,15 @@ static int32_t sendPosition(tPosition pNewPosition)
 ////////////////////////////////////////////////////////////
 static int32_t sendStatus(void)
 {
+    #ifdef EXPLO_BUILD
     exploration_manager_state_t l_eStatus = explorationManager_getState();
-
     // Convert enum to uint32_t for network transmission
     uint32_t l_ulStatusNetwork = HOST_TO_NET_LONG((uint32_t)l_eStatus);
 
     return networkServerSendMessage(1, ID_INF_STATUS, &l_ulStatusNetwork, sizeof(uint32_t));
+    #else 
+    return 0;
+    #endif
 }
 
 ////////////////////////////////////////////////////////////
@@ -198,6 +192,7 @@ static int32_t sendStatus(void)
 ////////////////////////////////////////////////////////////
 static int32_t sendDuration(void)
 {
+    #ifdef EXPLO_BUILD
     uint64_t l_ulStartTime = getStartTimeExploration();
     uint64_t l_ulCurrentTime = xTimerGetCurrentMs();
     uint64_t l_ulDuration = l_ulCurrentTime - l_ulStartTime;
@@ -212,6 +207,9 @@ static int32_t sendDuration(void)
     uint32_t l_ulDurationNetwork = HOST_TO_NET_LONG((uint32_t)l_ulDuration);
 
     return networkServerSendMessage(1, ID_INF_TIME, &l_ulDurationNetwork, sizeof(uint32_t));
+    #else 
+    return 0;
+    #endif
 }
 
 ////////////////////////////////////////////////////////////
@@ -360,6 +358,7 @@ static void checkInfo(void *arg)
         if (memcmp(&s_tSupervisorCtx.t_tPosition, &l_tConvertedPosition, sizeof(tPosition)) != 0)
         {
             s_tSupervisorCtx.t_tPosition = l_tConvertedPosition;
+            sendPosition(l_tConvertedPosition);
         }
     }
 

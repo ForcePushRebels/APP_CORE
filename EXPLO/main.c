@@ -404,59 +404,6 @@ void testPilot(void)
     }
 }
 
-void *testNetworkCommunicationThread(void *p_ptTaskArg)
-{
-    X_LOG_TRACE("Test network communication");
-
-    xOsTaskCtx *l_ptTask = (xOsTaskCtx *)p_ptTaskArg;
-
-    int batteryLevel = 92;
-
-    while (true)
-    {
-        batteryLevel = GetBatteryLevel();
-
-        //exit(0);
-        uint8_t packed_batteryLevel = batteryLevel;
-        int l_iReturn = networkServerSendMessage(1, ID_INF_BATTERY, (uint8_t *)&packed_batteryLevel, sizeof(uint8_t));
-        if (l_iReturn != SERVER_OK)
-        {
-            // X_LOG_TRACE("Failed to send battery level");
-        }
-        if (l_iReturn == SERVER_OK)
-        {
-            X_LOG_TRACE("Battery level sent");
-        }
-
-        // 2000ms
-        usleep(500 * 1000);
-    }
-
-    return NULL;
-}
-
-int testNetworkCommunication(void)
-{
-    //create a thread
-    xOsTaskCtx l_tTask;
-    l_tTask.t_ptTask = (void *)testNetworkCommunicationThread;
-    l_tTask.t_ptTaskArg = NULL;
-    l_tTask.t_iPriority = 10;
-    l_tTask.t_ulStackSize = 1024;
-    l_tTask.t_iId = 0;
-    l_tTask.t_iState = OS_TASK_STATUS_READY;
-    atomic_init(&l_tTask.a_iStopFlag, OS_TASK_SECURE_FLAG);
-
-    osTaskCreate(&l_tTask);
-
-    return 0;
-}
-
-void test_setMovementHandler(clientCtx *p_ptClient, const network_message_t *p_ptMessage)
-{
-    X_LOG_TRACE("Received set movement id: %d", p_ptMessage->t_ptucPayload[0]);
-}
-
 int main()
 {
     int l_iReturn = 0;

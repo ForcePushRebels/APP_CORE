@@ -240,7 +240,8 @@ static void checkInfo(void *arg)
 
     // Get current position - using Position_t type to match function signature
     l_iResult = position_control_get_position(&l_tCurrentPosition);
-    if (l_iResult == POSITION_OK) //TODO: modifier le code d'erreur
+    X_LOG_TRACE("position_control_get_position done");
+    if (l_iResult == POSITION_OK)
     {
         // Convert Position_t to tPosition for comparison and storage
         tPosition l_tConvertedPosition;

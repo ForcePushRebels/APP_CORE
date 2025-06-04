@@ -78,7 +78,6 @@ typedef enum {
     PILOT_STATE_MOVING,
     PILOT_STATE_END_MOVE,
     PILOT_STATE_CHECK_NEXT_MOVE,
-    PILOT_STATE_MOVE_IN_PROGRESS,
     PILOT_STATE_POSITION_WATCHER,
     PILOT_STATE_COUNT
 } PilotState;
@@ -174,6 +173,10 @@ typedef struct
     Direction currentDirection;
     void* moveTodo; // mq<Move>
     float distanceMeter;
+    // Champs pour la commande goTo
+    double gotoTargetX;
+    double gotoTargetY;
+    int gotoMaxSpeed;
     xOsTimerCtx positionWatcherTimer;
     xOsTimerCtx movementTimer;
     xOsTaskCtx pilotTask;
@@ -253,13 +256,6 @@ int pilot_getDistanceMeter(void);
 /// @brief Reset the distance meter
 /////////////////////////////////
 void pilot_resetDistanceMeter(void);
-
-/////////////////////////////////
-/// @brief Set the acceleration
-/// @param linearAcceleration : Linear acceleration
-/// @param angularAcceleration : Angular acceleration
-/////////////////////////////////
-void pilot_setAcceleration(double linearAcceleration, double angularAcceleration);
 
 /////////////////////////////////
 /// @brief Get error string representation

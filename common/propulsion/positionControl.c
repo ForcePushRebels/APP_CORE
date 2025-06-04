@@ -10,7 +10,7 @@
 
 
 // Définition de la marge de correction en ticks
-#define CORRECTION_MARGIN_TICKS 2
+#define CORRECTION_MARGIN_TICKS 0
 
 // Activer/désactiver la correction du débordement des encodeurs
 #define CORRECTION 1
@@ -149,7 +149,7 @@ static void* wheel_position_control_task(void* arg)
     
     double step_acc = ACCELERATION_COEF * REGULATION_PERIOD_MS / 1000.0, step_decc = DECELERATION_COEF * REGULATION_PERIOD_MS / 1000.0;
     double right_wheel_speed = 0.0, left_wheel_speed = 0.0;
-    int32_t nb_decc_tick = 0, nb_acc_tick = 0;
+    int32_t nb_decc_tick = 0;
     
     // Variables pour stocker les valeurs précédentes des encodeurs  
     int32_t encoder_values[2] = {0, 0};
@@ -238,21 +238,18 @@ static void* wheel_position_control_task(void* arg)
                 
                 // Calculer le nombre de ticks pendant la rampe de décélération
                 nb_decc_tick = calculate_ramp_tick(g_left_wheel.max_speed, DECELERATION_COEF);
-                nb_acc_tick = calculate_ramp_tick(g_left_wheel.max_speed, ACCELERATION_COEF);
 
                 step_decc = DECELERATION_COEF * REGULATION_PERIOD_MS / 1000.0;
 
-                if ((g_left_wheel.target_ticks - g_left_wheel.current_ticks) < (nb_acc_tick + nb_decc_tick))
-                {
-                    int32_t nb_tt_tick = g_left_wheel.target_ticks - g_left_wheel.current_ticks;
-                    nb_acc_tick = nb_tt_tick / 2.0;
-                    nb_decc_tick =  nb_tt_tick / 2.0;
-                }
                 g_state = ACC;
                 break; 
 
             case ACC :
-                //X_LOG_TRACE("État: ACC");
+                /*
+                X_LOG_TRACE("État: ACC - left target_ticks: %d - current_ticks: %d - nb_decc_tick: %d && right target_ticks: %d - current_ticks: %d - nb_decc_tick: %d",
+                    g_left_wheel.target_ticks, g_left_wheel.current_ticks, nb_decc_tick,
+                    g_right_wheel.target_ticks, g_right_wheel.current_ticks, nb_decc_tick);*/
+
                 mutexLock(&g_speed_mutex);
                 g_common_target_speed += step_acc;
                 if (g_common_target_speed >= g_left_wheel.max_speed) {
@@ -262,17 +259,23 @@ static void* wheel_position_control_task(void* arg)
                 mutexUnlock(&g_speed_mutex);
 
                 // Vérifier si on a parcouru la moitié des ticks
-                if (abs(g_left_wheel.target_ticks - nb_decc_tick) <= abs(g_left_wheel.current_ticks)) {
+                if (abs(g_left_wheel.target_ticks - g_left_wheel.current_ticks) <= abs(nb_decc_tick))
+                {
                     g_state = DECC;
                 }
                 break; 
 
             case MOVE :
-                //X_LOG_TRACE("État: MOVE");
+                /*
+                X_LOG_TRACE("État: MOVE");
+                X_LOG_TRACE("État: MOVE - target_ticks: %d - current_ticks: %d - nb_decc_tick: %d",
+                    g_left_wheel.target_ticks, g_left_wheel.current_ticks, nb_decc_tick);
+                X_LOG_TRACE("État: MOVE - target_ticks: %d - current_ticks: %d - nb_decc_tick: %d",
+                    g_right_wheel.target_ticks, g_right_wheel.current_ticks, nb_decc_tick);*/
 
                 //X_LOG_TRACE("État: MOVE - Roue: %s", g_left_wheel.is_left_wheel ? "GAUCHE" : "DROITE");
 
-                if (abs(g_left_wheel.current_ticks) >= abs(g_left_wheel.target_ticks - nb_decc_tick))
+                if (abs(g_left_wheel.target_ticks - g_left_wheel.current_ticks) <= abs(nb_decc_tick))
                 {
                     g_state = DECC;
                 }
@@ -528,8 +531,8 @@ int32_t position_control_turn(float angle_rad, float speed_rad_s_max)
     g_left_wheel.current_ticks = encoder_values[0];
     g_right_wheel.current_ticks = encoder_values[1];
 
-    g_left_wheel.target_ticks = g_left_wheel.current_ticks + target_ticks;
-    g_right_wheel.target_ticks = g_right_wheel.current_ticks - target_ticks;
+    g_left_wheel.target_ticks = g_left_wheel.current_ticks - target_ticks;
+    g_right_wheel.target_ticks = g_right_wheel.current_ticks + target_ticks;
     // Si angle négatif = tourner à gauche
     // Si angle positif = tourner à droite
     if (angle_rad > 0)

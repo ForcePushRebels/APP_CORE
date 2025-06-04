@@ -571,7 +571,7 @@ int networkServerSendMessage(ClientID p_tClientId, uint8_t p_ucMsgType, const vo
     }
 
     // STEP 1: First send the size (2 bytes)
-    uint16_t l_usNetworkPayloadSize = HOST_TO_NET_SHORT((uint16_t)p_ulPayloadSize);
+    uint16_t l_usNetworkPayloadSize = HOST_TO_NET_SHORT((uint16_t)p_ulPayloadSize + 1);
     int l_iSizeResult = networkSend(l_ptClient->t_ptSocket, &l_usNetworkPayloadSize, sizeof(uint16_t));
 
     if (l_iSizeResult < 0)

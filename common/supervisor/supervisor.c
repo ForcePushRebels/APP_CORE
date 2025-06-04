@@ -77,17 +77,6 @@ static int32_t send_map_fragments(void)
         }
     }
 
-    map_fragment_t robot_fragment = map_engine_get_robot_fragment();
-    X_LOG_TRACE("Robot fragment: %d, %d", robot_fragment.x_grid, robot_fragment.y_grid);
-    robot_fragment.x_grid = HOST_TO_NET_SHORT(robot_fragment.x_grid);
-    robot_fragment.y_grid = HOST_TO_NET_SHORT(robot_fragment.y_grid);
-    int ret = networkServerSendMessage(1, ID_MAP_FRAGMENT, &robot_fragment, sizeof(map_fragment_t));
-    if (ret != SERVER_OK)
-    {
-        X_LOG_TRACE("Failed to send robot fragment: 0x%x", ret);
-    }
-
-
     X_LOG_TRACE("Map delta %d cells sent", updated_cells_count);
     map_engine_clear_updated_cells(cells, updated_cells_count);
     free(cells);
@@ -119,19 +108,20 @@ static void sendFullMapHandle(clientCtx *p_ptClient, const network_message_t *p_
 int32_t supervisor_send_full_map(ClientID client_id)
 {
     // get map size
-    size_t x_size, y_size, map_size;
+    size_t x_size, y_size, map_size, resolution_mm_per_cell;
 
-    map_size = map_engine_get_map_size(&x_size, &y_size);
+    map_size = map_engine_get_map_size(&x_size, &y_size, &resolution_mm_per_cell);
     X_LOG_TRACE("Map size: %d, %d", x_size, y_size);
 
     typedef struct __attribute__((packed))
     {
-        uint8_t x_size;
-        uint8_t y_size;
+        uint16_t x_size;
+        uint16_t y_size;
+        uint16_t resolution_mm_per_cell;
         map_cell_t map;
     } map_buffer_t;
 
-    size_t map_buffer_size = 2 + map_size;
+    size_t map_buffer_size = 6 + map_size;
 
     map_buffer_t *map_buffer = (map_buffer_t *)malloc(map_buffer_size);
     if (map_buffer == NULL)
@@ -140,8 +130,9 @@ int32_t supervisor_send_full_map(ClientID client_id)
         return SUPERVISOR_ERROR_MEMORY_ALLOCATION;
     }
 
-    map_buffer->x_size = x_size;
-    map_buffer->y_size = y_size;
+    map_buffer->x_size = HOST_TO_NET_SHORT(x_size);
+    map_buffer->y_size = HOST_TO_NET_SHORT(y_size);
+    map_buffer->resolution_mm_per_cell = HOST_TO_NET_SHORT(resolution_mm_per_cell);
 
     // Use temporary buffer to avoid packed member address issue
     map_cell_t *temp_map = (map_cell_t *)malloc(map_size);

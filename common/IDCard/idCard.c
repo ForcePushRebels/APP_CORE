@@ -18,7 +18,6 @@
 #include <stdio.h>
 #include <string.h>
 
-
 static char s_pcIpAddr[16] = {0};
 #ifdef INTER_BUILD
 static RobotType_t s_iRole = IDCARD_ROLE_INTER;
@@ -235,6 +234,8 @@ void *handleIsAnyRobotHere(void *p_pvArg)
                 else
                 {
                     X_LOG_TRACE("Successfully sent manifest response (%d bytes)", l_iReturn);
+                    supervisor_send_full_map(0);
+                    supervisor_start();
                 }
             }
             else

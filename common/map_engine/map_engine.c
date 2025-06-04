@@ -23,7 +23,7 @@
 #define MAP_WIDTH_MM 1500
 #define MAP_HEIGHT_MM 1500
 
-#define MAP_CELL_SIZE_MM 50
+#define MAP_CELL_SIZE_MM 15
 
 #define MAP_WIDTH (MAP_WIDTH_MM / MAP_CELL_SIZE_MM)
 #define MAP_HEIGHT (MAP_HEIGHT_MM / MAP_CELL_SIZE_MM)
@@ -162,7 +162,7 @@ int map_engine_explo_ask_current_map()
     return MAP_ENGINE_OK;
 }
 
-size_t map_engine_get_map_size(size_t *x_size, size_t *y_size)
+size_t map_engine_get_map_size(size_t *x_size, size_t *y_size, size_t *resolution_mm_per_cell)
 {
     if (x_size != NULL)
     {
@@ -171,6 +171,11 @@ size_t map_engine_get_map_size(size_t *x_size, size_t *y_size)
     if (y_size != NULL)
     {
         *y_size = MAP_HEIGHT;
+    }
+
+    if (resolution_mm_per_cell != NULL)
+    {
+        *resolution_mm_per_cell = MAP_CELL_SIZE_MM;
     }
 
     return sizeof(map_engine.map);
@@ -237,6 +242,11 @@ int map_engine_update_vision(uint16_t *sensor_data, uint8_t sensor_count)
         {
             continue;
         }
+        if (map_engine.map[grid_x][grid_y].type == MAP_CELL_INTEREST_AREA)
+        {
+            // interest area is priority over wall
+            continue;
+        }
         map_engine.map[grid_x][grid_y].type = MAP_CELL_WALL;
         if (map_engine.map[grid_x][grid_y].wall.wall_intensity < 255)
         {
@@ -257,8 +267,7 @@ int map_engine_update_vision(uint16_t *sensor_data, uint8_t sensor_count)
 
 int map_engine_update_floor_sensor(uint16_t floor_sensor)
 {
-
-    if (floor_sensor >= 99) //TODO: remove this: select a value for the floor sensor
+    if (!(floor_sensor >= 1220 && floor_sensor <= 1240)) //TODO: remove this: select a value for the floor sensor
     {
         return MAP_ENGINE_OK;
     }
@@ -276,9 +285,11 @@ int map_engine_update_floor_sensor(uint16_t floor_sensor)
     mutexLock(&map_engine.map_mutex);
     if (map_engine.map[grid_x][grid_y].type == MAP_CELL_INTEREST_AREA)
     {
+        mutexUnlock(&map_engine.map_mutex);
         return MAP_ENGINE_OK;
     }
 
+    X_LOG_TRACE("Interest area detected at %d, %d", grid_x, grid_y);
     map_engine.map[grid_x][grid_y].type = MAP_CELL_INTEREST_AREA;
     map_engine.interest_area_count++;
     map_engine.updated_cells[grid_x][grid_y] = true;
@@ -361,6 +372,10 @@ void map_engine_clear_updated_cells(map_fragment_t *cells, size_t cell_count)
     mutexLock(&map_engine.map_mutex);
     for (size_t i = 0; i < cell_count; i++)
     {
+        if (cells[i].x_grid < 0 || cells[i].x_grid >= MAP_WIDTH || cells[i].y_grid < 0 || cells[i].y_grid >= MAP_HEIGHT)
+        {
+            continue;
+        }
         map_engine.updated_cells[cells[i].x_grid][cells[i].y_grid] = false;
     }
     mutexUnlock(&map_engine.map_mutex);
@@ -382,6 +397,20 @@ map_fragment_t map_engine_get_robot_fragment()
                 .robot_id = 1,
             },
         },
+    };
+
+    return cell;
+}
+
+map_fragment_t map_engine_get_fragment(int16_t x_mm, int16_t y_mm)
+{
+    int16_t grid_x = x_mm / MAP_CELL_SIZE_MM;
+    int16_t grid_y = y_mm / MAP_CELL_SIZE_MM;
+
+    map_fragment_t cell = {
+        .x_grid = grid_x,
+        .y_grid = grid_y,
+        .cell = map_engine.map[grid_x][grid_y],
     };
 
     return cell;

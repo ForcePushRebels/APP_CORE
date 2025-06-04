@@ -568,19 +568,18 @@ int networkServerSendToClient(ClientID p_tClientId, const void *p_pvData, int p_
 }
 
 ///////////////////////////////////////////
-/// networkServerSendMessage
+/// networkServerSendMessage 
 ///////////////////////////////////////////
 int networkServerSendMessage(ClientID p_tClientId, uint8_t p_ucMsgType, const void *p_pvPayload, uint32_t p_ulPayloadSize)
 {
-
-    int l_iReturn = 0;
     clientCtx *l_ptClient = findClientById(p_tClientId);
     if (l_ptClient == NULL)
     {
         return SERVER_CLIENT_NOT_FOUND;
     }
 
-    l_iReturn = mutexLock(&l_ptClient->t_tMutex);
+    // Lock client mutex to protect the entire send operation
+    int l_iReturn = mutexLock(&l_ptClient->t_tMutex);
     if (l_iReturn != MUTEX_OK)
     {
         return SERVER_ERROR;
@@ -600,50 +599,52 @@ int networkServerSendMessage(ClientID p_tClientId, uint8_t p_ucMsgType, const vo
         return SERVER_INVALID_PARAM;
     }
 
-    // STEP 1: First send the size (2 bytes)
-    uint16_t l_usNetworkPayloadSize = HOST_TO_NET_SHORT((uint16_t)p_ulPayloadSize + 1);
-    int l_iSizeResult = networkSend(l_ptClient->t_ptSocket, &l_usNetworkPayloadSize, sizeof(uint16_t));
-
-    if (l_iSizeResult < 0)
+    // OPTIMIZED: Build complete message in single buffer for atomic send
+    uint32_t l_ulTotalSize = sizeof(uint16_t) + 1 + p_ulPayloadSize; // size header + msg type + payload
+    uint8_t *l_pucCompleteBuffer = (uint8_t *)malloc(l_ulTotalSize);
+    if (l_pucCompleteBuffer == NULL)
     {
-        X_LOG_TRACE("Failed to send payload size to client: %s", networkGetErrorString(l_iSizeResult));
-        return SERVER_SOCKET_ERROR;
-    }
-
-    // STEP 2: Prepare and send the message (header + payload)
-    uint32_t l_ulTotalMessageSize = 1 + p_ulPayloadSize; // 1 byte header + payload
-    uint8_t *l_pucBuffer = (uint8_t *)malloc(l_ulTotalMessageSize);
-    if (l_pucBuffer == NULL)
-    {
-        X_LOG_TRACE("Failed to allocate message buffer");
+        X_LOG_TRACE("Failed to allocate complete message buffer");
+        mutexUnlock(&l_ptClient->t_tMutex);
         return SERVER_MEMORY_ERROR;
     }
 
-    // Write the message type (header)
-    l_pucBuffer[0] = p_ucMsgType;
+    // Build the complete message:
+    // 1. Size header (2 bytes) - includes message type (1 byte) + payload
+    uint16_t l_usNetworkPayloadSize = HOST_TO_NET_SHORT((uint16_t)(1 + p_ulPayloadSize));
+    memcpy(l_pucCompleteBuffer, &l_usNetworkPayloadSize, sizeof(uint16_t));
 
-    // Write the payload
+    // 2. Message type (1 byte)
+    l_pucCompleteBuffer[sizeof(uint16_t)] = p_ucMsgType;
+
+    // 3. Payload (if any)
     if (p_ulPayloadSize > 0 && p_pvPayload != NULL)
     {
-        memcpy(l_pucBuffer + 1, p_pvPayload, p_ulPayloadSize);
+        memcpy(l_pucCompleteBuffer + sizeof(uint16_t) + 1, p_pvPayload, p_ulPayloadSize);
     }
 
-    // Send the message (header + payload)
-    int l_iMessageResult = networkSend(l_ptClient->t_ptSocket, l_pucBuffer, l_ulTotalMessageSize);
-    mutexUnlock(&l_ptClient->t_tMutex);
-    free(l_pucBuffer);
+    // ATOMIC SEND: Single network operation for entire message
+    int l_iSentBytes = networkSend(l_ptClient->t_ptSocket, l_pucCompleteBuffer, l_ulTotalSize);
 
-    if (l_iMessageResult < 0)
+    mutexUnlock(&l_ptClient->t_tMutex);
+    free(l_pucCompleteBuffer);
+
+    if (l_iSentBytes < 0)
     {
-        X_LOG_TRACE("Failed to send message to client: %s", networkGetErrorString(l_iMessageResult));
+        X_LOG_TRACE("Failed to send complete message to client: %s", networkGetErrorString(l_iSentBytes));
         return SERVER_SOCKET_ERROR;
     }
 
-    X_LOG_TRACE("Sent message type 0x%02X to client %u (%d bytes size + %d bytes message, %d bytes payload)",
+    if ((uint32_t)l_iSentBytes != l_ulTotalSize)
+    {
+        X_LOG_TRACE("Incomplete send: expected %u bytes, sent %d bytes", l_ulTotalSize, l_iSentBytes);
+        return SERVER_SOCKET_ERROR;
+    }
+
+    X_LOG_TRACE("Sent message type 0x%02X to client %u (atomic send: %d bytes total, %u bytes payload)",
                 p_ucMsgType,
                 p_tClientId,
-                l_iSizeResult,
-                l_iMessageResult,
+                l_iSentBytes,
                 p_ulPayloadSize);
     return SERVER_OK;
 }

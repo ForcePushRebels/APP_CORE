@@ -40,12 +40,51 @@ NetworkSocket *networkCreateSocket(int p_iType)
     int l_iOption = 1;
     setsockopt(l_pSocket->t_iSocketFd, SOL_SOCKET, SO_REUSEADDR, &l_iOption, sizeof(l_iOption));
 
+    // TCP-specific optimizations
+    if (p_iType == NETWORK_SOCK_TCP)
+    {
+        // Disable Nagle's algorithm for low latency
+        int l_iNodelay = 1;
+        if (setsockopt(l_pSocket->t_iSocketFd, IPPROTO_TCP, TCP_NODELAY, &l_iNodelay, sizeof(l_iNodelay)) < 0)
+        {
+            X_LOG_TRACE("networkCreateSocket: Failed to set TCP_NODELAY with errno %d", errno);
+            // Continue anyway, this is not fatal
+        }
+        else
+        {
+            X_LOG_TRACE("networkCreateSocket: TCP_NODELAY enabled for TCP socket");
+        }
+
+        // Increase send buffer size for better throughput
+        int l_iSendBufSize = 256 * 1024; // 256KB
+        if (setsockopt(l_pSocket->t_iSocketFd, SOL_SOCKET, SO_SNDBUF, &l_iSendBufSize, sizeof(l_iSendBufSize)) < 0)
+        {
+            X_LOG_TRACE("networkCreateSocket: Failed to set send buffer size with errno %d", errno);
+            // Continue anyway, this is not fatal
+        }
+        else
+        {
+            X_LOG_TRACE("networkCreateSocket: Send buffer size set to %d bytes", l_iSendBufSize);
+        }
+
+        // Increase receive buffer size for better throughput
+        int l_iRecvBufSize = 256 * 1024; // 256KB
+        if (setsockopt(l_pSocket->t_iSocketFd, SOL_SOCKET, SO_RCVBUF, &l_iRecvBufSize, sizeof(l_iRecvBufSize)) < 0)
+        {
+            X_LOG_TRACE("networkCreateSocket: Failed to set receive buffer size with errno %d", errno);
+            // Continue anyway, this is not fatal
+        }
+        else
+        {
+            X_LOG_TRACE("networkCreateSocket: Receive buffer size set to %d bytes", l_iRecvBufSize);
+        }
+    }
+
     // Enable broadcast for UDP sockets
     if (p_iType == NETWORK_SOCK_UDP)
     {
         int l_iBroadcastOpt = 1;
-        if (setsockopt(l_pSocket->t_iSocketFd, SOL_SOCKET, SO_BROADCAST,
-                       &l_iBroadcastOpt, sizeof(l_iBroadcastOpt)) < 0)
+        if (setsockopt(l_pSocket->t_iSocketFd, SOL_SOCKET, SO_BROADCAST, &l_iBroadcastOpt, sizeof(l_iBroadcastOpt)) < 0)
         {
             X_LOG_TRACE("networkCreateSocket: Failed to set broadcast option with errno %d", errno);
             // Continue anyway, this is not fatal
@@ -92,7 +131,8 @@ NetworkAddress networkMakeAddress(const char *p_ptcAddress, unsigned short p_usP
     if (inet_pton(AF_INET, p_ptcAddress, &l_tAddr) == 1)
     {
         // Direct memory copy instead of strncpy for fixed-size fields
-        memcpy(l_tAddress.t_cAddress, p_ptcAddress,
+        memcpy(l_tAddress.t_cAddress,
+               p_ptcAddress,
                (strlen(p_ptcAddress) < INET_ADDRSTRLEN) ? strlen(p_ptcAddress) : INET_ADDRSTRLEN - 1);
     }
 
@@ -211,6 +251,30 @@ NetworkSocket *networkAccept(NetworkSocket *p_ptSocket, NetworkAddress *p_pClien
     l_pClientSocket->t_iType = NETWORK_SOCK_TCP;
     l_pClientSocket->t_bConnected = true;
 
+    // Apply TCP optimizations to accepted client socket
+    // Disable Nagle's algorithm for low latency
+    int l_iNodelay = 1;
+    if (setsockopt(l_iClientFd, IPPROTO_TCP, TCP_NODELAY, &l_iNodelay, sizeof(l_iNodelay)) < 0)
+    {
+        X_LOG_TRACE("networkAccept: Failed to set TCP_NODELAY on client socket");
+        // Continue anyway, this is not fatal
+    }
+
+    // Increase send buffer size for better throughput
+    int l_iSendBufSize = 256 * 1024; // 256KB
+    if (setsockopt(l_iClientFd, SOL_SOCKET, SO_SNDBUF, &l_iSendBufSize, sizeof(l_iSendBufSize)) < 0)
+    {
+        X_LOG_TRACE("networkAccept: Failed to set send buffer size on client socket");
+        // Continue anyway, this is not fatal
+    }
+
+    // Increase receive buffer size for better throughput
+    int l_iRecvBufSize = 256 * 1024; // 256KB
+    if (setsockopt(l_iClientFd, SOL_SOCKET, SO_RCVBUF, &l_iRecvBufSize, sizeof(l_iRecvBufSize)) < 0)
+    {
+        X_LOG_TRACE("networkAccept: Failed to set receive buffer size on client socket");
+    }
+
     // Initialize the mutex for thread safety
     mutexCreate(&l_pClientSocket->t_Mutex);
 
@@ -251,9 +315,10 @@ int networkConnect(NetworkSocket *p_ptSocket, const NetworkAddress *p_pAddress)
 }
 
 //////////////////////////////////
-/// networkSend
+/// networkSend - Optimized version without mutex locks
+/// TCP send operations are thread-safe at kernel level
 //////////////////////////////////
-int  networkSend(NetworkSocket *p_ptSocket, const void *p_pBuffer, unsigned long p_ulSize)
+int networkSend(NetworkSocket *p_ptSocket, const void *p_pBuffer, unsigned long p_ulSize)
 {
     int l_iReturn;
 
@@ -271,9 +336,7 @@ int  networkSend(NetworkSocket *p_ptSocket, const void *p_pBuffer, unsigned long
         return 0;
     }
 
-    // Lock mutex before accessing socket
-    mutexLock(&p_ptSocket->t_Mutex);
-
+    // Direct send without mutex - TCP operations are thread-safe
     l_iReturn = send(p_ptSocket->t_iSocketFd, p_pBuffer, p_ulSize, 0);
     if (l_iReturn < 0)
     {
@@ -285,14 +348,12 @@ int  networkSend(NetworkSocket *p_ptSocket, const void *p_pBuffer, unsigned long
         X_LOG_TRACE("networkSend: Send successful, sent %d bytes", l_iReturn);
     }
 
-    // Unlock mutex after socket operation
-    mutexUnlock(&p_ptSocket->t_Mutex);
-
     return l_iReturn;
 }
 
 //////////////////////////////////
-/// networkReceive
+/// networkReceive - Optimized version without mutex locks
+/// TCP receive operations are thread-safe at kernel level
 //////////////////////////////////
 int networkReceive(NetworkSocket *p_ptSocket, void *p_pBuffer, unsigned long p_ulSize)
 {
@@ -312,9 +373,7 @@ int networkReceive(NetworkSocket *p_ptSocket, void *p_pBuffer, unsigned long p_u
         return 0;
     }
 
-    // Lock mutex before accessing socket
-    mutexLock(&p_ptSocket->t_Mutex);
-
+    // Direct receive without mutex - TCP operations are thread-safe
     l_iReturn = recv(p_ptSocket->t_iSocketFd, p_pBuffer, p_ulSize, 0);
     if (l_iReturn < 0)
     {
@@ -329,9 +388,6 @@ int networkReceive(NetworkSocket *p_ptSocket, void *p_pBuffer, unsigned long p_u
     {
         X_LOG_TRACE("networkReceive: Receive successful, received %d bytes", l_iReturn);
     }
-
-    // Unlock mutex after socket operation
-    mutexUnlock(&p_ptSocket->t_Mutex);
 
     return l_iReturn;
 }
@@ -430,18 +486,18 @@ const char *networkGetErrorString(int p_iError)
 {
     switch (p_iError)
     {
-    case NETWORK_OK:
-        return "Success";
-    case NETWORK_ERROR:
-        return "General network error";
-    case NETWORK_TIMEOUT:
-        return "Operation timed out";
-    case NETWORK_INVALID_PARAM:
-        return "Invalid parameter";
-    case NETWORK_ZERO_SIZE:
-        return "Zero size";
-    default:
-        return "Unknown error";
+        case NETWORK_OK:
+            return "Success";
+        case NETWORK_ERROR:
+            return "General network error";
+        case NETWORK_TIMEOUT:
+            return "Operation timed out";
+        case NETWORK_INVALID_PARAM:
+            return "Invalid parameter";
+        case NETWORK_ZERO_SIZE:
+            return "Zero size";
+        default:
+            return "Unknown error";
     }
 }
 
@@ -506,11 +562,10 @@ int networkSendTo(NetworkSocket *p_ptSocket, const void *p_pBuffer, unsigned lon
     // Lock mutex before accessing socket
     mutexLock(&p_ptSocket->t_Mutex);
 
-    X_LOG_TRACE("networkSendTo: Sending datagram to %s:%d, %lu bytes",
-                p_pAddress->t_cAddress, p_pAddress->t_usPort, p_ulSize);
+    X_LOG_TRACE(
+        "networkSendTo: Sending datagram to %s:%d, %lu bytes", p_pAddress->t_cAddress, p_pAddress->t_usPort, p_ulSize);
 
-    l_iReturn = sendto(p_ptSocket->t_iSocketFd, p_pBuffer, p_ulSize, 0,
-                       (struct sockaddr *)&l_tAddr, sizeof(l_tAddr));
+    l_iReturn = sendto(p_ptSocket->t_iSocketFd, p_pBuffer, p_ulSize, 0, (struct sockaddr *)&l_tAddr, sizeof(l_tAddr));
 
     if (l_iReturn < 0)
     {
@@ -555,11 +610,9 @@ int networkReceiveFrom(NetworkSocket *p_ptSocket, void *p_pBuffer, unsigned long
     // Lock mutex before accessing socket
     mutexLock(&p_ptSocket->t_Mutex);
 
-    X_LOG_TRACE("networkReceiveFrom: Receiving datagram on socket %d, buffer size %lu",
-                p_ptSocket->t_iSocketFd, p_ulSize);
+    X_LOG_TRACE("networkReceiveFrom: Receiving datagram on socket %d, buffer size %lu", p_ptSocket->t_iSocketFd, p_ulSize);
 
-    l_iReturn = recvfrom(p_ptSocket->t_iSocketFd, p_pBuffer, p_ulSize, 0,
-                         (struct sockaddr *)&l_tSenderAddr, &l_iAddrLen);
+    l_iReturn = recvfrom(p_ptSocket->t_iSocketFd, p_pBuffer, p_ulSize, 0, (struct sockaddr *)&l_tSenderAddr, &l_iAddrLen);
 
     // get last errno error
     int l_iErrnoReturn = errno;
@@ -582,8 +635,7 @@ int networkReceiveFrom(NetworkSocket *p_ptSocket, void *p_pBuffer, unsigned long
         {
             inet_ntop(AF_INET, &l_tSenderAddr.sin_addr, p_pAddress->t_cAddress, INET_ADDRSTRLEN);
             p_pAddress->t_usPort = NET_TO_HOST_SHORT(l_tSenderAddr.sin_port);
-            X_LOG_TRACE("networkReceiveFrom: Datagram from %s:%d",
-                        p_pAddress->t_cAddress, p_pAddress->t_usPort);
+            X_LOG_TRACE("networkReceiveFrom: Datagram from %s:%d", p_pAddress->t_cAddress, p_pAddress->t_usPort);
         }
     }
 

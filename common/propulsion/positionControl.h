@@ -81,7 +81,7 @@ bool position_control_is_motion_finished(void);
 /// @param speed_rad_s_max Maximum speed in radians per second
 /// @return 0 if success, -1 if error
 ////////////////////////////////////////////////////////////
-int32_t position_control_advance(int16_t distance_mm, float speed_rad_s_max);
+int32_t position_control_advance(int32_t distance_mm, float speed_rad_s_max);
 
 ////////////////////////////////////////////////////////////
 /// @brief Turn the robot by a given angle

@@ -26,8 +26,8 @@ typedef enum movementType
 {
     STOP_MOVEMENT,
     FORWARD_MOVEMENT,
-    RIGHT_MOVEMENT,
     LEFT_MOVEMENT,
+    RIGHT_MOVEMENT,
 } movement_type_t;
 
 ///////////////////////////////////////////

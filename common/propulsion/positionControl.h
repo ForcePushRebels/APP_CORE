@@ -33,6 +33,13 @@ typedef struct {
     float angle_rad;     // Angle in radians
 } Position_t;
 
+typedef struct {
+    int16_t x_mm;        // X position in millimeters
+    int16_t y_mm;        // Y position in millimeters
+    uint32_t angle_rad;     // Angle in radians
+} PositionPacked_t;
+
+
 // Constants for position control
 #define REGULATION_PERIOD_MS 5     // Regulation period in milliseconds
 #define ACCELERATION_COEF   0.5     // Acceleration coefficient (0-1)

@@ -8,7 +8,13 @@
 
 #include "safetyController.h"
 #include "explorationManager.h"
+#include "xTimer.h"
+
 static bool s_bAutorizedMovement = false;
+static uint64_t s_ulLastAuthorizationTime = 0;
+
+// Manual mode timeout: 30 seconds
+#define MANUAL_MODE_TIMEOUT_MS 30000
 
 ///////////////////////////////////////////
 /// @brief Check if the movement is autorized
@@ -16,6 +22,31 @@ static bool s_bAutorizedMovement = false;
 void setAutorizedMovement(void)
 {
     s_bAutorizedMovement = true;
+    s_ulLastAuthorizationTime = xTimerGetCurrentMs();
+    X_LOG_TRACE("Manual movement authorized for %d ms", MANUAL_MODE_TIMEOUT_MS);
+}
+
+///////////////////////////////////////////
+/// @brief Check if manual mode is still valid (with timeout)
+///////////////////////////////////////////
+static bool isManualModeValid(void)
+{
+    if (!s_bAutorizedMovement)
+    {
+        return false;
+    }
+
+    uint64_t l_ulCurrentTime = xTimerGetCurrentMs();
+    uint64_t l_ulElapsedTime = l_ulCurrentTime - s_ulLastAuthorizationTime;
+
+    if (l_ulElapsedTime > MANUAL_MODE_TIMEOUT_MS)
+    {
+        s_bAutorizedMovement = false;
+        X_LOG_TRACE("Manual mode expired after %llu ms", l_ulElapsedTime);
+        return false;
+    }
+
+    return true;
 }
 
 ///////////////////////////////////////////
@@ -38,9 +69,9 @@ static void setMovementHandle(clientCtx *p_ptClient, const network_message_t *p_
     movement_type_t l_eMovement = (movement_type_t)p_ptMessage->t_ptucPayload[0];
     X_LOG_TRACE("Received set movement message: %d", l_eMovement);
 
-    if (s_bAutorizedMovement == false)
+    if (isManualModeValid() == false)
     {
-        X_LOG_TRACE("Movement not authorized");
+        X_LOG_TRACE("Manual mode not valid");
         return;
     }
 
@@ -83,24 +114,24 @@ static void setMovementHandle(clientCtx *p_ptClient, const network_message_t *p_
     // call the movement function
     switch (l_eMovement)
     {
-    case FORWARD_MOVEMENT:
-        position_control_advance(10000, 2.0);
-        //pilot_continuousAdvance(100);
-        break;
-    case LEFT_MOVEMENT:
-        //pilot_turn(M_PI * 2, 100, true);
-        position_control_turn(M_PI * 10, 0.5);
-        break;
-    case RIGHT_MOVEMENT:
-        //pilot_turn(-M_PI * 2, 100, true);
-        position_control_turn(-M_PI * 10, 0.5);
-        break;
-    case STOP_MOVEMENT:
-        //pilot_stop();
-        position_control_stop();
-        break;
-    default:
-        break;
+        case FORWARD_MOVEMENT:
+            position_control_advance(10000, 2.0);
+            //pilot_continuousAdvance(100);
+            break;
+        case LEFT_MOVEMENT:
+            //pilot_turn(M_PI * 2, 100, true);
+            position_control_turn(M_PI * 10, 0.5);
+            break;
+        case RIGHT_MOVEMENT:
+            //pilot_turn(-M_PI * 2, 100, true);
+            position_control_turn(-M_PI * 10, 0.5);
+            break;
+        case STOP_MOVEMENT:
+            //pilot_stop();
+            position_control_stop();
+            break;
+        default:
+            break;
     }
 }
 

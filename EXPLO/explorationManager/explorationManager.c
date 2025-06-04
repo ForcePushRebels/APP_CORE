@@ -7,9 +7,13 @@
 ////////////////////////////////////////////////////////////
 
 #include "explorationManager.h"
+#include "safetyController.h"
+#include "xAssert.h"
+#include "xLog.h"
 #include "xOsMemory.h"
 #include "xTimer.h"
-#include "safetyController.h"
+#include <stdatomic.h>
+#include <string.h>
 
 static atomic_int_fast32_t s_eExplorationManagerState = ECHEC;
 static atomic_uint_fast64_t s_ulMissionStartTime = 0;
@@ -57,24 +61,20 @@ static void handleMissionControl(clientCtx *p_ptClient, const network_message_t 
 }
 ////////////////////////////////////////////////////////////
 /// @brief Start the exploration manager
-/// @param p_ptClient The client context
 /// @return 0 if success, error code otherwise
 ////////////////////////////////////////////////////////////
-int32_t explorationManager_start(void)
+void explorationManager_start(void)
 {
     registerMessageHandler(ID_MISSION_CONTROL, handleMissionControl);
-    return 0;
 }
 
 ////////////////////////////////////////////////////////////
 /// @brief Stop the exploration manager
 /// @return 0 if success, error code otherwise
 ////////////////////////////////////////////////////////////
-int32_t explorationManager_stop(void)
+void explorationManager_stop(void)
 {
     unregisterMessageHandler(ID_MISSION_CONTROL);
-
-    return 0;
 }
 
 ////////////////////////////////////////////////////////////

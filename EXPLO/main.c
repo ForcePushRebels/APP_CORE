@@ -29,7 +29,6 @@
 #include "xLog.h"
 #include "xNetwork.h"
 #include "xTimer.h"
-#include "explorationManager.h"
 
 // chemin des logs avec l'executable en chemin de l'executable
 static const uint8_t s_aCLogPath[] = "explo.log";
@@ -177,8 +176,7 @@ int main()
     safetyControllerInit();
 
     // init exploration manager
-    l_iReturn = explorationManager_start();
-    X_ASSERT(l_iReturn == 0);
+    explorationManager_start();
     X_LOG_TRACE("Exploration manager initialized");
 
     while (1)

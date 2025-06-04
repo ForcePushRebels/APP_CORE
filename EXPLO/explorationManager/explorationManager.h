@@ -5,7 +5,6 @@
 // general discloser: copy or share the file is forbidden
 // Written : 04/06/2025
 ////////////////////////////////////////////////////////////
-#pragma once
 
 #ifndef EXPLORATION_MANAGER_H_
 #define EXPLORATION_MANAGER_H_
@@ -31,13 +30,13 @@ typedef enum explorationManagerState
 /// @brief Initialize the exploration manager
 /// @return 0 if success, error code otherwise
 ////////////////////////////////////////////////////////////
-int32_t explorationManager_start(void);
+void explorationManager_start(void);
 
 ////////////////////////////////////////////////////////////
 /// @brief Stop the exploration manager
 /// @return 0 if success, error code otherwise
 ////////////////////////////////////////////////////////////
-int32_t explorationManager_stop(void);
+void explorationManager_stop(void);
 
 ////////////////////////////////////////////////////////////
 /// @brief Get the exploration manager state

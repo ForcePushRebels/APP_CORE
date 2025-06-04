@@ -12,7 +12,7 @@
 
 static sensorManager_t s_tSensorManager;
 
-#define SENSOR_MANAGER_TASK_PERIOD 25
+#define SENSOR_MANAGER_TASK_PERIOD 200
 #define SENSOR_OBSTACLE_THRESHOLD 50
 
 // prototypes

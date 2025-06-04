@@ -173,7 +173,6 @@ static int32_t sendStatus(void)
     exploration_manager_state_t l_eStatus = explorationManager_getState();
     // Convert enum to uint32_t for network transmission
     uint32_t l_ulStatusNetwork = HOST_TO_NET_LONG((uint32_t)l_eStatus);
-
     return networkServerSendMessage(1, ID_INF_STATUS, &l_ulStatusNetwork, sizeof(uint32_t));
 #else
     return 0;
@@ -195,6 +194,20 @@ static int32_t sendDuration(void)
     {
         l_ulDuration = UINT32_MAX;
     }
+
+    exploration_manager_state_t l_eStatus = explorationManager_getState();
+    switch (l_eStatus)
+    {
+        case MISSION_EN_COURS:
+        case MODE_MANUEL:
+            l_ulDuration = l_ulCurrentTime - l_ulStartTime;
+            break;
+        default:
+            l_ulDuration = 0;
+            break;
+    }
+
+    l_ulDuration /= 1000; // convert to seconds
 
     // Convert to network byte order
     uint32_t l_ulDurationNetwork = HOST_TO_NET_LONG((uint32_t)l_ulDuration);
@@ -323,7 +336,8 @@ static void checkInfo(void *arg)
         return;
     }
 
-    uint64_t last_position_update = 0;
+    static uint64_t last_position_update = 0;
+    static uint64_t last_status_update = 0;
 
     Position_t l_tCurrentPosition;
     int32_t l_iResult;
@@ -350,8 +364,10 @@ static void checkInfo(void *arg)
         l_tConvertedPosition.t_fOrientation = l_tCurrentPosition.angle_rad;
 
         // Update position if changed
-        if (memcmp(&s_tSupervisorCtx.t_tPosition, &l_tConvertedPosition, sizeof(tPosition)) != 0
-            || last_position_update + 1000 < xTimerGetCurrentMs())
+        bool position_changed = memcmp(&s_tSupervisorCtx.t_tPosition, &l_tConvertedPosition, sizeof(tPosition)) != 0;
+        bool position_timeout = ((last_position_update + 1000) < xTimerGetCurrentMs());
+
+        if (position_changed || position_timeout)
         {
             s_tSupervisorCtx.t_tPosition = l_tConvertedPosition;
             // get timestamp ms
@@ -385,9 +401,12 @@ static void checkInfo(void *arg)
     // Store current report as last report
     s_tSupervisorCtx.t_tLastReport = s_tSupervisorCtx.t_tCurrentReport;
 
-    // Send periodic reports
-    sendDuration();
-    sendStatus();
+    if ((last_status_update + 1000) < xTimerGetCurrentMs())
+    {
+        last_status_update = xTimerGetCurrentMs();
+        sendStatus();
+        sendDuration();
+    }
 
     // Unlock mutex
     mutexUnlock(&s_tSupervisorCtx.t_tMutex);
@@ -406,6 +425,7 @@ static void *supervisor_task(void *arg)
     }
     sleep(3);
     X_LOG_TRACE("Supervisor task started");
+    explorationManager_setState(PRET);
 
     tSupervisorCtx *l_ptCtx = (tSupervisorCtx *)arg;
 

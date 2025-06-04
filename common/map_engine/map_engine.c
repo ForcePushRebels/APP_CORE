@@ -265,9 +265,40 @@ int map_engine_update_vision(uint16_t *sensor_data, uint8_t sensor_count)
     return MAP_ENGINE_OK;
 }
 
+static bool is_floor_sensor_in_margin(uint16_t floor_sensor, uint16_t color, uint16_t margin)
+{
+    return floor_sensor >= color - margin && floor_sensor <= color + margin;
+}
+
 int map_engine_update_floor_sensor(uint16_t floor_sensor)
 {
-    if (!(floor_sensor >= 1220 && floor_sensor <= 1240)) //TODO: remove this: select a value for the floor sensor
+#define FLOOR_SENSOR_MARGIN 5
+
+    typedef enum
+    {
+        FLOOR_SENSOR_LIGHT_RED = 293,
+        FLOOR_SENSOR_WHITE = 251,
+        FLOOR_SENSOR_PURPLE = 401,
+
+    } floor_sensor_color_t;
+
+    floor_sensor_color_t colors[] = {
+        FLOOR_SENSOR_LIGHT_RED,
+        FLOOR_SENSOR_WHITE,
+        FLOOR_SENSOR_PURPLE,
+    };
+
+    bool is_interest_area = false;
+    for (uint8_t i = 0; i < sizeof(colors) / sizeof(colors[0]); i++)
+    {
+        if (!is_floor_sensor_in_margin(floor_sensor, colors[i], FLOOR_SENSOR_MARGIN))
+        {
+            continue;
+        }
+        is_interest_area = true;
+    }
+
+    if (!is_interest_area)
     {
         return MAP_ENGINE_OK;
     }

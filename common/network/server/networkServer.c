@@ -15,11 +15,11 @@
 // Constants & Defines
 //-----------------------------------------------------------------------------
 
-#define SERVER_THREAD_STACK_SIZE (64 * 1024)   // 64KB stack for the server thread
-#define CLIENT_THREAD_STACK_SIZE (32 * 1024)   // 32KB stack for the client threads
-#define SERVER_ACCEPT_TIMEOUT 2000              // 500ms timeout for accept
-#define SERVER_MAX_BUFFER_SIZE 4096            // Max buffer size
-#define MAX_CLIENTS 10                         // Max number of clients
+#define SERVER_THREAD_STACK_SIZE (64 * 1024) // 64KB stack for the server thread
+#define CLIENT_THREAD_STACK_SIZE (32 * 1024) // 32KB stack for the client threads
+#define SERVER_ACCEPT_TIMEOUT 2000           // 500ms timeout for accept
+#define SERVER_MAX_BUFFER_SIZE 4096          // Max buffer size
+#define MAX_CLIENTS 10                       // Max number of clients
 
 //-----------------------------------------------------------------------------
 // Client Structure
@@ -32,6 +32,7 @@ struct client_ctx_t
     NetworkAddress t_tAddress; // client address
     bool t_bConnected;         // connection status
     xOsTaskCtx t_tTask;        // client task context
+    xOsMutexCtx t_tMutex;      // client mutex
     void *t_ptUserData;        // user data
     serverCtx *t_ptServer;     // reference to the server
 };
@@ -510,7 +511,16 @@ int networkServerSetClientUserData(ClientID p_tClientId, void *p_pvUserData)
         return SERVER_CLIENT_NOT_FOUND;
     }
 
+    // Lock client mutex to protect user data access
+    int l_iResult = mutexLock(&l_ptClient->t_tMutex);
+    if (l_iResult != MUTEX_OK)
+    {
+        return SERVER_ERROR;
+    }
+
     l_ptClient->t_ptUserData = p_pvUserData;
+
+    mutexUnlock(&l_ptClient->t_tMutex);
     return SERVER_OK;
 }
 
@@ -525,7 +535,17 @@ void *networkServerGetClientUserData(ClientID p_tClientId)
         return NULL;
     }
 
-    return l_ptClient->t_ptUserData;
+    // Lock client mutex to protect user data access
+    int l_iResult = mutexLock(&l_ptClient->t_tMutex);
+    if (l_iResult != MUTEX_OK)
+    {
+        return NULL;
+    }
+
+    void *l_pvUserData = l_ptClient->t_ptUserData;
+
+    mutexUnlock(&l_ptClient->t_tMutex);
+    return l_pvUserData;
 }
 
 ///////////////////////////////////////////
@@ -552,14 +572,23 @@ int networkServerSendToClient(ClientID p_tClientId, const void *p_pvData, int p_
 ///////////////////////////////////////////
 int networkServerSendMessage(ClientID p_tClientId, uint8_t p_ucMsgType, const void *p_pvPayload, uint32_t p_ulPayloadSize)
 {
+
+    int l_iReturn = 0;
     clientCtx *l_ptClient = findClientById(p_tClientId);
     if (l_ptClient == NULL)
     {
         return SERVER_CLIENT_NOT_FOUND;
     }
 
+    l_iReturn = mutexLock(&l_ptClient->t_tMutex);
+    if (l_iReturn != MUTEX_OK)
+    {
+        return SERVER_ERROR;
+    }
+
     if (!isClientConnected(l_ptClient))
     {
+        mutexUnlock(&l_ptClient->t_tMutex);
         return SERVER_CLIENT_DISCONNECTED;
     }
 
@@ -567,6 +596,7 @@ int networkServerSendMessage(ClientID p_tClientId, uint8_t p_ucMsgType, const vo
     if (p_ulPayloadSize > UINT16_MAX)
     {
         X_LOG_TRACE("Payload size too large for uint16_t: %u bytes", p_ulPayloadSize);
+        mutexUnlock(&l_ptClient->t_tMutex);
         return SERVER_INVALID_PARAM;
     }
 
@@ -600,6 +630,7 @@ int networkServerSendMessage(ClientID p_tClientId, uint8_t p_ucMsgType, const vo
 
     // Send the message (header + payload)
     int l_iMessageResult = networkSend(l_ptClient->t_ptSocket, l_pucBuffer, l_ulTotalMessageSize);
+    mutexUnlock(&l_ptClient->t_tMutex);
     free(l_pucBuffer);
 
     if (l_iMessageResult < 0)
@@ -852,6 +883,15 @@ static void *serverThreadFunc(void *p_pvArg)
         l_ptClient->t_bConnected = true;
         l_ptClient->t_ptServer = p_ptServer;
 
+        // Initialize client mutex
+        if (mutexCreate(&l_ptClient->t_tMutex) != MUTEX_OK)
+        {
+            X_LOG_TRACE("Failed to create client mutex");
+            networkCloseSocket(l_ptClientSocket);
+            free(l_ptClient);
+            continue;
+        }
+
         // configure the client task
         l_ptClient->t_tTask.t_ptTask = clientThreadFunc;
         l_ptClient->t_tTask.t_ptTaskArg = l_ptClient;
@@ -958,7 +998,6 @@ static void *clientThreadFunc(void *p_pvArg)
 
             // STEP 3: Receive the message (header + payload) - FIXED: use complete receive
             p_iReceived = networkReceiveComplete(p_ptClient->t_ptSocket, l_pucMessageBuffer, l_ulPayloadSize);
-
 
             if (p_iReceived == (int)l_ulPayloadSize)
             {
@@ -1068,6 +1107,9 @@ static void cleanupAndFreeClient(clientCtx *p_ptClient)
     // Remove from client table
     removeClient(p_ptClient);
 
+    // Destroy client mutex
+    mutexDestroy(&p_ptClient->t_tMutex);
+
     // Free the client structure
     free(p_ptClient);
 
@@ -1103,6 +1145,9 @@ static void clientThreadCleanup(clientCtx *p_ptClient)
     // Remove from client table
     removeClient(p_ptClient);
 
+    // Destroy client mutex
+    mutexDestroy(&p_ptClient->t_tMutex);
+
     // Free the client context (safe to do in thread termination)
     free(p_ptClient);
 
@@ -1136,5 +1181,15 @@ static bool isClientConnected(clientCtx *p_ptClient)
         return false;
     }
 
-    return p_ptClient->t_bConnected && p_ptClient->t_ptSocket != NULL;
+    // Lock client mutex to safely check connection status
+    int l_iResult = mutexLock(&p_ptClient->t_tMutex);
+    if (l_iResult != MUTEX_OK)
+    {
+        return false;
+    }
+
+    bool l_bConnected = p_ptClient->t_bConnected && p_ptClient->t_ptSocket != NULL;
+
+    mutexUnlock(&p_ptClient->t_tMutex);
+    return l_bConnected;
 }

@@ -23,6 +23,16 @@ static tSupervisorCtx s_tSupervisorCtx;
 static void *supervisor_task(void *arg);
 static void checkInfo(void *arg);
 
+uint32_t float_to_uint32(float f)
+{
+    union {
+        float f;
+        uint32_t i;
+    } u;
+    u.f = f;
+    return u.i;
+}
+
 ////////////////////////////////////////////////////////////
 /// sendFragmentMap
 ////////////////////////////////////////////////////////////
@@ -49,11 +59,16 @@ static int32_t sendFragmentMap(tPosition pNewPosition)
 ////////////////////////////////////////////////////////////
 static int32_t sendPosition(tPosition pNewPosition)
 {
-    X_ASSERT(false); //not implemented
-    (void)pNewPosition;
-    //return networkServerSendMessage(1, ID_POSITION, &pNewPosition, sizeof(tPosition));
+    PositionPacked_t l_tPosition = {
+        HOST_TO_NET_SHORT(pNewPosition.t_iXPosition),
+        HOST_TO_NET_SHORT(pNewPosition.t_iYPosition),
+        HOST_TO_NET_LONG(float_to_uint32(pNewPosition.t_fOrientation)),
+    };
 
-    return SUPERVISOR_OK;
+    int ret = networkServerSendMessage(1, ID_INF_POS, &l_tPosition, sizeof(l_tPosition));
+
+    X_LOG_TRACE("Position sent: %d, %d, %f", pNewPosition.t_iXPosition, pNewPosition.t_iYPosition, pNewPosition.t_fOrientation);
+    return ret;
 }
 
 ////////////////////////////////////////////////////////////
@@ -225,7 +240,7 @@ static void checkInfo(void *arg)
 
     // Get current position - using Position_t type to match function signature
     l_iResult = position_control_get_position(&l_tCurrentPosition);
-    if (l_iResult == 0) //TODO: modifier le code d'erreur
+    if (l_iResult == POSITION_OK) //TODO: modifier le code d'erreur
     {
         // Convert Position_t to tPosition for comparison and storage
         tPosition l_tConvertedPosition;
@@ -239,6 +254,10 @@ static void checkInfo(void *arg)
             s_tSupervisorCtx.t_tPosition = l_tConvertedPosition;
             sendPosition(l_tConvertedPosition);
             //sendFragmentMap(l_tConvertedPosition);
+        }
+        else
+        {
+            X_LOG_TRACE("Position not changed");
         }
     }
 

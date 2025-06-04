@@ -404,16 +404,6 @@ void testPilot(void)
     }
 }
 
-uint32_t float_to_uint32(float f)
-{
-    union {
-        float f;
-        uint32_t i;
-    } u;
-    u.f = f;
-    return u.i;
-}
-
 void *testNetworkCommunicationThread(void *p_ptTaskArg)
 {
     X_LOG_TRACE("Test network communication");
@@ -421,12 +411,6 @@ void *testNetworkCommunicationThread(void *p_ptTaskArg)
     xOsTaskCtx *l_ptTask = (xOsTaskCtx *)p_ptTaskArg;
 
     int batteryLevel = 92;
-    float angle = M_PI / 2;
-    PositionPacked_t l_tPosition = {
-        HOST_TO_NET_SHORT(128),
-        HOST_TO_NET_SHORT(129),
-        HOST_TO_NET_LONG(float_to_uint32(angle)),
-    };
 
     while (true)
     {
@@ -442,16 +426,6 @@ void *testNetworkCommunicationThread(void *p_ptTaskArg)
         if (l_iReturn == SERVER_OK)
         {
             X_LOG_TRACE("Battery level sent");
-        }
-
-        l_iReturn = networkServerSendMessage(1, ID_INF_POS, (PositionPacked_t *)&l_tPosition, sizeof(l_tPosition));
-        if (l_iReturn != SERVER_OK)
-        {
-            // X_LOG_TRACE("Failed to send position");
-        }
-        if (l_iReturn == SERVER_OK)
-        {
-            X_LOG_TRACE("Position sent");
         }
 
         // 2000ms

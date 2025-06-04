@@ -46,6 +46,8 @@ typedef struct report_t
     int32_t t_iSpeed;
     int32_t t_iDistance;
     tPosition t_tCurrentPosition;
+    uint32_t map_hash;
+
 } tReportCtx;
 
 ////////////////////////////////////////////////////////////

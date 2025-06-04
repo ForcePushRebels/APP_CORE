@@ -30,8 +30,10 @@
 typedef struct
 {
     map_cell_t map[MAP_WIDTH][MAP_HEIGHT];
+    bool updated_cells[MAP_WIDTH][MAP_HEIGHT];
     uint8_t discovery_percent;
     int interest_area_count;
+    xOsMutexCtx map_mutex;
 } map_engine_t;
 
 typedef struct
@@ -127,7 +129,14 @@ static void print_map()
 int map_engine_init()
 {
     memset(map_engine.map, 0, sizeof(map_engine.map));
+    memset(map_engine.updated_cells, 0, sizeof(map_engine.updated_cells));
     map_engine.discovery_percent = 0;
+
+    if (mutexCreate(&map_engine.map_mutex) != MUTEX_OK)
+    {
+        X_LOG_TRACE("Failed to create map mutex");
+        return MAP_ENGINE_ERROR_UNKNOWN;
+    }
 
     return MAP_ENGINE_OK;
 }
@@ -153,7 +162,9 @@ size_t map_engine_get_map_size(size_t *x_size, size_t *y_size)
 
 int map_engine_get_map(map_cell_t *map)
 {
+    mutexLock(&map_engine.map_mutex);
     memcpy(map, map_engine.map, sizeof(map_engine.map));
+    mutexUnlock(&map_engine.map_mutex);
     return MAP_ENGINE_OK;
 }
 
@@ -200,6 +211,7 @@ int map_engine_update_vision(uint16_t *sensor_data, uint8_t sensor_count)
         points_count++;
     }
 
+    mutexLock(&map_engine.map_mutex);
     for (uint8_t i = 0; i < points_count; i++)
     {
         // X_LOG_TRACE("Point %d: %d, %d", i, points[i].x_mm, points[i].y_mm);
@@ -214,8 +226,10 @@ int map_engine_update_vision(uint16_t *sensor_data, uint8_t sensor_count)
         {
             map_engine.map[grid_x][grid_y].wall.wall_intensity++;
         }
+        map_engine.updated_cells[grid_x][grid_y] = true;
         // X_LOG_TRACE("Grid: %d, %d, %d", grid_x, grid_y, map_engine.map[grid_x][grid_y].wall.wall_intensity);
     }
+    mutexUnlock(&map_engine.map_mutex);
 
 #if MAP_DEBUG
     print_map();
@@ -242,6 +256,7 @@ int map_engine_update_floor_sensor(uint16_t floor_sensor)
         return MAP_ENGINE_ERROR_UNKNOWN;
     }
 
+    mutexLock(&map_engine.map_mutex);
     if (map_engine.map[grid_x][grid_y].type == MAP_CELL_INTEREST_AREA)
     {
         return MAP_ENGINE_OK;
@@ -249,8 +264,79 @@ int map_engine_update_floor_sensor(uint16_t floor_sensor)
 
     map_engine.map[grid_x][grid_y].type = MAP_CELL_INTEREST_AREA;
     map_engine.interest_area_count++;
-
+    map_engine.updated_cells[grid_x][grid_y] = true;
+    mutexUnlock(&map_engine.map_mutex);
     return MAP_ENGINE_OK;
 }
 
+uint32_t map_engine_get_hash()
+{
+    uint32_t hash = 2166136261UL;          // FNV-1a 32-bit offset basis
+    const uint32_t fnv_prime = 16777619UL; // FNV-1a 32-bit prime
+
+    // Hash the map data
+    mutexLock(&map_engine.map_mutex);
+    uint8_t *data = (uint8_t *)map_engine.map;
+    size_t size = sizeof(map_engine.map);
+
+    for (size_t i = 0; i < size; i++)
+    {
+        hash ^= data[i];
+        hash *= fnv_prime;
+    }
+
+    // Include discovery percent and interest area count in hash
+    hash ^= map_engine.discovery_percent;
+    hash *= fnv_prime;
+
+    hash ^= map_engine.interest_area_count;
+    hash *= fnv_prime;
+    mutexUnlock(&map_engine.map_mutex);
+    return hash;
+}
+
+uint32_t map_engine_get_updated_cells_count()
+{
+    mutexLock(&map_engine.map_mutex);
+    uint32_t count = 0;
+    for (int x = 0; x < MAP_WIDTH; x++)
+    {
+        for (int y = 0; y < MAP_HEIGHT; y++)
+        {
+            if (map_engine.updated_cells[x][y])
+            {
+                count++;
+            }
+        }
+    }
+    mutexUnlock(&map_engine.map_mutex);
+    return count;
+}
+
+uint32_t map_engine_get_updated_cells(map_fragment_t *cells, size_t cell_count)
+{
+    uint32_t count = 0;
+    mutexLock(&map_engine.map_mutex);
+    for (int x = 0; x < MAP_WIDTH; x++)
+    {
+        for (int y = 0; y < MAP_HEIGHT; y++)
+        {
+            if (map_engine.updated_cells[x][y])
+            {
+                if (count >= cell_count)
+                {
+                    mutexUnlock(&map_engine.map_mutex);
+                    return count;
+                }
+                cells[count].x_grid = x;
+                cells[count].y_grid = y;
+                cells[count].cell = map_engine.map[x][y];
+                map_engine.updated_cells[x][y] = false;
+                count++;
+            }
+        }
+    }
+    mutexUnlock(&map_engine.map_mutex);
+    return count;
+}
 /* ***************************************** Public callback functions definitions *************************************** */

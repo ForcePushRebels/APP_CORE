@@ -10,6 +10,7 @@
 #include "handleNetworkMessage.h"
 #include "hardwareAbstraction.h"
 #include "map_engine.h"
+#include "networkEncode.h"
 #include "networkServer.h"
 #include "positionControl.h"
 #include <stdint.h>
@@ -25,6 +26,7 @@ static tSupervisorCtx s_tSupervisorCtx;
 ////////////////////////////////////////////////////////////
 static void *supervisor_task(void *arg);
 static void checkInfo(void *arg);
+static int32_t send_map_fragments(void);
 
 uint32_t float_to_uint32(float f)
 {
@@ -39,10 +41,40 @@ uint32_t float_to_uint32(float f)
 ////////////////////////////////////////////////////////////
 /// sendFragmentMap
 ////////////////////////////////////////////////////////////
+
+static int32_t send_map_fragments(void)
+{
+    X_LOG_TRACE("Sending map delta");
+    uint32_t updated_cells_count = map_engine_get_updated_cells_count();
+    if (updated_cells_count == 0)
+    {
+        return SUPERVISOR_OK;
+    }
+    map_fragment_t *cells = (map_fragment_t *)malloc(updated_cells_count * sizeof(map_fragment_t));
+    if (cells == NULL)
+    {
+        X_LOG_TRACE("Failed to allocate memory for map delta");
+        return SUPERVISOR_ERROR_MEMORY_ALLOCATION;
+    }
+    map_engine_get_updated_cells(cells, updated_cells_count);
+    for (uint32_t i = 0; i < updated_cells_count; i++)
+    {
+        X_LOG_TRACE("Cell %d: %d, %d, %d", i, cells[i].x_grid, cells[i].y_grid, cells[i].cell.type);
+        map_cell_t *cell = &cells[i].cell;
+        int ret = networkServerSendMessage(1, ID_MAP_FRAGMENT, &cells[i], sizeof(map_fragment_t));
+        if (ret != SERVER_OK)
+        {
+            X_LOG_TRACE("Failed to send map fragment: 0x%x", ret);
+        }
+    }
+
+    X_LOG_TRACE("Map delta %d cells sent", updated_cells_count);
+    free(cells);
+    return SUPERVISOR_OK;
+}
+
 static int32_t sendFragmentMap(tPosition pNewPosition)
 {
-    X_ASSERT(false); //not implemented
-    (void)pNewPosition;
 
     // Get current map fragment based on position
     /*tFragmentMap l_tFragmentMap;
@@ -103,8 +135,9 @@ int32_t supervisor_send_full_map(ClientID client_id)
     memcpy(&map_buffer->map, temp_map, map_size);
     free(temp_map);
 
-    // send map
-    return networkServerSendMessage(client_id, ID_MAP_FULL, map_buffer, map_buffer_size);
+    int ret = networkServerSendMessage(client_id, ID_MAP_FULL, map_buffer, map_buffer_size);
+    free(map_buffer);
+    return ret;
 }
 
 ////////////////////////////////////////////////////////////
@@ -309,7 +342,6 @@ static void checkInfo(void *arg)
         {
             s_tSupervisorCtx.t_tPosition = l_tConvertedPosition;
             sendPosition(l_tConvertedPosition);
-            //sendFragmentMap(l_tConvertedPosition);
         }
     }
 
@@ -318,6 +350,14 @@ static void checkInfo(void *arg)
     {
         s_tSupervisorCtx.t_iBatteryLevel = (uint32_t)l_iBatteryLevel;
         sendBatteryLevel();
+    }
+
+    uint32_t map_hash = map_engine_get_hash();
+    if (map_hash != s_tSupervisorCtx.t_tCurrentReport.map_hash)
+    {
+        X_LOG_TRACE("Map hash changed: %d -> %d", s_tSupervisorCtx.t_tCurrentReport.map_hash, map_hash);
+        s_tSupervisorCtx.t_tCurrentReport.map_hash = map_hash;
+        send_map_fragments();
     }
 
     // Update current report

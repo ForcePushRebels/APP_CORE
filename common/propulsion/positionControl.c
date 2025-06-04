@@ -17,7 +17,7 @@
 bool g_bCorrection = true;
 
 // Variable de position globale
-static Position_t g_robot_position = {0, 0, 0.0};
+static Position_t g_robot_position = {700, 700, 0.0};
 static xOsMutexCtx g_position_mutex;
 
 // Structure de contrôle de position pour chaque roue

@@ -13,7 +13,7 @@
 static sensorManager_t s_tSensorManager;
 
 #define SENSOR_MANAGER_TASK_PERIOD 100
-#define SENSOR_OBSTACLE_THRESHOLD 150
+#define SENSOR_OBSTACLE_THRESHOLD 50
 
 // prototypes
 static void *sensorManagerTask(void *p_pvParam);
@@ -62,11 +62,24 @@ bool checkMovePossible(void)
     // On suppose que les valeurs sont à jour dans s_tSensorManager.t_tISensors
     for (int i = 0; i < SENSOR_MANAGER_SENSORS_COUNT; i++)
     {
-        if (s_tSensorManager.t_tISensors[i] < SENSOR_OBSTACLE_THRESHOLD)
+
+        if (i == 1)
         {
-            // Un capteur détecte un obstacle : mouvement impossible
-            X_LOG_TRACE("Obstacle détecté");
-            return false;
+            if (s_tSensorManager.t_tISensors[i] < SENSOR_OBSTACLE_THRESHOLD)
+            {
+                // Un capteur détecte un obstacle : mouvement impossible
+                X_LOG_TRACE("Obstacle détecté devant");
+                return false;
+            }
+        }
+        else
+        {
+            if (s_tSensorManager.t_tISensors[i] < (SENSOR_OBSTACLE_THRESHOLD / 4))
+            {
+                // Un capteur détecte un obstacle : mouvement impossible
+                X_LOG_TRACE("Obstacle détecté coté");
+                return false;
+            }
         }
     }
     // Aucun obstacle détecté

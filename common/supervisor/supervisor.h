@@ -23,6 +23,7 @@
 
 #define SUPERVISOR_OK 0x6E00A000
 #define SUPERVISOR_ERROR_INVALID_PARAM 0x6E00A002
+#define SUPERVISOR_ERROR_MEMORY_ALLOCATION 0x6E00A003
 
 ////////////////////////////////////////////////////////////
 /// @brief Position structure
@@ -45,6 +46,8 @@ typedef struct report_t
     int32_t t_iSpeed;
     int32_t t_iDistance;
     tPosition t_tCurrentPosition;
+    uint32_t map_hash;
+
 } tReportCtx;
 
 ////////////////////////////////////////////////////////////
@@ -55,6 +58,7 @@ typedef struct supervisorCtx
     xOsTaskCtx t_tTask;
     xOsMutexCtx t_tMutex;
     xOsTimerCtx t_tTimer;
+    xOsTimerCtx t_tStartTimer;
     uint32_t t_iBatteryLevel;
     uint64_t t_ulTime;
     tPosition t_tPosition;
@@ -85,5 +89,12 @@ int32_t supervisor_start(void);
 /// @return 0 if success, error code otherwise
 ////////////////////////////////////////////////////////////
 int32_t supervisor_stop(void);
+
+////////////////////////////////////////////////////////////
+/// @brief Send the full map to the client
+/// @param client_id The client ID
+/// @return 0 if success, error code otherwise
+////////////////////////////////////////////////////////////
+int32_t supervisor_send_full_map(ClientID client_id);
 
 #endif // SUPERVISOR_H

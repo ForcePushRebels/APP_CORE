@@ -196,4 +196,16 @@ ClientID networkServerGetClientID(clientCtx *p_ptClient);
 ///////////////////////////////////////////
 clientCtx *networkServerGetClientCtx(ClientID p_tClientId);
 
+
+///////////////////////////////////////////
+/// @brief Send a message to all clients
+/// @param msgType Type of message from network_message_type_t
+/// @param payload Data of the message (can be NULL if size is 0)
+/// @param payloadSize Size of the payload in bytes (must be <= UINT16_MAX)
+/// @return SERVER_OK or error code
+///////////////////////////////////////////
+int networkServerSendMessageToAllClients(uint8_t p_ucMsgType, const void *p_pvPayload, uint32_t p_ulPayloadSize);
+
+
+
 #endif // NETWORK_SERVER_H

@@ -7,21 +7,29 @@
 ////////////////////////////////////////////////////////////
 
 #include "supervisor.h"
+#include "handleNetworkMessage.h"
+#include "explorationManager.h"
 #include "hardwareAbstraction.h"
 #include "map_engine.h"
+#include "networkEncode.h"
+#include "networkServer.h"
 #include "positionControl.h"
+#include <stdint.h>
 #include <string.h>
+#include <unistd.h>
 
 ////////////////////////////////////////////////////////////
 /// Private variables
 ////////////////////////////////////////////////////////////
 static tSupervisorCtx s_tSupervisorCtx;
 
+static bool supervisor_is_running = false;
 ////////////////////////////////////////////////////////////
 /// Private function declarations
 ////////////////////////////////////////////////////////////
 static void *supervisor_task(void *arg);
 static void checkInfo(void *arg);
+static int32_t send_map_fragments(void);
 
 uint32_t float_to_uint32(float f)
 {
@@ -36,22 +44,113 @@ uint32_t float_to_uint32(float f)
 ////////////////////////////////////////////////////////////
 /// sendFragmentMap
 ////////////////////////////////////////////////////////////
-static int32_t sendFragmentMap(tPosition pNewPosition)
-{
-    X_ASSERT(false); //not implemented
-    (void)pNewPosition;
 
-    // Get current map fragment based on position
-    /*tFragmentMap l_tFragmentMap;
-    int32_t l_iResult = getMapFragment(pNewPosition, &l_tFragmentMap);
-    if (l_iResult != MAP_ENGINE_OK)
+static int32_t send_map_fragments(void)
+{
+    X_LOG_TRACE("Sending map delta");
+    uint32_t updated_cells_count = map_engine_get_updated_cells_count();
+    if (updated_cells_count == 0)
     {
-        return l_iResult;
+        return SUPERVISOR_OK;
+    }
+    map_fragment_t *cells = (map_fragment_t *)malloc(updated_cells_count * sizeof(map_fragment_t));
+    if (cells == NULL)
+    {
+        X_LOG_TRACE("Failed to allocate memory for map delta");
+        return SUPERVISOR_ERROR_MEMORY_ALLOCATION;
+    }
+    map_engine_get_updated_cells(cells, updated_cells_count);
+    for (uint32_t i = 0; i < updated_cells_count; i++)
+    {
+        X_LOG_TRACE("Cell %d: %d, %d, %d, %d",
+                    i,
+                    cells[i].x_grid,
+                    cells[i].y_grid,
+                    cells[i].cell.type,
+                    cells[i].cell.wall.wall_intensity);
+        map_cell_t *cell = &cells[i].cell;
+        cells[i].x_grid = HOST_TO_NET_SHORT(cells[i].x_grid);
+        cells[i].y_grid = HOST_TO_NET_SHORT(cells[i].y_grid);
+        int ret = networkServerSendMessage(1, ID_MAP_FRAGMENT, &cells[i], sizeof(map_fragment_t));
+        if (ret != SERVER_OK)
+        {
+            X_LOG_TRACE("Failed to send map fragment %d: 0x%x, next cell", i, ret);
+        }
     }
 
-    return networkServerSendMessage(1, ID_MAP_FRAGMENT, &l_tFragmentMap, sizeof(tFragmentMap));
-    */
+    map_fragment_t robot_fragment = map_engine_get_robot_fragment();
+    X_LOG_TRACE("Robot fragment: %d, %d", robot_fragment.x_grid, robot_fragment.y_grid);
+    robot_fragment.x_grid = HOST_TO_NET_SHORT(robot_fragment.x_grid);
+    robot_fragment.y_grid = HOST_TO_NET_SHORT(robot_fragment.y_grid);
+    int ret = networkServerSendMessage(1, ID_MAP_FRAGMENT, &robot_fragment, sizeof(map_fragment_t));
+    if (ret != SERVER_OK)
+    {
+        X_LOG_TRACE("Failed to send robot fragment: 0x%x", ret);
+    }
+
+
+    X_LOG_TRACE("Map delta %d cells sent", updated_cells_count);
+    map_engine_clear_updated_cells(cells, updated_cells_count);
+    free(cells);
     return SUPERVISOR_OK;
+}
+
+////////////////////////////////////////////////////////////
+/// sendFullMapHandle
+////////////////////////////////////////////////////////////
+static void sendFullMapHandle(clientCtx *p_ptClient, const network_message_t *p_ptMessage)
+{
+    (void)p_ptMessage; // unused parameter
+    X_LOG_TRACE("sendFullMapHandle");
+    supervisor_send_full_map(networkServerGetClientID(p_ptClient));
+}
+
+////////////////////////////////////////////////////////////
+/// supervisor_send_full_map
+////////////////////////////////////////////////////////////
+int32_t supervisor_send_full_map(ClientID client_id)
+{
+    // get map size
+    size_t x_size, y_size, map_size;
+
+    map_size = map_engine_get_map_size(&x_size, &y_size);
+    X_LOG_TRACE("Map size: %d, %d", x_size, y_size);
+
+    typedef struct __attribute__((packed))
+    {
+        uint8_t x_size;
+        uint8_t y_size;
+        map_cell_t map;
+    } map_buffer_t;
+
+    size_t map_buffer_size = 2 + map_size;
+
+    map_buffer_t *map_buffer = (map_buffer_t *)malloc(map_buffer_size);
+    if (map_buffer == NULL)
+    {
+        X_LOG_TRACE("Failed to allocate memory for map buffer");
+        return SUPERVISOR_ERROR_MEMORY_ALLOCATION;
+    }
+
+    map_buffer->x_size = x_size;
+    map_buffer->y_size = y_size;
+
+    // Use temporary buffer to avoid packed member address issue
+    map_cell_t *temp_map = (map_cell_t *)malloc(map_size);
+    if (temp_map == NULL)
+    {
+        free(map_buffer);
+        X_LOG_TRACE("Failed to allocate memory for temporary map buffer");
+        return SUPERVISOR_ERROR_MEMORY_ALLOCATION;
+    }
+
+    map_engine_get_map(temp_map);
+    memcpy(&map_buffer->map, temp_map, map_size);
+    free(temp_map);
+
+    int ret = networkServerSendMessage(client_id, ID_MAP_FULL, map_buffer, map_buffer_size);
+    free(map_buffer);
+    return ret;
 }
 
 ////////////////////////////////////////////////////////////
@@ -67,50 +166,50 @@ static int32_t sendPosition(tPosition pNewPosition)
 
     int ret = networkServerSendMessage(1, ID_INF_POS, &l_tPosition, sizeof(l_tPosition));
 
-    X_LOG_TRACE("Position sent: %d, %d, %f", pNewPosition.t_iXPosition, pNewPosition.t_iYPosition, pNewPosition.t_fOrientation);
+    X_LOG_TRACE(
+        "Position sent: %d, %d, %f", pNewPosition.t_iXPosition, pNewPosition.t_iYPosition, pNewPosition.t_fOrientation);
     return ret;
 }
 
 ////////////////////////////////////////////////////////////
 /// sendStatus
 ////////////////////////////////////////////////////////////
-/*
 static int32_t sendStatus(void)
 {
+    #ifdef EXPLO_BUILD
+    exploration_manager_state_t l_eStatus = explorationManager_getState();
+    // Convert enum to uint32_t for network transmission
+    uint32_t l_ulStatusNetwork = HOST_TO_NET_LONG((uint32_t)l_eStatus);
 
-
-    tStatus l_tStatus;
-
-    // Get current system status
-    l_tStatus.t_iSystemState = getSystemState();
-    l_tStatus.t_iErrorCode = getLastErrorCode();
-    l_tStatus.t_ulUptime = s_tSupervisorCtx.t_ulTime;
-
-    return networkServerSendMessage(1, ID_INF_STATUS, &l_tStatus, sizeof(tStatus));
-
-    X_ASSERT(false); //not implemented
-
-    return SUPERVISOR_OK;
+    return networkServerSendMessage(1, ID_INF_STATUS, &l_ulStatusNetwork, sizeof(uint32_t));
+    #else 
+    return 0;
+    #endif
 }
-*/
 
 ////////////////////////////////////////////////////////////
 /// sendDuration
 ////////////////////////////////////////////////////////////
 static int32_t sendDuration(void)
 {
-    /*
-    tDuration l_tDuration;
+    #ifdef EXPLO_BUILD
+    uint64_t l_ulStartTime = getStartTimeExploration();
+    uint64_t l_ulCurrentTime = xTimerGetCurrentMs();
+    uint64_t l_ulDuration = l_ulCurrentTime - l_ulStartTime;
 
-    // Calculate duration since start
-    l_tDuration.t_ulElapsedTime = s_tSupervisorCtx.t_ulTime;
-    l_tDuration.t_ulTotalTime = getTotalOperationTime();
+    // Cap duration to uint32_t maximum value
+    if (l_ulDuration > UINT32_MAX)
+    {
+        l_ulDuration = UINT32_MAX;
+    }
 
-    return networkServerSendMessage(1, ID_INF_TIME, &l_tDuration, sizeof(tDuration));
-    */
-    X_ASSERT(false); //not implemented
+    // Convert to network byte order
+    uint32_t l_ulDurationNetwork = HOST_TO_NET_LONG((uint32_t)l_ulDuration);
 
-    return SUPERVISOR_OK;
+    return networkServerSendMessage(1, ID_INF_TIME, &l_ulDurationNetwork, sizeof(uint32_t));
+    #else 
+    return 0;
+    #endif
 }
 
 ////////////////////////////////////////////////////////////
@@ -177,6 +276,8 @@ int32_t supervisor_init(void)
         return l_iResult;
     }
 
+    registerMessageHandler(ID_MAP_FULL, sendFullMapHandle);
+
     return SUPERVISOR_OK;
 }
 
@@ -224,6 +325,11 @@ int32_t supervisor_stop(void)
 ////////////////////////////////////////////////////////////
 static void checkInfo(void *arg)
 {
+    if (!supervisor_is_running)
+    {
+        return;
+    }
+
     Position_t l_tCurrentPosition;
     int32_t l_iResult;
     (void)arg; // Unused parameter
@@ -240,7 +346,6 @@ static void checkInfo(void *arg)
 
     // Get current position - using Position_t type to match function signature
     l_iResult = position_control_get_position(&l_tCurrentPosition);
-    X_LOG_TRACE("position_control_get_position done");
     if (l_iResult == POSITION_OK)
     {
         // Convert Position_t to tPosition for comparison and storage
@@ -254,11 +359,6 @@ static void checkInfo(void *arg)
         {
             s_tSupervisorCtx.t_tPosition = l_tConvertedPosition;
             sendPosition(l_tConvertedPosition);
-            //sendFragmentMap(l_tConvertedPosition);
-        }
-        else
-        {
-            X_LOG_TRACE("Position not changed");
         }
     }
 
@@ -267,6 +367,13 @@ static void checkInfo(void *arg)
     {
         s_tSupervisorCtx.t_iBatteryLevel = (uint32_t)l_iBatteryLevel;
         sendBatteryLevel();
+    }
+
+    uint32_t map_hash = map_engine_get_hash();
+    if (map_hash != s_tSupervisorCtx.t_tCurrentReport.map_hash)
+    {
+        s_tSupervisorCtx.t_tCurrentReport.map_hash = map_hash;
+        send_map_fragments();
     }
 
     // Update current report
@@ -280,6 +387,10 @@ static void checkInfo(void *arg)
     // Store current report as last report
     s_tSupervisorCtx.t_tLastReport = s_tSupervisorCtx.t_tCurrentReport;
 
+    // Send periodic reports
+    sendDuration();
+    sendStatus();
+
     // Unlock mutex
     mutexUnlock(&s_tSupervisorCtx.t_tMutex);
 }
@@ -291,9 +402,14 @@ static void *supervisor_task(void *arg)
 {
     X_ASSERT(arg != NULL);
 
-    tSupervisorCtx *l_ptCtx = (tSupervisorCtx *)arg;
-
+    while (!supervisor_is_running)
+    {
+        sleep(1);
+    }
+    sleep(3);
     X_LOG_TRACE("Supervisor task started");
+
+    tSupervisorCtx *l_ptCtx = (tSupervisorCtx *)arg;
 
     int32_t l_iResult = xTimerStart(&l_ptCtx->t_tTimer);
     X_ASSERT(l_iResult == XOS_TIMER_OK);
@@ -312,4 +428,13 @@ static void *supervisor_task(void *arg)
     l_iResult = xTimerProcessPeriodicCallback(&l_ptCtx->t_tTimer, checkInfo, l_ptCtx);
 
     return NULL;
+}
+
+////////////////////////////////////////////////////////////
+/// supervisor_start
+////////////////////////////////////////////////////////////
+int32_t supervisor_start(void)
+{
+    supervisor_is_running = true;
+    return SUPERVISOR_OK;
 }

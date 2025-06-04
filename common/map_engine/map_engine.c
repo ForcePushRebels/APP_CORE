@@ -25,7 +25,6 @@
 
 #define MAP_CELL_SIZE_MM 50
 
-
 #define MAP_WIDTH (MAP_WIDTH_MM / MAP_CELL_SIZE_MM)
 #define MAP_HEIGHT (MAP_HEIGHT_MM / MAP_CELL_SIZE_MM)
 
@@ -243,6 +242,10 @@ int map_engine_update_vision(uint16_t *sensor_data, uint8_t sensor_count)
         {
             map_engine.map[grid_x][grid_y].wall.wall_intensity++;
         }
+        else
+        {
+            map_engine.map[grid_x][grid_y].wall.wall_intensity = 0;
+        }
         map_engine.updated_cells[grid_x][grid_y] = true;
         // X_LOG_TRACE("Grid: %d, %d, %d", grid_x, grid_y, map_engine.map[grid_x][grid_y].wall.wall_intensity);
     }
@@ -348,7 +351,6 @@ uint32_t map_engine_get_updated_cells(map_fragment_t *cells, size_t cell_count)
                 cells[count].x_grid = x;
                 cells[count].y_grid = y;
                 cells[count].cell = map_engine.map[x][y];
-                map_engine.updated_cells[x][y] = false;
                 count++;
             }
         }
@@ -356,4 +358,15 @@ uint32_t map_engine_get_updated_cells(map_fragment_t *cells, size_t cell_count)
     mutexUnlock(&map_engine.map_mutex);
     return count;
 }
+
+void map_engine_clear_updated_cells(map_fragment_t *cells, size_t cell_count)
+{
+    mutexLock(&map_engine.map_mutex);
+    for (size_t i = 0; i < cell_count; i++)
+    {
+        map_engine.updated_cells[cells[i].x_grid][cells[i].y_grid] = false;
+    }
+    mutexUnlock(&map_engine.map_mutex);
+}
+
 /* ***************************************** Public callback functions definitions *************************************** */

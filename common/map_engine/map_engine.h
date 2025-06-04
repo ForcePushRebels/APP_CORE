@@ -135,6 +135,13 @@ uint32_t map_engine_get_updated_cells_count();
  */
 uint32_t map_engine_get_updated_cells(map_fragment_t *cells, size_t cell_count);
 
+/**
+ * @brief Clear the updated cells
+ * @param cells The cells to clear
+ * @param cell_count The number of cells to clear
+ */
+void map_engine_clear_updated_cells(map_fragment_t *cells, size_t cell_count);
+
 /* ******************************************* Public callback functions declarations ************************************ */
 
 #endif /* _MAP_ENGINE_H_ */

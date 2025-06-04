@@ -59,16 +59,24 @@ static int32_t send_map_fragments(void)
     map_engine_get_updated_cells(cells, updated_cells_count);
     for (uint32_t i = 0; i < updated_cells_count; i++)
     {
-        X_LOG_TRACE("Cell %d: %d, %d, %d", i, cells[i].x_grid, cells[i].y_grid, cells[i].cell.type);
+        X_LOG_TRACE("Cell %d: %d, %d, %d, %d",
+                    i,
+                    cells[i].x_grid,
+                    cells[i].y_grid,
+                    cells[i].cell.type,
+                    cells[i].cell.wall.wall_intensity);
         map_cell_t *cell = &cells[i].cell;
+        cells[i].x_grid = HOST_TO_NET_SHORT(cells[i].x_grid);
+        cells[i].y_grid = HOST_TO_NET_SHORT(cells[i].y_grid);
         int ret = networkServerSendMessage(1, ID_MAP_FRAGMENT, &cells[i], sizeof(map_fragment_t));
         if (ret != SERVER_OK)
         {
-            X_LOG_TRACE("Failed to send map fragment: 0x%x", ret);
+            X_LOG_TRACE("Failed to send map fragment %d: 0x%x, next cell", i, ret);
         }
     }
 
     X_LOG_TRACE("Map delta %d cells sent", updated_cells_count);
+    map_engine_clear_updated_cells(cells, updated_cells_count);
     free(cells);
     return SUPERVISOR_OK;
 }
@@ -341,8 +349,8 @@ static void checkInfo(void *arg)
         if (memcmp(&s_tSupervisorCtx.t_tPosition, &l_tConvertedPosition, sizeof(tPosition)) != 0)
         {
             s_tSupervisorCtx.t_tPosition = l_tConvertedPosition;
-            sendPosition(l_tConvertedPosition);
         }
+        sendPosition(l_tConvertedPosition);
     }
 
     int32_t l_iBatteryLevel = GetBatteryLevel();
@@ -355,7 +363,6 @@ static void checkInfo(void *arg)
     uint32_t map_hash = map_engine_get_hash();
     if (map_hash != s_tSupervisorCtx.t_tCurrentReport.map_hash)
     {
-        X_LOG_TRACE("Map hash changed: %d -> %d", s_tSupervisorCtx.t_tCurrentReport.map_hash, map_hash);
         s_tSupervisorCtx.t_tCurrentReport.map_hash = map_hash;
         send_map_fragments();
     }

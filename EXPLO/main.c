@@ -303,6 +303,7 @@ void testPilot(void)
     static bool sequence_started = false;
     uint64_t now = xTimerGetCurrentMs();
 
+    static uint8_t phase = 0;
     // Initialiser la séquence
     if (!sequence_started)
     {

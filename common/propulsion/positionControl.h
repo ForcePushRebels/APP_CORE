@@ -19,6 +19,15 @@
 #include "motorControl.h"
 #include "robotConfiguration.h"
 
+// Error codes
+#define POSITION_OK                   0x200C000
+#define POSITION_ERROR                0x200C001
+#define POSITION_NOT_INITIALIZED      0x200C002
+#define POSITION_INVALID_PARAM        0x200C003
+#define POSITION_MUTEX_ERROR          0x200C004
+#define POSITION_TASK_ERROR           0x200C005
+#define POSITION_MOTOR_ERROR          0x200C006
+
 typedef enum moveType
 {
     FORWARD,
@@ -30,7 +39,7 @@ typedef enum moveType
 typedef struct {
     double x_mm;        // X position in millimeters
     double y_mm;        // Y position in millimeters
-    float angle_rad;     // Angle in radians
+    double angle_rad;     // Angle in radians
 } Position_t;
 
 typedef struct {
@@ -41,7 +50,7 @@ typedef struct {
 
 
 // Constants for position control
-#define REGULATION_PERIOD_MS 5     // Regulation period in milliseconds
+#define REGULATION_PERIOD_MS 50     // Regulation period in milliseconds
 #define ACCELERATION_COEF   0.5     // Acceleration coefficient (0-1)
 #define DECELERATION_COEF   0.5     // Deceleration coefficient (0-1)
 #define MIN_SPEED_RAD_S     0.5     // Minimum speed to start movement
@@ -53,17 +62,17 @@ typedef struct {
 /// @brief Initialize the position control system
 /// @return 0 if success, -1 if error
 ////////////////////////////////////////////////////////////
-int16_t position_control_init(void);
+int32_t position_control_init(void);
 
 ////////////////////////////////////////////////////////////
 /// @brief Shutdown the position control system
 /// @return 0 if success, -1 if error
 ////////////////////////////////////////////////////////////
-int16_t position_control_shutdown(void);
+int32_t position_control_shutdown(void);
 
 ////////////////////////////////////////////////////////////
 /// @brief Check if the current motion is finished
-/// @return true if motion is finished, false otherwise
+/// @return POSITION_OK if motion is finished, POSITION_NOT_INITIALIZED if not initialized
 ////////////////////////////////////////////////////////////
 bool position_control_is_motion_finished(void);
 
@@ -73,7 +82,7 @@ bool position_control_is_motion_finished(void);
 /// @param speed_rad_s_max Maximum speed in radians per second
 /// @return 0 if success, -1 if error
 ////////////////////////////////////////////////////////////
-int16_t position_control_advance(int16_t distance_mm, float speed_rad_s_max);
+int32_t position_control_advance(int16_t distance_mm, float speed_rad_s_max);
 
 ////////////////////////////////////////////////////////////
 /// @brief Turn the robot by a given angle
@@ -81,28 +90,22 @@ int16_t position_control_advance(int16_t distance_mm, float speed_rad_s_max);
 /// @param speed_rad_s_max Maximum speed in radians per second
 /// @return 0 if success, -1 if error
 ////////////////////////////////////////////////////////////
-int16_t position_control_turn(float angle_rad, float speed_rad_s_max);
+int32_t position_control_turn(float angle_rad, float speed_rad_s_max);
 
 ////////////////////////////////////////////////////////////
 /// @brief Stop the robot
 /// @return 0 if success, -1 if error
 ////////////////////////////////////////////////////////////
-int16_t position_control_stop(void);
-
-////////////////////////////////////////////////////////////
-/// @brief Check if the current motion is finished
-/// @return true if motion is finished, false otherwise
-////////////////////////////////////////////////////////////
-bool position_control_is_motion_finished(void);
+int32_t position_control_stop(void);
 
 ////////////////////////////////////////////////////////////
 /// @brief Get the current robot position
 /// @param position Pointer to store the current position
 /// @return 0 if success, -1 if error
 ////////////////////////////////////////////////////////////
-int16_t position_control_get_position(Position_t* position);
+int32_t position_control_get_position(Position_t* position);
 
 // Test functions
-int16_t position_control_test_straight_line(void);
+int32_t position_control_test_straight_line(void);
 
 #endif // POSITION_CONTROL_H

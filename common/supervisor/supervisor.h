@@ -13,6 +13,10 @@
 #include "xTask.h"
 #include "xOsMutex.h"
 #include "xAssert.h"
+#include "networkServer.h"
+#include "networkEncode.h"
+
+
 //TODO : inclure la map 
 
 #include <mqueue.h>
@@ -47,10 +51,28 @@ typedef struct supervisorCtx
     tReportCtx t_tCurrentReport;
 }tSupervisorCtx;
 
+////////////////////////////////////////////////////////////
+/// @brief Initialize the supervisor
+/// @return 0 if success, error code otherwise
+////////////////////////////////////////////////////////////
+int32_t supervisor_init(void);
 
+////////////////////////////////////////////////////////////
+/// @brief Shutdown the supervisor
+/// @return 0 if success, error code otherwise
+////////////////////////////////////////////////////////////
+int32_t supervisor_shutdown(void);
 
+////////////////////////////////////////////////////////////
+/// @brief Start the supervisor
+/// @return 0 if success, error code otherwise
+////////////////////////////////////////////////////////////
+int32_t supervisor_start(void);
 
-
-
+////////////////////////////////////////////////////////////
+/// @brief Stop the supervisor
+/// @return 0 if success, error code otherwise
+////////////////////////////////////////////////////////////
+int32_t supervisor_stop(void);
 
 #endif // SUPERVISOR_H

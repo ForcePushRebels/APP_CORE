@@ -399,9 +399,17 @@ void pilot_action_computeGoTo(void *arg)
     int max_speed = g_pilot.gotoMaxSpeed;
 
     // Position de départ en dur pour les tests
-    double startX = 0.0;
-    double startY = 0.0;
-    double startAngle = 0.0;
+    Position_t current_position;
+    if (position_control_get_position(&current_position) != 0)
+    {
+        X_LOG_TRACE("pilot_action_computeGoTo: Failed to get current position");
+        return;
+    }
+    // Utilise la position actuelle pour le calcul
+    double startX = current_position.x_mm;
+    double startY = current_position.y_mm;
+    double startAngle = current_position.angle_rad;
+
 
     double dx = targetX - startX;
     double dy = targetY - startY;
@@ -452,7 +460,7 @@ void pilot_action_startMoves(void *arg)
     int sz = move_queue_size(&g_pilot.moveQueue);
     if (sz > 0)
     {
-        Move move;
+        Move move = {0};
         move_queue_pop(&g_pilot.moveQueue, &move);
 
         // Notifier le début du mouvement

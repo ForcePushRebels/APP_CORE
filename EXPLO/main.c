@@ -20,13 +20,13 @@
 #include "networkServer.h"
 #include "pilot.h"
 #include "positionControl.h"
+#include "safetyController.h"
 #include "sensorManager.h"
 #include "watchdog.h"
 #include "xAssert.h"
 #include "xLog.h"
 #include "xNetwork.h"
 #include "xTimer.h"
-#include "safetyController.h"
 
 #include "map_engine.h"
 
@@ -394,6 +394,16 @@ void testPilot(void)
     }
 }
 
+uint32_t float_to_uint32(float f)
+{
+    union {
+        float f;
+        uint32_t i;
+    } u;
+    u.f = f;
+    return u.i;
+}
+
 void *testNetworkCommunicationThread(void *p_ptTaskArg)
 {
     X_LOG_TRACE("Test network communication");
@@ -401,32 +411,40 @@ void *testNetworkCommunicationThread(void *p_ptTaskArg)
     xOsTaskCtx *l_ptTask = (xOsTaskCtx *)p_ptTaskArg;
 
     int batteryLevel = 92;
-    short xPosition = 128;
-    short yPosition = 129;
-    float theta = 130.0f;
-
-    char l_cPosition[sizeof(short) + sizeof(short) + sizeof(float)] = {0};
-    memcpy(l_cPosition, &xPosition, sizeof(xPosition));
-    memcpy(l_cPosition + sizeof(xPosition), &yPosition, sizeof(yPosition));
-    memcpy(l_cPosition + sizeof(xPosition) + sizeof(yPosition), &theta, sizeof(theta));
+    float angle = M_PI / 2;
+    PositionPacked_t l_tPosition = {
+        HOST_TO_NET_SHORT(128),
+        HOST_TO_NET_SHORT(129),
+        HOST_TO_NET_LONG(float_to_uint32(angle)),
+    };
 
     while (true)
     {
         batteryLevel = GetBatteryLevel();
 
         //exit(0);
-        int l_iReturn = networkServerSendMessage(1, ID_INF_BATTERY, (uint8_t *)&batteryLevel, sizeof(batteryLevel));
+        uint8_t packed_batteryLevel = batteryLevel;
+        int l_iReturn = networkServerSendMessage(1, ID_INF_BATTERY, (uint8_t *)&packed_batteryLevel, sizeof(uint8_t));
         if (l_iReturn != SERVER_OK)
         {
             // X_LOG_TRACE("Failed to send battery level");
         }
-        l_iReturn = networkServerSendMessage(1, ID_INF_POS, (uint8_t *)l_cPosition, sizeof(l_cPosition));
+        if (l_iReturn == SERVER_OK)
+        {
+            X_LOG_TRACE("Battery level sent");
+        }
+
+        l_iReturn = networkServerSendMessage(1, ID_INF_POS, (PositionPacked_t *)&l_tPosition, sizeof(l_tPosition));
         if (l_iReturn != SERVER_OK)
         {
             // X_LOG_TRACE("Failed to send position");
         }
+        if (l_iReturn == SERVER_OK)
+        {
+            X_LOG_TRACE("Position sent");
+        }
 
-        // 500ms
+        // 2000ms
         usleep(500 * 1000);
     }
 
@@ -450,12 +468,10 @@ int testNetworkCommunication(void)
     return 0;
 }
 
-
 void test_setMovementHandler(clientCtx *p_ptClient, const network_message_t *p_ptMessage)
 {
     X_LOG_TRACE("Received set movement id: %d", p_ptMessage->t_ptucPayload[0]);
 }
-
 
 int main()
 {
@@ -541,7 +557,7 @@ int main()
 
     // main loop
     //
-    //testNetworkCommunication();
+    testNetworkCommunication();
 
     safetyControllerInit();
 

@@ -197,7 +197,7 @@ void intervention_manager__askStrat()
 __attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
 int intervention_manager__giveIDStrategieToFollow(int idStrat)
 {
-	if(strategy_manager__giveIDStrategieToFollow(idStrat) == STRATEGY_MANAGER_OK)
+	if(strategy_manager__giveIDStrategieToFollow(idStrat) == RET_OK)
 	{
 		return INTERVENTION_MANAGER_OK; // ⬅️ À conserver. Retour explicite (void)
 	}
@@ -404,6 +404,10 @@ int intervention_manager__getTimeInter()
 /////////////////////////////////
 static void intervention_manager__computeStrat()
 {
+	/* ===== Préconditions ===== */
+	X_ASSERT(&interventionManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
+
+	// @Override
 	strategy_manager__computeStrat(interventionManager.pathPoints);
 	debug_print_sequence("Generated path", interventionManager.pathPoints, 100);
 

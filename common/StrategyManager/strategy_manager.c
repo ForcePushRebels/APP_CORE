@@ -21,8 +21,7 @@
 #include <stdlib.h>
 
 #include "util_macros.h"
-#include "util_macros.h"
-#include "../debug/debug_utils.h"
+#include "debug_utils.h"
 
 #define STRATEGY_MANAGER_IMPL_VERSION VER(1, 0, 0)
 #include "strategy_manager.h"
@@ -131,7 +130,7 @@ int strategy_manager__giveIDStrategieToFollow(int idStrat)
 	X_LOG_DEBUG("entering strategy_manager__giveIDStrategieToFollow()");
 
 	/* ===== Variables locales ===== */
-	int ret = RET_ERR_GENERIC; // ⬅️ "Rater-vite". Initialisé par un code d'erreur (prog défensive)
+	int ret = RET_NOT_IMPL_INT; // ⬅️ "Rater-vite". Initialisé par un code d'erreur (prog défensive)
 
 	/* ===== Logique principale ===== */
 	ret = strategy_wrapper__giveIDStrategieToFollow(idStrat); // 📌
@@ -141,11 +140,6 @@ int strategy_manager__giveIDStrategieToFollow(int idStrat)
 
 	/* ===== Postconditions ===== */
 	// Vérifie les invariants après logique
-
-	if(ret == RET_OK)
-	{
-		ret = STRATEGY_MANAGER_OK; // ⬅️ Mise à jour du code de retour en cas de succès
-	}
 
 	return ret; // ⬅️ À conserver. Retour explicite (void)
 }

@@ -30,6 +30,9 @@
 #include "xNetwork.h"
 #include "xTimer.h"
 
+#include "ihm.h"
+#include "map_engine.h"
+
 // chemin des logs avec l'executable en chemin de l'executable
 static const uint8_t s_aCLogPath[] = "explo.log";
 int start = 0;
@@ -297,7 +300,6 @@ void testPositionControl(void)
 }
 void testPilot(void)
 {
-    static int phase = 0;
     static uint64_t phase_start_time = 0;
     static bool sequence_started = false;
     uint64_t now = xTimerGetCurrentMs();
@@ -500,8 +502,8 @@ int main()
 
         // Envoyer le signal SOS en morse
         // sendMorseSOS();
-        //testPilot(); // <-- Active cette ligne pour tester le pilotage
         // xTimerDelay(100); // Ajoute un petit délai pour éviter de saturer le CPU
+        // testPositionControl();
         // testPositionControl();
         // Pour envoyer des mises à jour périodiques, on devra attendre d'avoir un client connecté
         // et utiliser serverSendMessage à ce moment-là.

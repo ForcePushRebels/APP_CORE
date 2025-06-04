@@ -20,10 +20,14 @@
 /* **************************************************** Private macros *************************************************** */
 #define MAP_DEBUG 0
 
-#define MAP_WIDTH 10
-#define MAP_HEIGHT 10
+#define MAP_WIDTH_MM 1000
+#define MAP_HEIGHT_MM 1000
 
-#define MAP_CELL_SIZE_MM 100
+#define MAP_CELL_SIZE_MM 50
+
+
+#define MAP_WIDTH (MAP_WIDTH_MM / MAP_CELL_SIZE_MM)
+#define MAP_HEIGHT (MAP_HEIGHT_MM / MAP_CELL_SIZE_MM)
 
 /* ************************************************ Private type definition ********************************************** */
 
@@ -65,6 +69,11 @@ static void print_map()
 {
     printf("=== MAP DISPLAY ===\n");
 
+    // Récupération de la position du robot
+    Position_t robot_pos;
+    position_control_get_position(&robot_pos);
+    int16_t robot_grid_x = robot_pos.x_mm / MAP_CELL_SIZE_MM;
+    int16_t robot_grid_y = robot_pos.y_mm / MAP_CELL_SIZE_MM;
     // Affichage de l'en-tête avec les numéros de colonnes
     printf("   ");
     for (int x = 0; x < MAP_WIDTH; x++)
@@ -88,14 +97,22 @@ static void print_map()
 
         for (int x = 0; x < MAP_WIDTH; x++)
         {
-            uint8_t intensity = map_engine.map[x][y].wall.wall_intensity;
-            if (intensity == 0)
+            // Vérifier si c'est la position du robot
+            if (x == robot_grid_x && y == robot_grid_y)
             {
-                printf("  . "); // Point pour case vide
+                printf(" R  "); // 'R' pour Robot
             }
             else
             {
-                printf("%3d ", intensity); // Intensité sur 3 caractères
+                uint8_t intensity = map_engine.map[x][y].wall.wall_intensity;
+                if (intensity == 0)
+                {
+                    printf("  . "); // Point pour case vide
+                }
+                else
+                {
+                    printf("%3d ", intensity); // Intensité sur 3 caractères
+                }
             }
         }
         printf("|\n"); // Fermeture de ligne
@@ -120,7 +137,7 @@ static void print_map()
     }
     printf("-\n");
 
-    printf("Legend: '.' = empty, numbers = wall intensity (0-255)\n");
+    printf("Legend: '.' = empty, numbers = wall intensity (0-255), 'R' = robot\n");
 }
 #endif
 

@@ -568,7 +568,7 @@ int networkServerSendToClient(ClientID p_tClientId, const void *p_pvData, int p_
 }
 
 ///////////////////////////////////////////
-/// networkServerSendMessage 
+/// networkServerSendMessage
 ///////////////////////////////////////////
 int networkServerSendMessage(ClientID p_tClientId, uint8_t p_ucMsgType, const void *p_pvPayload, uint32_t p_ulPayloadSize)
 {
@@ -1193,4 +1193,47 @@ static bool isClientConnected(clientCtx *p_ptClient)
 
     mutexUnlock(&p_ptClient->t_tMutex);
     return l_bConnected;
+}
+
+///////////////////////////////////////////
+/// networkServerSendMessageToAllClients
+///////////////////////////////////////////
+int networkServerSendMessageToAllClients(uint8_t p_ucMsgType, const void *p_pvPayload, uint32_t p_ulPayloadSize)
+{
+    if (s_ptServerInstance == NULL)
+    {
+        X_LOG_TRACE("Server not initialized");
+        return SERVER_INVALID_STATE;
+    }
+
+    int l_iSuccessCount = 0;
+    int l_iFailureCount = 0;
+
+    mutexLock(&s_ptServerInstance->t_tMutex);
+
+    for (int i = 0; i < MAX_CLIENTS; i++)
+    {
+        clientCtx *l_ptClient = s_ptServerInstance->t_ptClients[i];
+        if (l_ptClient != NULL && l_ptClient->t_bConnected)
+        {
+            int l_iResult = networkServerSendMessage(l_ptClient->t_tId, p_ucMsgType, p_pvPayload, p_ulPayloadSize);
+            if (l_iResult == SERVER_OK)
+            {
+                l_iSuccessCount++;
+            }
+            else
+            {
+                l_iFailureCount++;
+                X_LOG_TRACE(
+                    "Failed to send message to client %u: %s", l_ptClient->t_tId, networkServerGetErrorString(l_iResult));
+            }
+        }
+    }
+
+    mutexUnlock(&s_ptServerInstance->t_tMutex);
+
+    X_LOG_TRACE(
+        "Broadcast message type 0x%02X: %d clients succeeded, %d failed", p_ucMsgType, l_iSuccessCount, l_iFailureCount);
+
+    return (l_iFailureCount == 0) ? SERVER_OK : SERVER_ERROR;
 }

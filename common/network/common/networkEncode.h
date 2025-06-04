@@ -12,6 +12,7 @@
 #include <stdint.h>
 #include "xAssert.h"
 #include "xLog.h"
+#include <stdint.h>
 
 #pragma pack(push, 1)
 typedef struct network_message_t

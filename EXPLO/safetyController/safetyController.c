@@ -7,6 +7,16 @@
 ////////////////////////////////////////////////////////////
 
 #include "safetyController.h"
+#include "explorationManager.h"
+static bool s_bAutorizedMovement = false;
+
+///////////////////////////////////////////
+/// @brief Check if the movement is autorized
+///////////////////////////////////////////
+void setAutorizedMovement(void)
+{
+    s_bAutorizedMovement = true;
+}
 
 ///////////////////////////////////////////
 /// setMovementHandle
@@ -27,6 +37,13 @@ static void setMovementHandle(clientCtx *p_ptClient, const network_message_t *p_
 
     movement_type_t l_eMovement = (movement_type_t)p_ptMessage->t_ptucPayload[0];
     X_LOG_TRACE("Received set movement message: %d", l_eMovement);
+
+    if (s_bAutorizedMovement == false)
+    {
+        X_LOG_TRACE("Movement not authorized");
+        return;
+    }
+
     switch (l_eMovement)
     {
         case STOP_MOVEMENT:

@@ -9,6 +9,7 @@
 #include "explorationManager.h"
 #include "xOsMemory.h"
 #include "xTimer.h"
+#include "safetyController.h"
 
 static atomic_int_fast32_t s_eExplorationManagerState = ECHEC;
 static atomic_uint_fast64_t s_ulMissionStartTime = 0;
@@ -47,6 +48,7 @@ static void handleMissionControl(clientCtx *p_ptClient, const network_message_t 
         case MISSION_CONTROL_MANU_MODE:
             atomic_store_explicit(&s_eExplorationManagerState, MODE_MANUEL, memory_order_relaxed);
             atomic_store_explicit(&s_ulMissionStartTime, xTimerGetCurrentMs(), memory_order_relaxed);
+            setAutorizedMovement();
             break;
         default:
             X_LOG_TRACE("Message type %x currently not supported", l_tMessage.t_iHeader);

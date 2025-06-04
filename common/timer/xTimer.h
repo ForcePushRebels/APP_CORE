@@ -71,6 +71,13 @@ int xTimerStart(xOsTimerCtx *p_ptTimer);
 int xTimerStop(xOsTimerCtx *p_ptTimer);
 
 //////////////////////////////////
+/// @brief Destroy a timer
+/// @param p_ptTimer : timer structure pointer
+/// @return success or error code
+//////////////////////////////////
+int xTimerDestroy(xOsTimerCtx *p_ptTimer);
+
+//////////////////////////////////
 /// @brief Check if timer has expired
 /// @param p_ptTimer : timer structure pointer
 /// @return XOS_TIMER_OK if expired, XOS_TIMER_TIMEOUT if not expired
@@ -98,5 +105,14 @@ int xTimerDelay(uint32_t p_ulDelay);
 /// @return Number of periods elapsed, or negative error code
 //////////////////////////////////
 int xTimerProcessElapsedPeriods(xOsTimerCtx *p_ptTimer, void (*p_pfCallback)(void *), void *p_pvData);
+
+//////////////////////////////////
+/// @brief Process periodic callback
+/// @param p_ptTimer : timer structure pointer
+/// @param p_pfCallback : function to call for each elapsed period
+/// @param p_pvData : user data to pass to callback
+/// @return Number of periods elapsed, or negative error code
+//////////////////////////////////
+int xTimerProcessPeriodicCallback(xOsTimerCtx *p_ptTimer, void (*p_pfCallback)(void *), void *p_pvData);
 
 #endif // XOS_TIMER_H_

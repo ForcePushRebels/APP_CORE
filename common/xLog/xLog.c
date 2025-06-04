@@ -280,8 +280,7 @@ int xLogWrite(const char *p_ptkcFile, uint32_t p_ulLine, const char *p_ptkcForma
     // Format user message securely with fixed bounds
     va_list args;
     va_start(args, p_ptkcFormat);
-    int l_iVsnprintfRet = vsnprintf(l_cUserMsg, sizeof(l_cUserMsg) - 1, l_cFormatCopy, args);
-    l_cUserMsg[sizeof(l_cUserMsg) - 1] = '\0';
+    int l_iVsnprintfRet = vsnprintf(l_cUserMsg, sizeof(l_cUserMsg), p_ptkcFormat, args);
     va_end(args);
 
     // Check for formatting errors
@@ -291,13 +290,16 @@ int xLogWrite(const char *p_ptkcFile, uint32_t p_ulLine, const char *p_ptkcForma
         l_cUserMsg[sizeof(l_cUserMsg) - 1] = '\0';
     }
 
-    // Sanitize user message to prevent log injection
-    sanitizeLogContent(l_cUserMsg, sizeof(l_cUserMsg));
-
-    // Format complete log message with fixed bounds
+    // Format complete log message with fixed bounds - removed sanitization for color codes
     int l_iSnprintfRet = snprintf(
-        l_cFullMsg, sizeof(l_cFullMsg) - 1, "%s | %s:%u | %s\n", l_cTimestamp, l_cSafeFileName, l_ulLineNumber, l_cUserMsg);
-    l_cFullMsg[sizeof(l_cFullMsg) - 1] = '\0';
+        l_cFullMsg, 
+        sizeof(l_cFullMsg), 
+        "%s | %s:%u | %s\n", 
+        l_cTimestamp, 
+        l_cSafeFileName, 
+        l_ulLineNumber, 
+        l_cUserMsg
+    );
 
     // Check for formatting errors
     if (l_iSnprintfRet < 0)
@@ -561,28 +563,45 @@ static int secureOpenLogFile(const char *p_pcPath, FILE **p_ppFile)
 // Sanitize log content to prevent log injection
 static void sanitizeLogContent(char *p_pcContent, size_t p_iMaxSize)
 {
-    // Single dereference rule - validate pointer once
     if (p_pcContent == NULL || p_iMaxSize == 0)
     {
         return;
     }
 
-    // Store content pointer once for security
     char *l_pcContentPtr = p_pcContent;
+    bool in_escape = false;
 
     for (size_t i = 0; i < p_iMaxSize && l_pcContentPtr[i] != '\0'; i++)
     {
         char c = l_pcContentPtr[i];
 
-        // Replace control characters (except tab and space) with underscore
-        if ((c < 0x20 && c != '\t') || c == 0x7F)
+        // Handle ANSI escape sequences
+        if (c == '\033')
         {
-            l_pcContentPtr[i] = '_';
+            in_escape = true;
+            continue;
         }
-        // Replace potential log injection characters
-        else if (c == '\r' || c == '\n')
+        
+        if (in_escape)
         {
-            l_pcContentPtr[i] = '_';
+            if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'))
+            {
+                in_escape = false;
+            }
+            continue;
+        }
+
+        // Only sanitize if not in escape sequence
+        if (!in_escape)
+        {
+            if ((c < 0x20 && c != '\t') || c == 0x7F)
+            {
+                l_pcContentPtr[i] = '_';
+            }
+            else if (c == '\r' || c == '\n')
+            {
+                l_pcContentPtr[i] = '_';
+            }
         }
     }
 }

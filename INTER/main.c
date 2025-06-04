@@ -21,6 +21,7 @@
 #include "handleNetworkMessage.h"
 #include "idCard.h"
 #include "sensorManager.h"
+#include "intervention_manager.h"
 
 static const uint8_t s_aCLogPath[] = "inter.log";
 
@@ -97,7 +98,7 @@ int main()
     X_ASSERT(l_iReturn == 0);
 
     // init watchdog
-    l_iReturn = watchdog_init(300);
+    l_iReturn = watchdog_init(5000);
     X_ASSERT(l_iReturn == WATCHDOG_SUCCESS);
     watchdog_set_expiry_handler(l_fWatchdogExpiryHandler);
 
@@ -136,6 +137,15 @@ int main()
     // start server
     l_iReturn = networkServerStart();
     X_ASSERT(l_iReturn == SERVER_OK);
+
+	l_iReturn = intervention_manager__init();
+    X_ASSERT(l_iReturn == INTERVENTION_MANAGER_OK);
+
+	l_iReturn = intervention_manager__giveIDStrategieToFollow(STRATEGY_ASTAR);
+    X_ASSERT(l_iReturn == INTERVENTION_MANAGER_OK);
+
+	l_iReturn = intervention_manager__startInter();
+    X_ASSERT(l_iReturn == INTERVENTION_MANAGER_OK);
 
     // main loop
     while (1)

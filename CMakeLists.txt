@@ -90,6 +90,10 @@ set(CMAKE_C_STANDARD 11)
 
 # Common flags from the Makefile
 add_compile_options(
+	-g
+	-O0
+	-fsanitize=address
+	-fno-omit-frame-pointer
     -Wall
     -Wextra
     -pedantic
@@ -97,6 +101,11 @@ add_compile_options(
     -Wno-unused-value
     -MMD
     -MP
+)
+
+add_link_options(
+	-fsanitize=address
+	-fno-omit-frame-pointer
 )
 
 # Add C standard and source definitions

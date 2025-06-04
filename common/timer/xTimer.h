@@ -5,7 +5,7 @@
 // general discloser: copy or share the file is forbidden
 // Written : 12/01/2025
 // Modified: 12/05/2025 - Improved thread safety and timing precision
-// Modified: 12/06/2025 - Fixed code execution security issues
+// Modified: 04/06/2025 - Fixed code execution security issues
 ////////////////////////////////////////////////////////////
 #pragma once
 

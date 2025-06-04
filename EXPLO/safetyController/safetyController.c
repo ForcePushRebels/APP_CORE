@@ -67,7 +67,7 @@ static void setMovementHandle(clientCtx *p_ptClient, const network_message_t *p_
     switch (l_eMovement)
     {
     case FORWARD_MOVEMENT:
-        position_control_advance(100000, 2.0);
+        position_control_advance(10000, 2.0);
         //pilot_continuousAdvance(100);
         break;
     case LEFT_MOVEMENT:

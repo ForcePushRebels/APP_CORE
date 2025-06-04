@@ -8,6 +8,7 @@
 
 #include "supervisor.h"
 #include "handleNetworkMessage.h"
+#include "explorationManager.h"
 #include "hardwareAbstraction.h"
 #include "map_engine.h"
 #include "networkEncode.h"
@@ -182,43 +183,35 @@ static int32_t sendPosition(tPosition pNewPosition)
 ////////////////////////////////////////////////////////////
 /// sendStatus
 ////////////////////////////////////////////////////////////
-/*
 static int32_t sendStatus(void)
 {
+    exploration_manager_state_t l_eStatus = explorationManager_getState();
 
+    // Convert enum to uint32_t for network transmission
+    uint32_t l_ulStatusNetwork = HOST_TO_NET_LONG((uint32_t)l_eStatus);
 
-    tStatus l_tStatus;
-
-    // Get current system status
-    l_tStatus.t_iSystemState = getSystemState();
-    l_tStatus.t_iErrorCode = getLastErrorCode();
-    l_tStatus.t_ulUptime = s_tSupervisorCtx.t_ulTime;
-
-    return networkServerSendMessage(1, ID_INF_STATUS, &l_tStatus, sizeof(tStatus));
-
-    X_ASSERT(false); //not implemented
-
-    return SUPERVISOR_OK;
+    return networkServerSendMessage(1, ID_INF_STATUS, &l_ulStatusNetwork, sizeof(uint32_t));
 }
-*/
 
 ////////////////////////////////////////////////////////////
 /// sendDuration
 ////////////////////////////////////////////////////////////
 static int32_t sendDuration(void)
 {
-    /*
-    tDuration l_tDuration;
+    uint64_t l_ulStartTime = getStartTimeExploration();
+    uint64_t l_ulCurrentTime = xTimerGetCurrentMs();
+    uint64_t l_ulDuration = l_ulCurrentTime - l_ulStartTime;
 
-    // Calculate duration since start
-    l_tDuration.t_ulElapsedTime = s_tSupervisorCtx.t_ulTime;
-    l_tDuration.t_ulTotalTime = getTotalOperationTime();
+    // Cap duration to uint32_t maximum value
+    if (l_ulDuration > UINT32_MAX)
+    {
+        l_ulDuration = UINT32_MAX;
+    }
 
-    return networkServerSendMessage(1, ID_INF_TIME, &l_tDuration, sizeof(tDuration));
-    */
-    X_ASSERT(false); //not implemented
+    // Convert to network byte order
+    uint32_t l_ulDurationNetwork = HOST_TO_NET_LONG((uint32_t)l_ulDuration);
 
-    return SUPERVISOR_OK;
+    return networkServerSendMessage(1, ID_INF_TIME, &l_ulDurationNetwork, sizeof(uint32_t));
 }
 
 ////////////////////////////////////////////////////////////
@@ -368,7 +361,6 @@ static void checkInfo(void *arg)
         {
             s_tSupervisorCtx.t_tPosition = l_tConvertedPosition;
         }
-        sendPosition(l_tConvertedPosition);
     }
 
     int32_t l_iBatteryLevel = GetBatteryLevel();
@@ -395,6 +387,10 @@ static void checkInfo(void *arg)
 
     // Store current report as last report
     s_tSupervisorCtx.t_tLastReport = s_tSupervisorCtx.t_tCurrentReport;
+
+    // Send periodic reports
+    sendDuration();
+    sendStatus();
 
     // Unlock mutex
     mutexUnlock(&s_tSupervisorCtx.t_tMutex);

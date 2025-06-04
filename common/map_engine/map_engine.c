@@ -9,13 +9,13 @@
 
 /* ******************************************************* Includes ****************************************************** */
 #include "map_engine.h"
-#include <stdint.h>
-#include <string.h>
-#include "xLog.h"
-#include "sensorManager.h"
-#include <stdio.h>
 #include "math.h"
 #include "positionControl.h"
+#include "sensorManager.h"
+#include "xLog.h"
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
 
 /* **************************************************** Private macros *************************************************** */
 #define MAP_DEBUG 0
@@ -137,8 +137,17 @@ int map_engine_explo_ask_current_map()
     return MAP_ENGINE_OK;
 }
 
-size_t map_engine_get_map_size()
+size_t map_engine_get_map_size(size_t *x_size, size_t *y_size)
 {
+    if (x_size != NULL)
+    {
+        *x_size = MAP_WIDTH;
+    }
+    if (y_size != NULL)
+    {
+        *y_size = MAP_HEIGHT;
+    }
+
     return sizeof(map_engine.map);
 }
 
@@ -152,7 +161,6 @@ int map_engine_get_discovery_percent()
 {
     return map_engine.discovery_percent;
 }
-
 
 int map_engine_update_vision(uint16_t *sensor_data, uint8_t sensor_count)
 {

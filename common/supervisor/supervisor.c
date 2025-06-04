@@ -10,12 +10,17 @@
 #include "hardwareAbstraction.h"
 #include "map_engine.h"
 #include "positionControl.h"
+#include <stdint.h>
+#include "handleNetworkMessage.h"
 #include <string.h>
+#include "networkServer.h"
 
 ////////////////////////////////////////////////////////////
 /// Private variables
 ////////////////////////////////////////////////////////////
 static tSupervisorCtx s_tSupervisorCtx;
+
+static int32_t sendFullMap(ClientID client_id);
 
 ////////////////////////////////////////////////////////////
 /// Private function declarations
@@ -54,6 +59,56 @@ static int32_t sendFragmentMap(tPosition pNewPosition)
     return SUPERVISOR_OK;
 }
 
+static void sendFullMapHandle(clientCtx *p_ptClient, const network_message_t *p_ptMessage)
+{
+    X_LOG_TRACE("sendFullMapHandle");
+    sendFullMap(networkServerGetClientID(p_ptClient));
+}
+
+static int32_t sendFullMap(ClientID client_id)
+{
+    // get map size
+    size_t x_size, y_size, map_size;
+
+    map_size = map_engine_get_map_size(&x_size, &y_size);
+    X_LOG_TRACE("Map size: %d, %d", x_size, y_size);
+
+    typedef struct __attribute__((packed))
+    {
+        uint8_t x_size;
+        uint8_t y_size;
+        map_cell_t map;
+    } map_buffer_t;
+
+    size_t map_buffer_size = 2 + map_size;
+
+    map_buffer_t *map_buffer = (map_buffer_t *)malloc(map_buffer_size);
+    if (map_buffer == NULL)
+    {
+        X_LOG_TRACE("Failed to allocate memory for map buffer");
+        return SUPERVISOR_ERROR_MEMORY_ALLOCATION;
+    }
+
+    map_buffer->x_size = x_size;
+    map_buffer->y_size = y_size;
+    
+    // Use temporary buffer to avoid packed member address issue
+    map_cell_t *temp_map = (map_cell_t *)malloc(map_size);
+    if (temp_map == NULL)
+    {
+        free(map_buffer);
+        X_LOG_TRACE("Failed to allocate memory for temporary map buffer");
+        return SUPERVISOR_ERROR_MEMORY_ALLOCATION;
+    }
+    
+    map_engine_get_map(temp_map);
+    memcpy(&map_buffer->map, temp_map, map_size);
+    free(temp_map);
+    
+    // send map
+    return networkServerSendMessage(client_id, ID_MAP_FULL, map_buffer, map_buffer_size);
+}
+
 ////////////////////////////////////////////////////////////
 /// sendPosition
 ////////////////////////////////////////////////////////////
@@ -67,7 +122,8 @@ static int32_t sendPosition(tPosition pNewPosition)
 
     int ret = networkServerSendMessage(1, ID_INF_POS, &l_tPosition, sizeof(l_tPosition));
 
-    X_LOG_TRACE("Position sent: %d, %d, %f", pNewPosition.t_iXPosition, pNewPosition.t_iYPosition, pNewPosition.t_fOrientation);
+    X_LOG_TRACE(
+        "Position sent: %d, %d, %f", pNewPosition.t_iXPosition, pNewPosition.t_iYPosition, pNewPosition.t_fOrientation);
     return ret;
 }
 
@@ -177,6 +233,8 @@ int32_t supervisor_init(void)
         return l_iResult;
     }
 
+    registerMessageHandler(ID_MAP_FULL, sendFullMapHandle);
+
     return SUPERVISOR_OK;
 }
 
@@ -240,7 +298,6 @@ static void checkInfo(void *arg)
 
     // Get current position - using Position_t type to match function signature
     l_iResult = position_control_get_position(&l_tCurrentPosition);
-    X_LOG_TRACE("position_control_get_position done");
     if (l_iResult == POSITION_OK)
     {
         // Convert Position_t to tPosition for comparison and storage

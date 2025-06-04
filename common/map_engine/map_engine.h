@@ -76,9 +76,11 @@ int map_engine_explo_ask_current_map();
 
 /**
  * @brief Get the size of the map
+ * @param x_size The size of the map on the x axis (output)
+ * @param y_size The size of the map on the y axis (output)
  * @return The size of the map
  */
-size_t map_engine_get_map_size();
+size_t map_engine_get_map_size(size_t *x_size, size_t *y_size);
 
 /**
  * @brief Get the map

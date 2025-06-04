@@ -87,4 +87,11 @@ int32_t supervisor_start(void);
 ////////////////////////////////////////////////////////////
 int32_t supervisor_stop(void);
 
+////////////////////////////////////////////////////////////
+/// @brief Send the full map to the client
+/// @param client_id The client ID
+/// @return 0 if success, error code otherwise
+////////////////////////////////////////////////////////////
+int32_t supervisor_send_full_map(ClientID client_id);
+
 #endif // SUPERVISOR_H

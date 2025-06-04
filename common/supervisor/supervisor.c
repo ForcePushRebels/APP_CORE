@@ -7,20 +7,18 @@
 ////////////////////////////////////////////////////////////
 
 #include "supervisor.h"
+#include "handleNetworkMessage.h"
 #include "hardwareAbstraction.h"
 #include "map_engine.h"
+#include "networkServer.h"
 #include "positionControl.h"
 #include <stdint.h>
-#include "handleNetworkMessage.h"
 #include <string.h>
-#include "networkServer.h"
 
 ////////////////////////////////////////////////////////////
 /// Private variables
 ////////////////////////////////////////////////////////////
 static tSupervisorCtx s_tSupervisorCtx;
-
-static int32_t sendFullMap(ClientID client_id);
 
 ////////////////////////////////////////////////////////////
 /// Private function declarations
@@ -62,10 +60,10 @@ static int32_t sendFragmentMap(tPosition pNewPosition)
 static void sendFullMapHandle(clientCtx *p_ptClient, const network_message_t *p_ptMessage)
 {
     X_LOG_TRACE("sendFullMapHandle");
-    sendFullMap(networkServerGetClientID(p_ptClient));
+    supervisor_send_full_map(networkServerGetClientID(p_ptClient));
 }
 
-static int32_t sendFullMap(ClientID client_id)
+int32_t supervisor_send_full_map(ClientID client_id)
 {
     // get map size
     size_t x_size, y_size, map_size;
@@ -91,7 +89,7 @@ static int32_t sendFullMap(ClientID client_id)
 
     map_buffer->x_size = x_size;
     map_buffer->y_size = y_size;
-    
+
     // Use temporary buffer to avoid packed member address issue
     map_cell_t *temp_map = (map_cell_t *)malloc(map_size);
     if (temp_map == NULL)
@@ -100,11 +98,11 @@ static int32_t sendFullMap(ClientID client_id)
         X_LOG_TRACE("Failed to allocate memory for temporary map buffer");
         return SUPERVISOR_ERROR_MEMORY_ALLOCATION;
     }
-    
+
     map_engine_get_map(temp_map);
     memcpy(&map_buffer->map, temp_map, map_size);
     free(temp_map);
-    
+
     // send map
     return networkServerSendMessage(client_id, ID_MAP_FULL, map_buffer, map_buffer_size);
 }
@@ -312,10 +310,6 @@ static void checkInfo(void *arg)
             s_tSupervisorCtx.t_tPosition = l_tConvertedPosition;
             sendPosition(l_tConvertedPosition);
             //sendFragmentMap(l_tConvertedPosition);
-        }
-        else
-        {
-            X_LOG_TRACE("Position not changed");
         }
     }
 

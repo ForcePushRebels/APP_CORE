@@ -61,6 +61,13 @@
 #endif
 #endif
 
+
+/* Error codes */
+#define INTERVENTION_MANAGER_BASE 0x1000
+#define INTERVENTION_MANAGER_OK (INTERVENTION_MANAGER_BASE + 0x00) // Operation successful
+#define INTERVENTION_MANAGER_ERR_INIT (INTERVENTION_MANAGER_BASE + 0x01) // Generic error
+#define INTERVENTION_MANAGER_ERR_NOT_IMPL (INTERVENTION_MANAGER_BASE + 0x02) // Not implemented error
+
 typedef struct intervention_manager_s InterventionManager; // To force using the API
 
 /* Public methods */
@@ -73,7 +80,7 @@ int intervention_manager__init(void);
 
 void intervention_manager__askStrat(); // @Override
 
-void intervention_manager__giveIDStrategieToFollow(int); // @Override
+int intervention_manager__giveIDStrategieToFollow(int);
 
 	// Movement control
 
@@ -102,8 +109,7 @@ void intervention_manager__interlockManuMode(); // @Override
 void intervention_manager__sendPointsSelection(Point **);
 
 	// Intervention control
-
-void intervention_manager__startInter();
+int intervention_manager__startInter();
 
 void intervention_manager__stopInter();
 

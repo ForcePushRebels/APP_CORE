@@ -23,11 +23,10 @@
 
 #include "../helpers/util_macros.h"
 #include "../symbols/ret_codes.h"
+#include "../debug/debug_utils.h"
 
 #define INTERVENTION_MANAGER_IMPL_VERSION VER(1, 0, 0)
 #include "intervention_manager.h"
-
-#define LOG_TAG "InterventionManager"
 
 // Void macros
 #define pilot__turn pilot_turn
@@ -38,7 +37,7 @@
 #define sensor_manager__stopMonitoring stopMonitoring
 
 struct intervention_manager_s
-{
+{	
 	int interventionPriority;
 
 	seq_t pathPoints[100];
@@ -57,7 +56,7 @@ static void intervention_manager__updateStatus(Status status);
 static int intervention_manager__computeAngleToPoint();
 static int intervention_manager__computeDistanceToPoint();
 static int intervention_manager__generatePathOfPoints();
-static void intervention_manager__retrieveNextPoint();
+static int intervention_manager__retrieveNextPoint();
 static int intervention_manager__updateTrace();
 
 static InterventionManager interventionManager;
@@ -68,28 +67,28 @@ static InterventionManager interventionManager;
 int intervention_manager__init()
 {
 	/* ===== Préconditions ===== */
-	X_ASSERT(&interventionManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
+	X_ASSERT(&interventionManager != NULL);
 
-	X_LOG_TRACE("entering intervention_manager__init()");
+	X_LOG_DEBUG("entering intervention_manager__init()");
 
 	/* ===== Variables locales ===== */
-	int ret = RET_ERR_GENERIC; // ⬅️ "Rater-vite". Initialisé par un code d'erreur (prog défensive)
+	int ret = INTERVENTION_MANAGER_ERR_INIT;
 
 	/* ===== Logique principale ===== */
-	memset(&interventionManager, 0, sizeof(interventionManager)); // Initialisation de la structure d'interventionManager à zéro
+	memset(&interventionManager, 0, sizeof(interventionManager));
 
-	ret = astar_wrapper__init(); // Initialisation de la stratégie AStar
-	if (ret != RET_OK)
+	ret = strategy_manager__init();
+	if (ret != STRATEGY_MANAGER_OK)
 	{
-		X_LOG_TRACE("Failed to initialize AStar wrapper");
-		goto func_exit; // ⬅️ Sortie anticipée en cas d'erreur
+		X_LOG_FATAL("Failed to initialize Strategy Manager");
+		goto func_exit;
 	}
-
-	X_LOG_TRACE("AStar wrapper initialized successfully");
+	
+	X_LOG_INFO("Intervention manager initialized successfully");
+    ret = INTERVENTION_MANAGER_OK;
 
 func_exit:
-
-	X_LOG_TRACE("exiting intervention_manager__create()");
+    X_LOG_DEBUG("exiting intervention_manager__init()");
 
 	/* ===== Postconditions ===== */
 	X_ASSERT(interventionManager.interventionPriority == 0); // ⬅️ Initial value after memset
@@ -104,22 +103,61 @@ func_exit:
 		X_ASSERT(interventionManager.listZI[i].x == 0 && interventionManager.listZI[i].y == 0); // ⬅️ Initial values after memset
 	}
 
-	X_ASSERT(ret == RET_OK || ret == RET_ERR_GENERIC); // ⬅️ À conserver. Vérifie que le retour est correct
-
 	return ret;
 }
 
 /////////////////////////////////
 /// intervention_manager__followTrajectory
 /////////////////////////////////
-void intervention_manager__followTrajectory() {
+void intervention_manager__followTrajectory()
+{
+    X_LOG_DEBUG("Starting trajectory following");
+    
+	/* ===== Préconditions ===== */
+	assert(&interventionManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
 
-	intervention_manager__retrieveNextPoint();
-
-	intervention_manager__computeAngleToPoint();
-
+	/* ===== Variables locales ===== */
+	int ret = RET_NOT_IMPL_INT; // ⬅️ "Rater-vite". Initialisé par un code d'erreur (prog défensive)
 	int max_speed = 1;
 	int relative = 1;
+
+	/* ===== Logique principale ===== */
+	ret = intervention_manager__retrieveNextPoint();
+	if(ret != INTERVENTION_MANAGER_OK)
+	{
+		X_LOG_ERROR("Failed to retrieve next point: %d", ret);
+		goto func_exit;
+	}
+
+	Point current = {
+		interventionManager.pathPoints[interventionManager.currentPointIdx].x,
+		interventionManager.pathPoints[interventionManager.currentPointIdx].y
+	};
+	Point next = {
+		interventionManager.pathPoints[interventionManager.nextPointIdx].x,
+		interventionManager.pathPoints[interventionManager.nextPointIdx].y
+	};
+
+	debug_print_point("Current position", &current);
+	debug_print_point("Next target", &next);
+
+	ret = intervention_manager__computeAngleToPoint();
+	if(ret != RET_OK)
+	{
+		X_LOG_ERROR("Failed to compute angle to next point: %d", ret);
+		goto func_exit;
+	}
+
+	ret = intervention_manager__computeDistanceToPoint();
+	if(ret != RET_OK)
+	{
+		X_LOG_ERROR("Failed to compute distance to next point: %d", ret);
+		goto func_exit;
+	}
+
+	X_LOG_INFO("Moving to point: angle=%.2f, distance=%.2f", 
+        interventionManager.angleToNextPoint,
+        interventionManager.distanceToNextPoint);
 
 	if(interventionManager.angleToNextPoint == +M_PI_2)
 	{
@@ -131,12 +169,18 @@ void intervention_manager__followTrajectory() {
 		pilot__turn(+M_PI_2, max_speed, relative);
 	}
 
-	intervention_manager__computeDistanceToPoint();
-	pilot__continuousAdvance(max_speed); // 📌
+	ret = pilot_advance(interventionManager.distanceToNextPoint, max_speed);
+	if(ret != RET_OK)
+	{
+		X_LOG_ERROR("Failed to advance to next point: %d", ret);
+		goto func_exit;
+	}
 
 	intervention_manager__updateTrace();
+	
+func_exit:
 
-	// geo_positionner__sendTrace(); // 📌
+	X_LOG_DEBUG("exiting intervention_manager__followTrajectory()");
 }
 
 /////////////////////////////////
@@ -149,12 +193,15 @@ void intervention_manager__askStrat()
 	return; // ⬅️ À conserver. Retour explicite (void)
 }
 
-/////////////////////////////////
-/// intervention_manager__giveIDStrategieToFollow
-/////////////////////////////////
-void intervention_manager__giveIDStrategieToFollow(int idStrat)
+// @Override
+__attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
+int intervention_manager__giveIDStrategieToFollow(int idStrat)
 {
-	strategy_manager__giveIDStrategieToFollow(idStrat);
+	if(strategy_manager__giveIDStrategieToFollow(idStrat) == STRATEGY_MANAGER_OK)
+	{
+		return INTERVENTION_MANAGER_OK; // ⬅️ À conserver. Retour explicite (void)
+	}
+
 }
 
 /////////////////////////////////
@@ -173,7 +220,13 @@ void intervention_manager__startMove()
 /////////////////////////////////
 void intervention_manager__endMove()
 {
-	strategy_manager__endMove();
+	int ret = intervention_manager__retrieveNextPoint();
+	if(ret != RET_OK)
+	{
+		return; // ⬅️ À conserver. Sortie anticipée en cas d'erreur
+	}
+
+	intervention_manager__followTrajectory();
 
 	return; // ⬅️ À conserver. Retour explicite (void)
 }
@@ -251,11 +304,10 @@ void intervention_manager__sendPointsSelection(Point **listPoints)
 	return; // ⬅️ À conserver. Retour explicite (void)
 }
 
-/////////////////////////////////
-/// intervention_manager__startInter
-/////////////////////////////////
-void intervention_manager__startInter()
+__attribute__((unused)) // ⬅️ À retirer. Lorsque la fonction est utilisée
+int intervention_manager__startInter()
 {
+    X_LOG_INFO("Starting intervention");
 	/* ===== Préconditions ===== */
 	assert(&interventionManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
 
@@ -271,11 +323,13 @@ void intervention_manager__startInter()
 
 	intervention_manager__computeStrat();
 
+	X_LOG_DEBUG("Generating path points");
 	intervention_manager__generatePathOfPoints(); // TODO remove
 
 	intervention_manager__startTimer();
 
 	int roleRobot = 0;
+	X_LOG_DEBUG("Starting monitoring with role: %d", roleRobot);
 	sensor_manager__startMonitoring(roleRobot); // 📌
 
 	intervention_manager__followTrajectory();
@@ -285,7 +339,7 @@ void intervention_manager__startInter()
 	/* ===== Postconditions ===== */
 	// Vérifie les invariants après logique
 
-	return; // ⬅️ À conserver. Retour explicite (void)
+	return INTERVENTION_MANAGER_OK; // ⬅️ À conserver. Retour explicite (void)
 }
 
 /////////////////////////////////
@@ -293,6 +347,7 @@ void intervention_manager__startInter()
 /////////////////////////////////
 void intervention_manager__stopInter()
 {
+    X_LOG_INFO("Stopping intervention");
 	/* ===== Préconditions ===== */
 	assert(&interventionManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
 
@@ -307,6 +362,7 @@ void intervention_manager__stopInter()
 
 	intervention_manager__updateStatus(FIN_DE_MISSION);
 
+	X_LOG_DEBUG("Stopping monitoring and timers");
 	sensor_manager__stopMonitoring(); // 📌
 
 	intervention_manager__stopTimer();
@@ -348,16 +404,8 @@ int intervention_manager__getTimeInter()
 /////////////////////////////////
 static void intervention_manager__computeStrat()
 {
-	/* ===== Variables locales ===== */
-	StrategyManager *strategyManager; // Instance locale de StrategyManager
-
-	/* ===== Préconditions ===== */
-	strategy_manager__getInstance(&strategyManager); // Récupère l'instance de StrategyManager
-	X_ASSERT(&interventionManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
-	X_ASSERT(strategyManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
-
-	// @Override
 	strategy_manager__computeStrat(interventionManager.pathPoints);
+	debug_print_sequence("Generated path", interventionManager.pathPoints, 100);
 
 	return; // ⬅️ À conserver. Retour explicite (void)
 }
@@ -393,6 +441,8 @@ static void intervention_manager__updateStatus(Status status)
 /////////////////////////////////
 static int intervention_manager__computeAngleToPoint()
 {
+    X_LOG_DEBUG("Computing angle to next point");
+
 	/* ===== Préconditions ===== */
 	assert(&interventionManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
 
@@ -406,6 +456,8 @@ static int intervention_manager__computeAngleToPoint()
 					interventionManager.pathPoints[interventionManager.nextPointIdx].x - interventionManager.pathPoints[interventionManager.currentPointIdx].x);
 	// Note : Assurez-vous que les coordonnées sont correctement orientées
 	// 		selon votre système de coordonnées.
+
+	X_LOG_INFO("Angle computed: %.2f", interventionManager.angleToNextPoint);
 
 	X_LOG_TRACE("exiting computeAngleToPoint()");
 
@@ -426,8 +478,8 @@ static int intervention_manager__computeDistanceToPoint()
 	X_LOG_TRACE("entering computeDistanceToPoint()");
 
 	/* ===== Variables locales ===== */
-	// Déclare les variables temporaires
-
+	int ret = RET_ERR_GENERIC;
+	
 	/* ===== Logique principale ===== */
 	interventionManager.distanceToNextPoint = sqrt(pow(interventionManager.pathPoints[interventionManager.nextPointIdx].x - interventionManager.pathPoints[interventionManager.currentPointIdx].x, 2) +
 		                       pow(interventionManager.pathPoints[interventionManager.nextPointIdx].y - interventionManager.pathPoints[interventionManager.currentPointIdx].y, 2));
@@ -474,7 +526,7 @@ static int intervention_manager__generatePathOfPoints()
 /////////////////////////////////
 /// intervention_manager__retrieveNextPoint
 /////////////////////////////////
-static void intervention_manager__retrieveNextPoint()
+static int intervention_manager__retrieveNextPoint()
 {
 	/* ===== Préconditions ===== */
 	assert(&interventionManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
@@ -482,21 +534,28 @@ static void intervention_manager__retrieveNextPoint()
 	X_LOG_TRACE("entering retrieveNexPoint()");
 	
 	/* ===== Variables locales ===== */
-	int pathPointsLen;	
+	int ret = RET_ERR_GENERIC; // ⬅️ "Rater-vite". Initialisé par un code d'erreur (prog défensive)
+	int pathPointsLen;
 	/* ===== Logique principale ===== */
 	pathPointsLen = sizeof(interventionManager.pathPoints) / sizeof(Point);
+	
 	if(interventionManager.currentPointIdx >= pathPointsLen)
 	{
-		return;
+		ret = RET_ERR_RANGE;
+		goto func_exit;
 	}
 
 	interventionManager.currentPointIdx = interventionManager.nextPointIdx; // FIXME
+
+	ret = INTERVENTION_MANAGER_OK;
 
 	X_LOG_TRACE("exiting retrieveNexPoint()");
 	/* ===== Postconditions ===== */
 	// Vérifie les invariants après logique
 
-	return; // ⬅️ À conserver. Retour explicite (void)
+func_exit:
+	
+	return ret; // ⬅️ À conserver. Retour explicite (void)
 }
 
 /////////////////////////////////

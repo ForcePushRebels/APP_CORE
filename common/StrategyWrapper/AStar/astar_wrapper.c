@@ -1,5 +1,6 @@
 #include "astar_wrapper.h"
 #include "AStar.h"
+#include "debug_utils.h"  // Use relative path version
 
 // Define your node structure
 typedef struct {
@@ -17,53 +18,70 @@ static const ASPathNodeSource PathNodeSource;
 static AStarWrapper astar_wrapper;
 
 int astar_wrapper__init()
-{	
-	int ret = strategy_wrapper__addStrategy(
-		"AStar",
-		astar_wrapper__prepare,
-		astar_wrapper__execute
-	);
-	
-	return ret;
+{
+    X_LOG_DEBUG("Initializing AStar wrapper");
+    int ret = strategy_wrapper__addStrategy("AStar", astar_wrapper__prepare, astar_wrapper__execute);
+    if (ret != 0) {
+        X_LOG_ERROR("Failed to register AStar strategy");
+    } else {
+        X_LOG_INFO("AStar wrapper initialized successfully");
+    }
+    return ret;
 }
 
 //@Override
 int astar_wrapper__prepare(mat_t (*mat)[10]) {
+    X_LOG_DEBUG("Preparing AStar grid");
+
+	int obstacleCount = 0;
+
 	// Initialize the grid with a static maze (0 = empty, 1 = obstacle)
 	for (int i = 0; i < GRID_SIZE; i++) {
 		for (int j = 0; j < GRID_SIZE; j++) {
 			if(mat[i][j].type == MAP_CELL_WALL) {
 				grid[i][j] = 1;
+				obstacleCount++;
+
 			}
 		}	
 	}
 
+    X_LOG_INFO("AStar grid prepared with %d obstacles", obstacleCount);
 	return 0;
 }
 
 //@Override
 int astar_wrapper__execute(seq_t *seq, Point *initial, Point *final) {
+    X_LOG_DEBUG("Executing AStar pathfinding from (%d,%d) to (%d,%d)", 
+                initial->x, initial->y, final->x, final->y);
 
-	GridNode start = {initial->x, initial->y};
-	GridNode goal = {final->x, final->y};
+    debug_print_point("Start position", initial);
+    debug_print_point("Goal position", final);
 
-	// Find the path
-	ASPath path = ASPathCreate(&PathNodeSource, NULL, &start, &goal);
+    GridNode start = {initial->x, initial->y};
+    GridNode goal = {final->x, final->y};
 
-	// Check if path exists
-	size_t pathCount = ASPathGetCount(path);
-	if (pathCount > 0) {
-		for (size_t i = 0; i < pathCount; i++) {
-			GridNode* node = (GridNode*)ASPathGetNode(path, i);
-			seq[i].x = node->x;
-			seq[i].y = node->y;
-		}
-	}
+    // Find the path
+    ASPath path = ASPathCreate(&PathNodeSource, NULL, &start, &goal);
 
-	// Clean up
-	ASPathDestroy(path);
+    // Check if path exists
+    size_t pathCount = ASPathGetCount(path);
+    if (pathCount > 0) {
+        for (size_t i = 0; i < pathCount; i++) {
+            GridNode* node = (GridNode*)ASPathGetNode(path, i);
+            seq[i].x = node->x;
+            seq[i].y = node->y;
+        }
+        X_LOG_INFO("Path found with %zu points", pathCount);
+        debug_print_sequence("AStar path", seq, pathCount);
+    } else {
+        X_LOG_WARN("No path found between points");
+    }
 
-	return 0;
+    // Clean up
+    ASPathDestroy(path);
+
+    return 0;
 }
 
 // Node neighbor function

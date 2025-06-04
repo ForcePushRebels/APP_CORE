@@ -21,6 +21,8 @@
 #include <stdlib.h>
 
 #include "util_macros.h"
+#include "util_macros.h"
+#include "../debug/debug_utils.h"
 
 #define STRATEGY_MANAGER_IMPL_VERSION VER(1, 0, 0)
 #include "strategy_manager.h"
@@ -38,40 +40,56 @@
 
 #define supervisor__giveEndCondition(listEndCondition) // TODO
 
-static void print_colored_grid(seq_t *path, size_t path_len);
-
 static StrategyManager strategyManager;
 
 struct strategy_manager_s
 {
 	Status status;
-
 	mat_t matrix[MAP_SIZE][MAP_SIZE];
 	seq_t sequence[MAP_SIZE];
-
-	// TODO Ajouter à la conception
-	// FIXME time_t Timer;
 	struct timespec start_time, end_time;
 };
 
 int strategy_manager__init()
 {
 	/* ===== Préconditions ===== */
-	X_ASSERT(true); // ⬅️ À conserver. Indique explicitement qu'il n'y a pas de précondition
+	X_ASSERT(&strategyManager != NULL);
+	X_ASSERT(strategyManager.matrix != NULL);
+	X_ASSERT(strategyManager.sequence != NULL);
 
-	X_LOG_TRACE("entering strategy_manager__init()");
+	X_LOG_DEBUG("entering strategy_manager__init()");
 
 	/* ===== Variables locales ===== */
+	int ret = STRATEGY_MANAGER_ERR_INIT;;
 
 	/* ===== Logique principale ===== */
-	astar_wrapper__init(); // Initialisation de la stratégie AStar
+	memset(&strategyManager, 0, sizeof(strategyManager));
+
+	if(strategyManager.matrix == NULL || strategyManager.sequence == NULL)
+	{
+		X_LOG_FATAL("Failed to allocate memory for strategyManager components");
+		goto func_exit; // ⬅️ Sortie anticipée en cas d'erreur
+	}
+	
+	ret = astar_wrapper__init();
+	if (ret == 0)
+	{
+		X_LOG_INFO("AStar strategy initialized successfully");
+		ret = STRATEGY_MANAGER_OK; // ⬅️ Mise à jour du code de retour en cas de succès
+		goto func_exit; // ⬅️ Sortie anticipée en cas d'erreur
+	}
+
+func_exit:
 
 	X_LOG_TRACE("exiting strategy_manager__init()");
 
 	/* ===== Postconditions ===== */
-    // X_ASSERT(strategyManager != NULL); // ⬅️ À décommenter. Pour les plus téméraires
+	X_ASSERT(strategyManager.status == INIT); // Vérifie que le statut initial est correct
+	X_ASSERT(strategyManager.matrix != NULL); // Vérifie que la matrice est initialisée
+	X_ASSERT(strategyManager.sequence != NULL); // Vérifie que la séquence est initialisée
+	X_ASSERT(strategyManager.start_time.tv_sec == 0 && strategyManager.end_time.tv_sec == 0); // Vérifie que les temps sont initialisés à zéro
 
-	return 1;
+	return ret;
 }
 
 void strategy_manager__setMap()
@@ -89,13 +107,13 @@ void strategy_manager__askStrat()
 	/* ===== Variables locales ===== */
     // Déclare les variables temporaires
 
-	X_LOG_TRACE("entering strategy_manager__askStrat()");
+	X_LOG_DEBUG("entering strategy_manager__askStrat()");
 
 	/* ===== Logique principale ===== */
 	char * listStratName;
 	config_launcher__giveStrat(listStratName)  // 📌
 
-	X_LOG_TRACE("exiting strategy_manager__askStrat()");
+	X_LOG_DEBUG("exiting strategy_manager__askStrat()");
 
 	/* ===== Postconditions ===== */
 	// Vérifie les invariants après logique
@@ -103,26 +121,31 @@ void strategy_manager__askStrat()
 	return; // ⬅️ À conserver. Retour explicite (void)
 }
 
-void strategy_manager__giveIDStrategieToFollow(int idStrat)
+int strategy_manager__giveIDStrategieToFollow(int idStrat)
 {
 	/* ===== Préconditions ===== */
 	X_ASSERT(&strategyManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
 
 	UNUSED(idStrat); // ⬅️ À retirer dès que 'idStrat' est utilisé dans la logique
 
-	X_LOG_TRACE("entering strategy_manager__giveIDStrategieToFollow()");
+	X_LOG_DEBUG("entering strategy_manager__giveIDStrategieToFollow()");
 
 	/* ===== Variables locales ===== */
-	int ret = RET_NOT_IMPL_INT; // ⬅️ "Rater-vite". Initialisé par un code d'erreur (prog défensive)
+	int ret = RET_ERR_GENERIC; // ⬅️ "Rater-vite". Initialisé par un code d'erreur (prog défensive)
 
 	/* ===== Logique principale ===== */
-	strategy_wrapper__giveIDStrategieToFollow(idStrat); // 📌
+	ret = strategy_wrapper__giveIDStrategieToFollow(idStrat); // 📌
 	supervisor__giveEndCondition(listEndCondition); // 📌
 
-	X_LOG_TRACE("exiting strategy_manager__giveIDStrategieToFollow()");
+	X_LOG_DEBUG("exiting strategy_manager__giveIDStrategieToFollow()");
 
 	/* ===== Postconditions ===== */
 	// Vérifie les invariants après logique
+
+	if(ret == RET_OK)
+	{
+		ret = STRATEGY_MANAGER_OK; // ⬅️ Mise à jour du code de retour en cas de succès
+	}
 
 	return ret; // ⬅️ À conserver. Retour explicite (void)
 }
@@ -132,7 +155,7 @@ void strategy_manager__startMove()
 	/* ===== Préconditions ===== */
 	X_ASSERT(&strategyManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
 
-	X_LOG_TRACE("entering strategy_manager__startMove()");
+	X_LOG_DEBUG("entering strategy_manager__startMove()");
 
 	/* ===== Variables locales ===== */
 	// Déclare les variables temporaires
@@ -150,7 +173,7 @@ void strategy_manager__startMove()
 		           strategyManager.isMoving = true;
 	*/
 
-	X_LOG_TRACE("exiting strategy_manager__startMove()");
+	X_LOG_DEBUG("exiting strategy_manager__startMove()");
 
 	/* ===== Postconditions ===== */
 	// Vérifie les invariants après logique
@@ -163,7 +186,7 @@ void strategy_manager__endMove()
 	/* ===== Préconditions ===== */
 	X_ASSERT(&strategyManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
 
-	X_LOG_TRACE("entering strategy_manager__endMove()");
+	X_LOG_DEBUG("entering strategy_manager__endMove()");
 
 	/* ===== Variables locales ===== */
     // Déclare les variables temporaires
@@ -181,7 +204,7 @@ void strategy_manager__endMove()
 		           strategyManager.isMoving = false;
 	*/
 
-	X_LOG_TRACE("exiting strategy_manager__endMove()");
+	X_LOG_DEBUG("exiting strategy_manager__endMove()");
 
 	/* ===== Postconditions ===== */
 	// Vérifie les invariants après logique
@@ -340,7 +363,7 @@ void strategy_manager__computeStrat(seq_t *sequence)
 	/* ===== Préconditions ===== */
     X_ASSERT(&strategyManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
 
-	X_LOG_TRACE("entering strategy_manager__computeStrat()");
+	X_LOG_INFO("Computing strategy path...");
 
 	/* ===== Variables locales ===== */
     // Déclare les variables temporaires
@@ -352,9 +375,13 @@ void strategy_manager__computeStrat(seq_t *sequence)
 
 	strategy_wrapper__execute(sequence, &initial, &final);
 
-	print_colored_grid(sequence, MAP_SIZE * MAP_SIZE);
+	X_LOG_INFO("Strategy path computation completed");
+	debug_print_point("Initial position", &initial);
+	debug_print_point("Target position", &final);
+	debug_print_sequence("Computed path", sequence, MAP_SIZE * MAP_SIZE);
+	debug_print_path_grid(sequence, MAP_SIZE * MAP_SIZE, strategyManager.matrix);
 
-	X_LOG_TRACE("exiting strategy_manager__computeStrat()");
+	X_LOG_DEBUG("exiting strategy_manager__computeStrat()");
 
 	/* ===== Postconditions ===== */
 	// Vérifie les invariants après logique
@@ -368,7 +395,7 @@ int strategy_manager__startTimer()
     X_ASSERT(&strategyManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
     // X_ASSERT(strategyManager.Timer != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
 
-	X_LOG_TRACE("entering strategy_manager__startTimer()");
+	X_LOG_DEBUG("Starting strategy timer");
 
 	/* ===== Variables locales ===== */
 	int ret = RET_NOT_IMPL_INT; // ⬅️ "Rater-vite". Initialisé par un code d'erreur (prog défensive)
@@ -390,7 +417,7 @@ int strategy_manager__stopTimer()
     X_ASSERT(&strategyManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
     // X_ASSERT(strategyManager.Timer != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
 
-	X_LOG_TRACE("entering strategy_manager__stopTimer()");
+	X_LOG_DEBUG("Stopping strategy timer");
 
 	/* ===== Variables locales ===== */
 	int ret = RET_NOT_IMPL_INT; // ⬅️ "Rater-vite". Initialisé par un code d'erreur (prog défensive)
@@ -419,7 +446,7 @@ void strategy_manager__updateStatus(Status status)
 
 	UNUSED(status); // ⬅️ À retirer. Dès que 'status' est utilisé en dehors des assert()
 
-	X_LOG_TRACE("entering strategy_manager__updateStatus()");
+	X_LOG_INFO("Updating strategy status to: %d", status);
 
 	/* ===== Variables locales ===== */
     // Déclare les variables temporaires
@@ -451,63 +478,4 @@ void strategy_manager__getInstance(StrategyManager *instance)
 	// Vérifie les invariants après logique
 
 	return; // ⬅️ À conserver. Retour explicite (void)
-}
-
-#define ROWS 10
-#define COLS 10
-#define PATH_MAX_LEN MAP_SIZE * MAP_SIZE
-static void print_colored_grid(seq_t *path, size_t path_len) {
-	int grid[ROWS][COLS] = {0};  // 0: empty, 1: path, 2: obstacle
-
-	// Mark obstacles and path in single loop
-	for (int i = 0; i < ROWS; ++i) {
-		for (int j = 0; j < COLS; ++j) {
-		if (strategyManager.matrix[i][j].type == MAP_CELL_WALL) {
-			grid[i][j] = 2; // Mark as obstacle
-		}
-		}
-	}
-
-	// Mark path points
-	for (size_t i = 0; i < path_len; ++i) {
-		int x = path[i].x;
-		int y = path[i].y;
-		
-		if (x >= 0 && x < ROWS && y >= 0 && y < COLS) {
-		grid[x][y] = 1; // Mark as path
-		}
-	}
-
-	// Print column headers
-	printf("   ");
-	for (int j = 0; j < COLS; ++j) {
-		printf("%2d ", j);
-	}
-	printf("\n");
-
-	// Print separator line
-	printf("   ");
-	for (int j = 0; j < COLS; ++j) {
-		printf("---");
-	}
-	printf("\n");
-
-	// Print grid with coloring
-	for (int i = 0; i < ROWS; ++i) {
-		printf("%2d|", i);  // Row label
-		for (int j = 0; j < COLS; ++j) {
-			switch (grid[i][j]) {
-				case 1: // Path
-					printf("\033[1;30;47m # \033[0m");  // black on white
-					break;
-				case 2: // Obstacle
-					printf("\033[1;31m @ \033[0m");     // red
-					break;
-				default:
-					printf(" . ");                      // empty
-			}
-		}
-		printf("\n");
-	}
-	printf("\n");
 }

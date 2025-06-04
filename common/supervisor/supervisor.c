@@ -15,12 +15,14 @@
 #include "positionControl.h"
 #include <stdint.h>
 #include <string.h>
+#include <unistd.h>
 
 ////////////////////////////////////////////////////////////
 /// Private variables
 ////////////////////////////////////////////////////////////
 static tSupervisorCtx s_tSupervisorCtx;
 
+static bool supervisor_is_running = false;
 ////////////////////////////////////////////////////////////
 /// Private function declarations
 ////////////////////////////////////////////////////////////
@@ -74,6 +76,17 @@ static int32_t send_map_fragments(void)
             X_LOG_TRACE("Failed to send map fragment %d: 0x%x, next cell", i, ret);
         }
     }
+
+    map_fragment_t robot_fragment = map_engine_get_robot_fragment();
+    X_LOG_TRACE("Robot fragment: %d, %d", robot_fragment.x_grid, robot_fragment.y_grid);
+    robot_fragment.x_grid = HOST_TO_NET_SHORT(robot_fragment.x_grid);
+    robot_fragment.y_grid = HOST_TO_NET_SHORT(robot_fragment.y_grid);
+    int ret = networkServerSendMessage(1, ID_MAP_FRAGMENT, &robot_fragment, sizeof(map_fragment_t));
+    if (ret != SERVER_OK)
+    {
+        X_LOG_TRACE("Failed to send robot fragment: 0x%x", ret);
+    }
+
 
     X_LOG_TRACE("Map delta %d cells sent", updated_cells_count);
     map_engine_clear_updated_cells(cells, updated_cells_count);
@@ -321,6 +334,11 @@ int32_t supervisor_stop(void)
 ////////////////////////////////////////////////////////////
 static void checkInfo(void *arg)
 {
+    if (!supervisor_is_running)
+    {
+        return;
+    }
+
     Position_t l_tCurrentPosition;
     int32_t l_iResult;
     (void)arg; // Unused parameter
@@ -389,9 +407,14 @@ static void *supervisor_task(void *arg)
 {
     X_ASSERT(arg != NULL);
 
-    tSupervisorCtx *l_ptCtx = (tSupervisorCtx *)arg;
-
+    while (!supervisor_is_running)
+    {
+        sleep(1);
+    }
+    sleep(3);
     X_LOG_TRACE("Supervisor task started");
+
+    tSupervisorCtx *l_ptCtx = (tSupervisorCtx *)arg;
 
     int32_t l_iResult = xTimerStart(&l_ptCtx->t_tTimer);
     X_ASSERT(l_iResult == XOS_TIMER_OK);
@@ -410,4 +433,13 @@ static void *supervisor_task(void *arg)
     l_iResult = xTimerProcessPeriodicCallback(&l_ptCtx->t_tTimer, checkInfo, l_ptCtx);
 
     return NULL;
+}
+
+////////////////////////////////////////////////////////////
+/// supervisor_start
+////////////////////////////////////////////////////////////
+int32_t supervisor_start(void)
+{
+    supervisor_is_running = true;
+    return SUPERVISOR_OK;
 }

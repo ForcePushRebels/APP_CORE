@@ -32,7 +32,8 @@ typedef enum
     MAP_CELL_EMPTY = 0,
     MAP_CELL_WALL = 1,
     MAP_CELL_INTEREST_AREA = 2,
-    MAP_CELL_UNKNOWN = 3
+    MAP_CELL_ROBOT = 3,
+    MAP_CELL_UNKNOWN = 4
 } map_cell_type_t;
 
 typedef struct __attribute__((packed))
@@ -51,6 +52,10 @@ typedef struct __attribute__((packed))
         {
             uint8_t area_id;
         } interest_area;
+        struct
+        {
+            uint8_t robot_id;
+        } robot;
         struct
         {
             uint8_t unknown_field; // not used
@@ -141,6 +146,12 @@ uint32_t map_engine_get_updated_cells(map_fragment_t *cells, size_t cell_count);
  * @param cell_count The number of cells to clear
  */
 void map_engine_clear_updated_cells(map_fragment_t *cells, size_t cell_count);
+
+/**
+ * @brief Get the robot fragment
+ * @return The robot fragment
+ */
+map_fragment_t map_engine_get_robot_fragment();
 
 /* ******************************************* Public callback functions declarations ************************************ */
 

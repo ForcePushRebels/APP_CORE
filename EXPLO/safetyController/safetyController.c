@@ -53,37 +53,37 @@ static void setMovementHandle(clientCtx *p_ptClient, const network_message_t *p_
         return;
     }
 
-    bool l_bMovePossible = checkForward();
-
-    // check the sensors values
-    if (l_bMovePossible == false)
-    {
-        X_LOG_TRACE("Move not possible");
-        atomic_store(&s_bEmergencyStopFlag, true);
-        return;
-    }
-
     // call the movement function
     switch (l_eMovement)
     {
-    case FORWARD_MOVEMENT:
-        position_control_advance(10000, 2.0);
-        //pilot_continuousAdvance(100);
-        break;
-    case LEFT_MOVEMENT:
-        //pilot_turn(M_PI * 2, 100, true);
-        position_control_turn(M_PI * 10, 0.5);
-        break;
-    case RIGHT_MOVEMENT:
-        //pilot_turn(-M_PI * 2, 100, true);
-        position_control_turn(-M_PI * 10, 0.5);
-        break;
-    case STOP_MOVEMENT:
-        //pilot_stop();
-        position_control_stop();
-        break;
-    default:
-        break;
+        case FORWARD_MOVEMENT:
+            bool l_bMovePossible = checkForward();
+
+            // check the sensors values
+            if (l_bMovePossible == false)
+            {
+                X_LOG_TRACE("Move not possible");
+                atomic_store(&s_bEmergencyStopFlag, true);
+                return;
+            }
+
+            position_control_advance(10000, 2.0);
+            //pilot_continuousAdvance(100);
+            break;
+        case LEFT_MOVEMENT:
+            //pilot_turn(M_PI * 2, 100, true);
+            position_control_turn(M_PI * 10, 0.5);
+            break;
+        case RIGHT_MOVEMENT:
+            //pilot_turn(-M_PI * 2, 100, true);
+            position_control_turn(-M_PI * 10, 0.5);
+            break;
+        case STOP_MOVEMENT:
+            //pilot_stop();
+            position_control_stop();
+            break;
+        default:
+            break;
     }
 }
 

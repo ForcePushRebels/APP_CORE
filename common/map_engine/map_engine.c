@@ -20,8 +20,8 @@
 /* **************************************************** Private macros *************************************************** */
 #define MAP_DEBUG 0
 
-#define MAP_WIDTH_MM 1000
-#define MAP_HEIGHT_MM 1000
+#define MAP_WIDTH_MM 1500
+#define MAP_HEIGHT_MM 1500
 
 #define MAP_CELL_SIZE_MM 50
 
@@ -242,13 +242,10 @@ int map_engine_update_vision(uint16_t *sensor_data, uint8_t sensor_count)
         {
             map_engine.map[grid_x][grid_y].wall.wall_intensity++;
         }
-        else
-        {
-            map_engine.map[grid_x][grid_y].wall.wall_intensity = 0;
-        }
         map_engine.updated_cells[grid_x][grid_y] = true;
         // X_LOG_TRACE("Grid: %d, %d, %d", grid_x, grid_y, map_engine.map[grid_x][grid_y].wall.wall_intensity);
     }
+
     mutexUnlock(&map_engine.map_mutex);
 
 #if MAP_DEBUG
@@ -367,6 +364,27 @@ void map_engine_clear_updated_cells(map_fragment_t *cells, size_t cell_count)
         map_engine.updated_cells[cells[i].x_grid][cells[i].y_grid] = false;
     }
     mutexUnlock(&map_engine.map_mutex);
+}
+
+map_fragment_t map_engine_get_robot_fragment()
+{
+    Position_t robot_pos;
+    position_control_get_position(&robot_pos);
+    int16_t grid_x = robot_pos.x_mm / MAP_CELL_SIZE_MM;
+    int16_t grid_y = robot_pos.y_mm / MAP_CELL_SIZE_MM;
+
+    map_fragment_t cell = {
+        .x_grid = grid_x,
+        .y_grid = grid_y,
+        .cell = {
+            .type = MAP_CELL_ROBOT,
+            .robot = {
+                .robot_id = 1,
+            },
+        },
+    };
+
+    return cell;
 }
 
 /* ***************************************** Public callback functions definitions *************************************** */

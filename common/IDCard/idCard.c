@@ -156,6 +156,7 @@ static void isAnyRobotHereHandle(clientCtx *p_ptClient, const network_message_t 
     {
         X_LOG_TRACE("Successfully sent manifest response (%d bytes)", sizeof(manifest_t));
         supervisor_send_full_map(networkServerGetClientID(p_ptClient));
+        supervisor_start();
     }
 }
 

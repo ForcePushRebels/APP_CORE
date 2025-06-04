@@ -58,6 +58,7 @@ typedef struct supervisorCtx
     xOsTaskCtx t_tTask;
     xOsMutexCtx t_tMutex;
     xOsTimerCtx t_tTimer;
+    xOsTimerCtx t_tStartTimer;
     uint32_t t_iBatteryLevel;
     uint64_t t_ulTime;
     tPosition t_tPosition;

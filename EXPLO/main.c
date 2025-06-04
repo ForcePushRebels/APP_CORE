@@ -300,7 +300,7 @@ void testPilot(void)
     {
         case 0:
             X_LOG_TRACE("Pilot test: Advance 1000mm");
-            pilot_advance(1000, 2.0);
+            pilot_advance(1000, 200);
             phase_start_time = now;
             phase = 1;
             break;

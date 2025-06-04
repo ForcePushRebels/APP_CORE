@@ -1,11 +1,9 @@
 ////////////////////////////////////////////////////////////
 // Module: pilot
-// Description: Module de pilotage des moteurs
-//
-// general discloser: copy or share the file is forbidden
-// Written : 23/05/2025
-// Updated : 30/05/2025 - Fixed security issues
+// Description: Pilotage des moteurs (machine à états + POSIX mqueues)
+// Date    : 06/06/2025
 ////////////////////////////////////////////////////////////
+
 #ifndef PILOT_H
 #define PILOT_H
 
@@ -14,6 +12,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <mqueue.h>      // Utilisation de POSIX message queues
+#include <fcntl.h>       // O_* macros pour mq_open
+#include <sys/stat.h>    // mode constants pour mq_open
 
 #include "motorControl.h"
 #include "hardwareAbstraction.h"
@@ -23,9 +24,8 @@
 #include "xTimer.h"
 #include "positionControl.h"
 
-
 /////////////////////////////////
-/// @brief Error codes
+/// @brief Codes d’erreur
 /////////////////////////////////
 #define PILOT_OK                            0x43412000
 #define PILOT_ERROR_INVALID_ARGUMENT        0x43412001
@@ -34,43 +34,98 @@
 #define PILOT_ERROR_INIT_FAILED             0x43412004
 #define PILOT_ERROR_NOT_INITIALIZED         0x43412005
 
-
-
-
 /////////////////////////////////
-/// @brief Action function
-/// @param arg : Argument
+/// @brief Noms (paths) des POSIX queues
 /////////////////////////////////
-typedef void (*pilot_action_fct_t)(void* arg);
+#define PILOT_MQ_EVT_NAME      "/pilot_event_queue"
+#define PILOT_MQ_MOVE_NAME     "/pilot_move_queue"
 
 /////////////////////////////////
-/// @brief Position du robot
-/// @param x : Position en x
-/// @param y : Position en y
-/// @param theta : Angle en radians
+/// @brief Types d’événements du pilot
 /////////////////////////////////
-typedef struct 
-{
-    int positionX;
-    int positionY;
-    float angle;
-} Position;
+typedef enum {
+    PILOT_EVT_ADVANCE = 0,
+    PILOT_EVT_CONTINUOUS_ADVANCE,
+    PILOT_EVT_TURN,
+    PILOT_EVT_GOTO,
+    PILOT_EVT_START_MOVES,
+    PILOT_EVT_END_MOVE,
+    PILOT_EVT_CHECK_NEXT_MOVE,
+    PILOT_EVT_NEXT_MOVE,
+    PILOT_EVT_END_ALL_MOVES,
+    PILOT_EVT_STOP,
+    PILOT_EVT_POSITION_UPDATE,
+    PILOT_EVT_EMERGENCY_STOP,
+    PILOT_EVT_COUNT
+} pilot_event_type_t;
+
+/////////////////////////////////
+/// @brief Structure d’un événement pilot
+/// Les champs int/double sont choisis selon le type d’événement
+/////////////////////////////////
+typedef struct {
+    pilot_event_type_t type;
+    union {
+        struct {
+            uint32_t distance_mm;
+            uint32_t speed_mm_s;
+        } advance;
+        struct {
+            uint32_t speed_mm_s;
+        } continuous;
+        struct {
+            double angle_rad;
+            double speed_rad_s;
+            bool   relative;
+        } turn;
+        struct {
+            int32_t  x_mm;
+            int32_t  y_mm;
+            uint32_t speed_mm_s;
+        } go_to;
+    };
+} pilot_event_t;
 
 /////////////////////////////////
 /// @brief Direction du robot
-/// @param DIR_FORWARD : Avant
-/// @param DIR_LEFT : Gauche
-/// @param DIR_RIGHT : Droite
+///   - DIR_FORWARD : avance en avant
+///   - DIR_LEFT    : tourne à gauche
+///   - DIR_RIGHT   : tourne à droite
 /////////////////////////////////
-typedef enum 
-{
-    DIR_FORWARD,
+typedef enum {
+    DIR_FORWARD = 0,
     DIR_LEFT,
     DIR_RIGHT
 } Direction;
 
 /////////////////////////////////
-/// @brief State of the robot
+/// @brief « Move »: utilisé en interne dans la queue de moves
+/////////////////////////////////
+typedef struct {
+    uint32_t        distance_mm;    //  >0 = avance finie sur X mm,  
+                                    //  UINT32_MAX = avance continue,  
+                                    //  0 = rotation
+    double          angle_rad;      //   angle en radian du robot (uniquement pour rotation)
+    double          max_speed_mm_s; //   vitesse linéaire en mm/s (pour avance) 
+                                    //   ou vitesse angulaire en rad/s (pour turn)
+    Direction direction;     //   DIR_FORWARD / DIR_LEFT / DIR_RIGHT
+    bool            relative;
+} Move;
+
+/////////////////////////////////
+/// @brief Position du robot
+///   - positionX : position en X (mm)
+///   - positionY : position en Y (mm)
+///   - angle     : orientation en radians
+/////////////////////////////////
+typedef struct {
+    int32_t positionX;
+    int32_t positionY;
+    double  angle;
+} Position;
+
+/////////////////////////////////
+/// @brief États du pilot
 /////////////////////////////////
 typedef enum {
     PILOT_STATE_WAIT_MOVE = 0,
@@ -83,185 +138,86 @@ typedef enum {
 } PilotState;
 
 /////////////////////////////////
-/// @brief Events of the robot
+/// @brief Prototype d’une action (callback)
 /////////////////////////////////
-typedef enum {
-    PILOT_EVT_ADVANCE = 0,          // Advance
-    PILOT_EVT_CONTINUOUS_ADVANCE,   // Continuous advance
-    PILOT_EVT_TURN,                 // Turn
-    PILOT_EVT_GOTO,                 // Go to a position
-    PILOT_EVT_START_MOVES,          // Start moves
-    PILOT_EVT_END_MOVE,             // End move
-    PILOT_EVT_EMERGENCY_STOP,       // Emergency stop
-    PILOT_EVT_CHECK_NEXT_MOVE,      // Check next move
-    PILOT_EVT_NEXT_MOVE,            // Next move
-    PILOT_EVT_END_ALL_MOVES,        // End all moves
-    PILOT_EVT_STOP,                 // Stop
-    PILOT_EVT_POSITION_UPDATE,      // Position update
-    PILOT_EVT_COUNT                 // Number of events
-} PilotEvent;
+typedef void (*pilot_action_fct_t)(void* arg);
 
 /////////////////////////////////
-/// @brief Movement
-/// @param distance_mm : Distance in mm
-/// @param angle_rad : Angle in radians
-/// @param max_speed : Maximum speed
-/// @param direction : Direction
-/// @param relative : Relative movement 
+/// @brief Ligne de transition (next state + action)
 /////////////////////////////////
-typedef struct 
-{
-    double distance_mm;
-    double angle_rad;
-    float max_speed;
-    Direction direction;
-    bool relative;
-    // Ajoute d'autres champs si besoin
-} Move;
-
-/////////////////////////////////
-/// @brief Transition
-/// @param next_state : Next state
-/// @param action : Action function
-/////////////////////////////////
-typedef struct 
-{
-    PilotState next_state;
+typedef struct {
+    PilotState         next_state;
     pilot_action_fct_t action;
 } pilot_transition_t;
 
 /////////////////////////////////
-/// @brief Move queue
+/// @brief Structure principale du pilote
 /////////////////////////////////
-typedef struct MoveQueue
-{
-    Move moves[16];
-    int head;
-    int tail;
-    int count;
-    xOsMutexCtx mutex;
-} moveQueue_t;
+typedef struct {
+    // --- Champs d’état, inchangés sauf types modifiés ---
+    Position    position;            // position actuelle (x, y, theta)
+    int         encodersValues[2];
+    int         targetSpeed;
+    Direction   currentDirection;
+    Move       *moveTodo;            // conservé pour compatibilité
+    float       distanceMeter;       // peut rester float pour calculs internes
 
-/////////////////////////////////
-/// @brief Event queue
-/////////////////////////////////
-typedef struct EvtQueue
-{
-    PilotEvent events[16];
-    int head;
-    int tail;
-    int count;
-    xOsMutexCtx mutex;
-} evtQueue_t;
+    int32_t     gotoTargetX;         // mm
+    int32_t     gotoTargetY;         // mm
+    uint32_t    gotoMaxSpeed;        // mm/s
 
-/////////////////////////////////
-/// @brief Pilot structure
-/// @param position : Position
-/// @param encodersValues : Encoders values
-/// @param targetSpeed : Target speed
-/// @param currentDirection : Current direction
-/// @param moveTodo : Move to do
-/// @param distanceMeter : Distance meter
-/// @param positionWatcherTimer : Position watcher timer
-/// @param movementTimer : Movement timer
-/////////////////////////////////
-typedef struct 
-{
-    Position position;
-    int encodersValues[2];
-    int targetSpeed;
-    Direction currentDirection;
-    void* moveTodo; // mq<Move>
-    float distanceMeter;
-    // Champs pour la commande goTo
-    double gotoTargetX;
-    double gotoTargetY;
-    int gotoMaxSpeed;
     xOsTimerCtx positionWatcherTimer;
     xOsTimerCtx movementTimer;
-    xOsTaskCtx pilotTask;
-    xOsMutexCtx mutex;
-    moveQueue_t moveQueue;
-    evtQueue_t evtQueue;
+    xOsTaskCtx  pilotTask;
+    xOsMutexCtx mutex;               // pour d’autres sections si besoin
+
+    // === Queues POSIX ===
+    mqd_t       evtQueue;            // queue d’événements (pilot_event_t)
+    mqd_t       moveQueue;           // queue de moves (Move)
 } Pilot;
 
 /////////////////////////////////
-/// @brief Initialization
-/// @return PILOT_OK if success, PILOT_ERROR_INVALID_ARGUMENT if error
+/// @brief Fonction de tâche (prototype EXACTEMENT identique à votre code source)
+/////////////////////////////////
+void *pilot_move_task(void *arg);
+
+/////////////////////////////////
+/// @brief Prototypes des fonctions publiques (modifiées pour utiliser int32/uint32)
+///
 /////////////////////////////////
 int32_t pilot_init(void);
-
-/////////////////////////////////
-/// @brief Shutdown
-/// @return PILOT_OK if success, PILOT_ERROR_INVALID_ARGUMENT if error
-/////////////////////////////////
 int32_t pilot_shutdown(void);
 
-/////////////////////////////////
-/// @brief Advance
-/// @param distance_mm : Distance in mm
-/// @param max_speed : Maximum speed
-/// @return PILOT_OK if success, error code otherwise
-/////////////////////////////////
-int32_t pilot_advance(double distance_mm, float max_speed);
+// Advance : distance en mm, vitesse en mm/s (uint32)
+int32_t pilot_advance(int32_t distance_mm, uint32_t max_speed_mm_s);
 
-/////////////////////////////////
-/// @brief Continuous advance
-/// @param max_speed : Maximum speed
-/////////////////////////////////
-void pilot_continuousAdvance(int max_speed);
+// Continuous advance : vitesse en mm/s (uint32)
+void    pilot_continuousAdvance(uint32_t max_speed_mm_s);
 
-/////////////////////////////////
-/// @brief Turn
-/// @param angle_rad : Angle in radians
-/// @param max_speed : Maximum speed
-/// @param relative : Relative movement
-/// @return PILOT_OK if success, error code otherwise
-/////////////////////////////////
-int32_t pilot_turn(double angle_rad, int max_speed, bool relative);
+// Turn : angle (rad du robot), vitesse angulaire en rad/s (double)
+int32_t pilot_turn(double angle_rad, double max_speed_rad_s, bool relative);
 
-/////////////////////////////////
-/// @brief Go to a position
-/// @param positionX : X position
-/// @param positionY : Y position
-/// @param max_speed : Maximum speed
-/////////////////////////////////
-void pilot_goTo(double positionX, double positionY, int max_speed);
+// GoTo : coordonnées x,y en mm (int32), vitesse en mm/s (uint32)
+void    pilot_goTo(int32_t x_mm, int32_t y_mm, uint32_t max_speed_mm_s);
 
-/////////////////////////////////
-/// @brief Stop the pilot
-/////////////////////////////////
-void pilot_stop();
+// Stop : arrêt direct
+void    pilot_stop(void);
 
-/////////////////////////////////
-/// @brief Get the position
-/// @param p_pttPosition : Pointer to the position
-/// @return PILOT_OK if success, PILOT_ERROR_INVALID_ARGUMENT if error
-/////////////////////////////////
-int32_t pilot_getPosition(Position* p_pttPosition);
+// Position/Speeds
+int32_t   pilot_getPosition(Position *pos_out);
+int       pilot_getSpeed(void);
+int       pilot_getDistanceMeter(void);
+void      pilot_resetDistanceMeter(void);
 
-/////////////////////////////////
-/// @brief Get the speed
-/// @return The current speed
-/////////////////////////////////
-int pilot_getSpeed(void);
+// Notification de fin de move, appelé par positionControl
+// Doit poster un événement PILOT_EVT_END_MOVE dans la queue d’événements.
+void      pilot_notify_end_move(void);
 
-/////////////////////////////////
-/// @brief Get the distance meter
-/// @return The distance meter
-/////////////////////////////////
-int pilot_getDistanceMeter(void);
-
-/////////////////////////////////
-/// @brief Reset the distance meter
-/////////////////////////////////
-void pilot_resetDistanceMeter(void);
-
-/////////////////////////////////
-/// @brief Get error string representation
-/// @param error : Error code
-/// @return Error string
-/////////////////////////////////
 const char* pilot_getErrorString(int32_t error);
+
+/////////////////////////////////
+/// @brief Table de transitions (définie en pilot.c)
+/////////////////////////////////
+extern pilot_transition_t pilot_transitions[PILOT_STATE_COUNT][PILOT_EVT_COUNT];
 
 #endif // PILOT_H

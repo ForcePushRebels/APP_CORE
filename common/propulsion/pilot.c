@@ -1,21 +1,17 @@
 ////////////////////////////////////////////////////////////
-//  pilot.c
-//  implementation of the pilot module
-//
-// general discloser: copy or share the file is forbidden
-// Written : 23/05/2025
-// Modified: 30/05/2025 - Fixed security issues
+// Module: pilot
+// Description: Pilotage des moteurs (machine à états + POSIX mqueues)
+// Date    : 06/06/2025
 ////////////////////////////////////////////////////////////
 
 #include "pilot.h"
 #include "xLog.h"
-#include "xTask.h"
-#include "xTimer.h"
-#include "xOsMutex.h"
-#include <stdlib.h>
-#include <string.h>
-#include <math.h>
 #include "positionControl.h"
+#include "robotConfiguration.h"  // Pour WHEEL_DIAMETER_CM
+#include <stdio.h>
+#include <errno.h>
+#include <time.h>
+#include <unistd.h>    // pour sleep, etc.
 
 #ifndef intervention_manager__startMove
 #define intervention_manager__startMove() /* TODO: call real startMove */
@@ -25,743 +21,623 @@
 #define intervention_manager__endMove() /* TODO: call real endMove */
 #endif
 
-// --- Types internes ---
-typedef struct
-{
-    Move moves[16];
-    int head, tail, count;
-    xOsMutexCtx mutex;
-} MoveQueue;
-
-typedef struct
-{
-    PilotEvent events[16];
-    int head, tail, count;
-    xOsMutexCtx mutex;
-} EventQueue;
-
-// --- Variables globales ---
-static Pilot g_pilot;
+//------------------------------------------------------------------------------
+// Variables globales
+//------------------------------------------------------------------------------
+static Pilot      g_pilot;
 static PilotState g_state = PILOT_STATE_WAIT_MOVE;
 
-/////////////////////////////////
-/// @brief Internal prototypes
-/////////////////////////////////
-static void *pilot_task(void *p_pttArg);
-static int move_queue_init(moveQueue_t *p_pttMoveQueue);
-static bool move_queue_push(moveQueue_t *p_pttMoveQueue, Move *p_pttMove);
-static bool move_queue_pop(moveQueue_t *p_pttMoveQueue, Move *p_pttMove);
-static int move_queue_size(moveQueue_t *p_pttMoveQueue);
-static int event_queue_init(evtQueue_t *p_pttEvtQueue);
-static bool event_queue_push(evtQueue_t *p_pttEvtQueue, PilotEvent evt);
-static bool event_queue_pop(evtQueue_t *p_pttEvtQueue, PilotEvent *evt);
-static void pilot_post_event(PilotEvent evt);
+//------------------------------------------------------------------------------
+// Prototypes internes
+//------------------------------------------------------------------------------
+static int  move_queue_init(mqd_t *mq, const char *name);
+static void move_queue_destroy(mqd_t *mq, const char *name);
+static bool move_queue_push(mqd_t mq, const Move *mv);
+static bool move_queue_pop(mqd_t mq, Move *mv);
 
-/////////////////////////////////
-/// @brief Pilot actions
-/////////////////////////////////
+static int  event_queue_init(mqd_t *mq, const char *name);
+static void event_queue_destroy(mqd_t *mq, const char *name);
+static bool event_queue_push(mqd_t mq, const pilot_event_t *evt);
+static bool event_queue_pop(mqd_t mq, pilot_event_t *evt);
+
+static void pilot_post_event(const pilot_event_t *evt);
+
+// Fonction de tâche exportée
+void *pilot_move_task(void *arg);
+
+
+//------------------------------------------------------------------------------
+// Déclaration des callbacks (actions) de la machine à états
+//------------------------------------------------------------------------------
 void pilot_action_computeAdvance(void *arg);
 void pilot_action_computeContinuousAdvance(void *arg);
 void pilot_action_computeTurn(void *arg);
 void pilot_action_computeGoTo(void *arg);
 void pilot_action_startMoves(void *arg);
-void pilot_action_handleMove(void *arg);
-void pilot_action_computeStop(void *arg);
 void pilot_action_endMove(void *arg);
-void pilot_action_nextMove(void *arg);
 void pilot_action_check_next_move(void *arg);
-void pilot_action_updatePosition(void *arg);
+void pilot_action_nextMove(void *arg);
 void pilot_action_emergencyStop(void *arg);
 
-/////////////////////////////////
-/// @brief Pilot transitions
-/////////////////////////////////
+//------------------------------------------------------------------------------
+// Définition de la table de transitions
+//------------------------------------------------------------------------------
 pilot_transition_t pilot_transitions[PILOT_STATE_COUNT][PILOT_EVT_COUNT] = {
     [PILOT_STATE_WAIT_MOVE] = {
-        [PILOT_EVT_ADVANCE] = {.next_state = PILOT_STATE_COMPUTE_MOVE, .action = pilot_action_computeAdvance},
-        [PILOT_EVT_CONTINUOUS_ADVANCE] = {.next_state = PILOT_STATE_COMPUTE_MOVE, .action = pilot_action_computeContinuousAdvance},
-        [PILOT_EVT_TURN] = {.next_state = PILOT_STATE_COMPUTE_MOVE, .action = pilot_action_computeTurn},
-        [PILOT_EVT_GOTO] = {.next_state = PILOT_STATE_COMPUTE_MOVE, .action = pilot_action_computeGoTo},
+        [PILOT_EVT_ADVANCE]             = { .next_state = PILOT_STATE_COMPUTE_MOVE,        .action = pilot_action_computeAdvance },
+        [PILOT_EVT_CONTINUOUS_ADVANCE]  = { .next_state = PILOT_STATE_COMPUTE_MOVE,        .action = pilot_action_computeContinuousAdvance },
+        [PILOT_EVT_TURN]                = { .next_state = PILOT_STATE_COMPUTE_MOVE,        .action = pilot_action_computeTurn },
+        [PILOT_EVT_GOTO]                = { .next_state = PILOT_STATE_COMPUTE_MOVE,        .action = pilot_action_computeGoTo },
     },
     [PILOT_STATE_COMPUTE_MOVE] = {
-        [PILOT_EVT_START_MOVES] = {.next_state = PILOT_STATE_MOVING, .action = pilot_action_startMoves},
+        [PILOT_EVT_START_MOVES]         = { .next_state = PILOT_STATE_MOVING,             .action = pilot_action_startMoves },
     },
     [PILOT_STATE_MOVING] = {
-        [PILOT_EVT_END_MOVE] = {.next_state = PILOT_STATE_END_MOVE, .action = pilot_action_endMove},
-        [PILOT_EVT_STOP] = {.next_state = PILOT_STATE_WAIT_MOVE, .action = pilot_action_emergencyStop},
+        [PILOT_EVT_END_MOVE]            = { .next_state = PILOT_STATE_END_MOVE,            .action = pilot_action_endMove },
+        [PILOT_EVT_STOP]                = { .next_state = PILOT_STATE_WAIT_MOVE,           .action = pilot_action_emergencyStop },
     },
     [PILOT_STATE_END_MOVE] = {
-        [PILOT_EVT_CHECK_NEXT_MOVE] = {.next_state = PILOT_STATE_CHECK_NEXT_MOVE, .action = pilot_action_check_next_move},
+        [PILOT_EVT_CHECK_NEXT_MOVE]     = { .next_state = PILOT_STATE_CHECK_NEXT_MOVE,     .action = pilot_action_check_next_move },
     },
     [PILOT_STATE_CHECK_NEXT_MOVE] = {
-        [PILOT_EVT_NEXT_MOVE] = {.next_state = PILOT_STATE_MOVING, .action = pilot_action_nextMove},
-        [PILOT_EVT_END_ALL_MOVES] = {.next_state = PILOT_STATE_WAIT_MOVE, .action = pilot_action_endMove},
+        [PILOT_EVT_NEXT_MOVE]           = { .next_state = PILOT_STATE_MOVING,              .action = pilot_action_nextMove },
+        [PILOT_EVT_END_ALL_MOVES]       = { .next_state = PILOT_STATE_WAIT_MOVE,           .action = pilot_action_endMove },
     },
-    
+    // Si ajout d’un état POSITION_WATCHER, compléter ici
 };
 
-/////////////////////////////////
-/// move_queue_init
-/////////////////////////////////
-static int move_queue_init(moveQueue_t *p_pttMoveQueue)
+//------------------------------------------------------------------------------
+// move_queue_init : création de la POSIX queue pour Move (non-bloquante)
+//------------------------------------------------------------------------------
+static int move_queue_init(mqd_t *mq, const char *name)
 {
-    X_ASSERT(p_pttMoveQueue != NULL);
+    if (mq == NULL || name == NULL) {
+        return PILOT_ERROR_INVALID_ARGUMENT;
+    }
 
-    int l_iret = 0;
+    struct mq_attr attr;
+    memset(&attr, 0, sizeof(attr));
+    attr.mq_flags    = O_NONBLOCK;   // réception non-bloquante
+    attr.mq_maxmsg   = 10;           // ≤ /proc/sys/fs/mqueue/msg_max
+    attr.mq_msgsize  = sizeof(Move);
+    attr.mq_curmsgs  = 0;
 
-    XOS_MEMORY_SANITIZE(p_pttMoveQueue, sizeof(*p_pttMoveQueue));
-
-    l_iret = mutexCreate(&p_pttMoveQueue->mutex);
-    if (l_iret != MUTEX_OK)
-    {
-        X_LOG_TRACE("move_queue_init: mutexCreate failed");
-        return l_iret;
+    *mq = mq_open(name, O_CREAT | O_RDWR | O_NONBLOCK, 0666, &attr);
+    if (*mq == (mqd_t)-1) {
+        X_LOG_TRACE("move_queue_init: mq_open '%s' failed: %s", name, strerror(errno));
+        return PILOT_ERROR_INIT_FAILED;
     }
     return PILOT_OK;
 }
 
-/////////////////////////////////
-/// move_queue_push
-/////////////////////////////////
-static bool move_queue_push(moveQueue_t *p_pttMoveQueue, Move *p_pttMove)
+//------------------------------------------------------------------------------
+// move_queue_destroy : fermeture + suppression de la queue de moves
+//------------------------------------------------------------------------------
+static void move_queue_destroy(mqd_t *mq, const char *name)
 {
-    X_ASSERT(p_pttMoveQueue != NULL);
-    X_ASSERT(p_pttMove != NULL);
-
-    bool l_bReturn = false;
-    int l_iret = 0;
-    l_iret = mutexLock(&p_pttMoveQueue->mutex);
-    if (l_iret != MUTEX_OK)
-    {
-        X_LOG_TRACE("move_queue_push: mutexLock failed");
-        return l_bReturn;
-    }
-
-    if (p_pttMoveQueue->count < 16)
-    {
-        p_pttMoveQueue->moves[p_pttMoveQueue->tail] = *p_pttMove;
-        p_pttMoveQueue->tail = (p_pttMoveQueue->tail + 1) % 16;
-        p_pttMoveQueue->count++;
-        l_bReturn = true;
-    }
-    else
-    {
-        X_LOG_TRACE("move_queue_push: queue FULL!");
-    }
-
-    l_iret = mutexUnlock(&p_pttMoveQueue->mutex);
-    if (l_iret != MUTEX_OK)
-    {
-        X_LOG_TRACE("move_queue_push: mutexUnlock failed");
-        return l_bReturn;
-    }
-    return l_bReturn;
+    if (mq == NULL || *mq == (mqd_t)-1) return;
+    mq_close(*mq);
+    mq_unlink(name);
+    *mq = (mqd_t)-1;
 }
 
-/////////////////////////////////
-/// move_queue_pop
-/////////////////////////////////
-static bool move_queue_pop(moveQueue_t *p_pttMoveQueue, Move *p_pttMove)
+//------------------------------------------------------------------------------
+// move_queue_push : envoi non-bloquant d’un Move
+//------------------------------------------------------------------------------
+static bool move_queue_push(mqd_t mq, const Move *mv)
 {
-    X_ASSERT(p_pttMoveQueue != NULL);
-    X_ASSERT(p_pttMove != NULL);
-
-    bool l_bReturn = false;
-    int l_iret = 0;
-    l_iret = mutexLock(&p_pttMoveQueue->mutex);
-
-    if (l_iret != MUTEX_OK)
-    {
-        X_LOG_TRACE("move_queue_pop: mutexLock failed");
-        return l_bReturn;
+    if (mq == (mqd_t)-1 || mv == NULL) return false;
+    int res = mq_send(mq, (const char*)mv, sizeof(Move), 0);
+    if (res == -1 && errno == EAGAIN) {
+        // Queue pleine
+        return false;
     }
-
-    if (p_pttMoveQueue->count > 0)
-    {
-        *p_pttMove = p_pttMoveQueue->moves[p_pttMoveQueue->head];
-        p_pttMoveQueue->head = (p_pttMoveQueue->head + 1) % 16;
-        p_pttMoveQueue->count--;
-        l_bReturn = true;
-    }
-
-    l_iret = mutexUnlock(&p_pttMoveQueue->mutex);
-    if (l_iret != MUTEX_OK)
-    {
-        X_LOG_TRACE("move_queue_pop: mutexUnlock failed");
-        return l_bReturn;
-    }
-    return l_bReturn;
+    return (res == 0);
 }
 
-/////////////////////////////////
-/// move_queue_size
-/////////////////////////////////
-static int move_queue_size(moveQueue_t *p_pttMoveQueue)
+//------------------------------------------------------------------------------
+// move_queue_pop : réception non-bloquante d’un Move
+//------------------------------------------------------------------------------
+static bool move_queue_pop(mqd_t mq, Move *mv)
 {
-    X_ASSERT(p_pttMoveQueue != NULL);
-
-    int l_iret = 0;
-    int l_iReturn = 0;
-
-    l_iret = mutexLock(&p_pttMoveQueue->mutex);
-    if (l_iret != MUTEX_OK)
-    {
-        X_LOG_TRACE("move_queue_size: mutexLock failed");
-        return l_iReturn;
+    if (mq == (mqd_t)-1 || mv == NULL) return false;
+    ssize_t n = mq_receive(mq, (char*)mv, sizeof(Move), NULL);
+    if (n == -1 && errno == EAGAIN) {
+        // Queue vide
+        return false;
     }
-
-    l_iReturn = p_pttMoveQueue->count;
-
-    l_iret = mutexUnlock(&p_pttMoveQueue->mutex);
-    if (l_iret != MUTEX_OK)
-    {
-        X_LOG_TRACE("move_queue_size: mutexUnlock failed");
-    }
-    return l_iReturn;
+    return (n == sizeof(Move));
 }
 
-/////////////////////////////////
-/// event_queue_init
-/////////////////////////////////
-static int event_queue_init(evtQueue_t *p_pttEvtQueue)
+//------------------------------------------------------------------------------
+// event_queue_init : création de la POSIX queue pour pilot_event_t (bloquante)
+//------------------------------------------------------------------------------
+static int event_queue_init(mqd_t *mq, const char *name)
 {
-    X_ASSERT(p_pttEvtQueue != NULL);
+    if (mq == NULL || name == NULL) {
+        return PILOT_ERROR_INVALID_ARGUMENT;
+    }
 
-    int l_iret = 0;
+    struct mq_attr attr;
+    memset(&attr, 0, sizeof(attr));
+    attr.mq_flags    = 0;            // réception BLOQUANTE
+    attr.mq_maxmsg   = 10;           // ≤ /proc/sys/fs/mqueue/msg_max
+    attr.mq_msgsize  = sizeof(pilot_event_t);
+    attr.mq_curmsgs  = 0;
 
-    XOS_MEMORY_SANITIZE(p_pttEvtQueue, sizeof(*p_pttEvtQueue));
-
-    l_iret = mutexCreate(&p_pttEvtQueue->mutex);
-    if (l_iret != MUTEX_OK)
-    {
-        X_LOG_TRACE("event_queue_init: mutexCreate failed");
-        return l_iret;
+    *mq = mq_open(name, O_CREAT | O_RDWR, 0666, &attr);
+    if (*mq == (mqd_t)-1) {
+        X_LOG_TRACE("event_queue_init: mq_open '%s' failed: %s", name, strerror(errno));
+        return PILOT_ERROR_INIT_FAILED;
     }
     return PILOT_OK;
 }
 
-/////////////////////////////////
-/// event_queue_push
-/////////////////////////////////
-static bool event_queue_push(evtQueue_t *p_pttEvtQueue, PilotEvent evt)
+//------------------------------------------------------------------------------
+// event_queue_destroy : fermeture + suppression de la queue d’événements
+//------------------------------------------------------------------------------
+static void event_queue_destroy(mqd_t *mq, const char *name)
 {
-    X_ASSERT(p_pttEvtQueue != NULL);
-
-    bool l_bReturn = false;
-    int l_iret = 0;
-
-    l_iret = mutexLock(&p_pttEvtQueue->mutex);
-    if (l_iret != MUTEX_OK)
-    {
-        X_LOG_TRACE("event_queue_push: mutexLock failed");
-        return l_bReturn;
-    }
-
-    if (p_pttEvtQueue->count < 16)
-    {
-        p_pttEvtQueue->events[p_pttEvtQueue->tail] = evt;
-        p_pttEvtQueue->tail = (p_pttEvtQueue->tail + 1) % 16;
-        p_pttEvtQueue->count++;
-        l_bReturn = true;
-    }
-    else
-    {
-        X_LOG_TRACE("event_queue_push: queue FULL!");
-    }
-
-    l_iret = mutexUnlock(&p_pttEvtQueue->mutex);
-    if (l_iret != MUTEX_OK)
-    {
-        X_LOG_TRACE("event_queue_push: mutexUnlock failed");
-    }
-    return l_bReturn;
+    if (mq == NULL || *mq == (mqd_t)-1) return;
+    mq_close(*mq);
+    mq_unlink(name);
+    *mq = (mqd_t)-1;
 }
 
-/////////////////////////////////
-/// event_queue_pop
-/////////////////////////////////
-static bool event_queue_pop(evtQueue_t *p_pttEvtQueue, PilotEvent *p_pttEvt)
+//------------------------------------------------------------------------------
+// event_queue_push : envoi non-bloquant d’un pilot_event_t
+//------------------------------------------------------------------------------
+static bool event_queue_push(mqd_t mq, const pilot_event_t *evt)
 {
-    X_ASSERT(p_pttEvtQueue != NULL);
-    X_ASSERT(p_pttEvt != NULL);
-
-    bool l_bReturn = false;
-    int l_iret = 0;
-
-    l_iret = mutexLock(&p_pttEvtQueue->mutex);
-    if (l_iret != MUTEX_OK)
-    {
-        X_LOG_TRACE("event_queue_pop: mutexLock failed");
-        return l_bReturn;
+    if (mq == (mqd_t)-1 || evt == NULL) return false;
+    int res = mq_send(mq, (const char*)evt, sizeof(pilot_event_t), 0);
+    if (res == -1 && errno == EAGAIN) {
+        // Queue pleine
+        return false;
     }
-
-    if (p_pttEvtQueue->count > 0)
-    {
-        *p_pttEvt = p_pttEvtQueue->events[p_pttEvtQueue->head];
-        p_pttEvtQueue->head = (p_pttEvtQueue->head + 1) % 16;
-        p_pttEvtQueue->count--;
-        l_bReturn = true;
-    }
-
-    l_iret = mutexUnlock(&p_pttEvtQueue->mutex);
-    if (l_iret != MUTEX_OK)
-    {
-        X_LOG_TRACE("event_queue_pop: mutexUnlock failed");
-    }
-    return l_bReturn;
+    return (res == 0);
 }
 
-/////////////////////////////////
-/// pilot_post_event
-/////////////////////////////////
-static void pilot_post_event(PilotEvent evt)
+//------------------------------------------------------------------------------
+// event_queue_pop : réception BLOQUANTE d’un pilot_event_t
+//------------------------------------------------------------------------------
+static bool event_queue_pop(mqd_t mq, pilot_event_t *evt)
 {
-    event_queue_push(&g_pilot.evtQueue, evt);
+    if (mq == (mqd_t)-1 || evt == NULL) return false;
+    ssize_t n = mq_receive(mq, (char*)evt, sizeof(pilot_event_t), NULL);
+    if (n == -1) {
+        // Erreur en mode bloquant
+        return false;
+    }
+    return (n == sizeof(pilot_event_t));
 }
 
-/////////////////////////////////
-/// pilot_task
-/////////////////////////////////
-static void *pilot_task(void *p_pttArg)
+//------------------------------------------------------------------------------
+// pilot_post_event : wrapper pour poster un événement
+//------------------------------------------------------------------------------
+static void pilot_post_event(const pilot_event_t *evt)
 {
-    (void)p_pttArg;
+    event_queue_push(g_pilot.evtQueue, evt);
+}
+
+//------------------------------------------------------------------------------
+// pilot_move_task : Tâche principale du pilot (machine à états)
+//  - bloque sur la réception d’un event
+//------------------------------------------------------------------------------
+void *pilot_move_task(void *arg)
+{
+    (void)arg;
+    pilot_event_t evt;
 
     while (g_pilot.pilotTask.a_iStopFlag == OS_TASK_SECURE_FLAG)
     {
-        PilotEvent evt;
-        if (event_queue_pop(&g_pilot.evtQueue, &evt))
+        if (event_queue_pop(g_pilot.evtQueue, &evt))
         {
-            X_LOG_TRACE("pilot_task: event popped: %d in state %d", evt, g_state);
+            X_LOG_TRACE("pilot_move_task: reçu evt type=%d en state=%d", evt.type, g_state);
 
-            pilot_transition_t *t = &pilot_transitions[g_state][evt];
-            if (t->action)
-            {
-                X_LOG_TRACE("pilot_task: calling action for evt=%d, state=%d", evt, g_state);
-                t->action(NULL);
+            pilot_transition_t *t = &pilot_transitions[g_state][evt.type];
+            if (t->action) {
+                t->action(&evt);
             }
             g_state = t->next_state;
-            X_LOG_TRACE("pilot_task: after action, new state=%d", g_state);
-
-        }   
-        else
-        {
-            //X_LOG_TRACE("pilot_task: polling, state=%d, motion_finished=%d", g_state, position_control_is_motion_finished());
-
-            if ((g_state == PILOT_STATE_MOVING) &&
-                position_control_is_motion_finished())
-            {
-                X_LOG_TRACE("pilot_task: Detected motion finished, posting END_MOVE");
-
-                pilot_post_event(PILOT_EVT_END_MOVE);
-            }
-            xTimerDelay(10);
+            X_LOG_TRACE("pilot_move_task: nouvel état=%d", g_state);
         }
+        // Pour terminer un move, positionControl doit appeler pilot_notify_end_move()
     }
     return NULL;
 }
 
-/////////////////////////////////
-/// pilot_action_computeAdvance
-/////////////////////////////////
+//------------------------------------------------------------------------------
+// Actions (callbacks) de la machine à états
+//------------------------------------------------------------------------------
+
+// 1) ADVANCE → on poste START_MOVES (la conversion a déjà eu lieu dans pilot_advance)
 void pilot_action_computeAdvance(void *arg)
 {
-    (void)arg; // Unused parameter
-    pilot_post_event(PILOT_EVT_START_MOVES);
+    (void)arg;
+    pilot_event_t next = {0};
+    next.type = PILOT_EVT_START_MOVES;
+    pilot_post_event(&next);
 }
 
-/////////////////////////////////
-/// pilot_action_computeContinuousAdvance
-/////////////////////////////////
+// 2) CONTINUOUS_ADVANCE → on poste START_MOVES
 void pilot_action_computeContinuousAdvance(void *arg)
 {
-    (void)arg; // Unused parameter
-    pilot_post_event(PILOT_EVT_START_MOVES);
+    (void)arg;
+    pilot_event_t next = {0};
+    next.type = PILOT_EVT_START_MOVES;
+    pilot_post_event(&next);
 }
 
-/////////////////////////////////
-/// pilot_action_computeTurn
-/////////////////////////////////
+// 3) TURN → on poste START_MOVES
 void pilot_action_computeTurn(void *arg)
 {
-    (void)arg; // Unused parameter
-    pilot_post_event(PILOT_EVT_START_MOVES);
+    (void)arg;
+    pilot_event_t next = {0};
+    next.type = PILOT_EVT_START_MOVES;
+    pilot_post_event(&next);
 }
 
-/////////////////////////////////
-/// pilot_action_computeGoTo
-/////////////////////////////////
+// 4) GOTO → on poste START_MOVES (Move déjà créé dans pilot_goTo)
 void pilot_action_computeGoTo(void *arg)
 {
     (void)arg;
+    pilot_event_t next = {0};
+    next.type = PILOT_EVT_START_MOVES;
+    pilot_post_event(&next);
+}
 
-    double targetX = g_pilot.gotoTargetX;
-    double targetY = g_pilot.gotoTargetY;
-    int max_speed = g_pilot.gotoMaxSpeed;
+// 5) START_MOVES → on récupère un Move (en radians) et on appelle positionControl
+void pilot_action_startMoves(void *arg)
+{
+    (void)arg;
+    Move mv;
+    if (move_queue_pop(g_pilot.moveQueue, &mv))
+    {
+        intervention_manager__startMove();
 
-    // Position de départ en dur pour les tests
-    double startX = 0.0;
-    double startY = 0.0;
-    double startAngle = 0.0;
+        if (mv.direction == DIR_LEFT || mv.direction == DIR_RIGHT) {
+            // → Rotation du robot
+            //    (angle_rad en radian, max_speed_mm_s en rad/s)
+            position_control_turn(mv.angle_rad, mv.max_speed_mm_s);
+        }
+        else {
+            // → Avance (finie ou continue si distance_mm == UINT32_MAX)
+            //    (distance_mm en mm, max_speed_mm_s en mm/s)
+            position_control_advance(mv.distance_mm, mv.max_speed_mm_s);
+        }
+    }
+}
+
+
+
+// 6) END_MOVE → on notifie puis POST CHECK_NEXT_MOVE
+void pilot_action_endMove(void *arg)
+{
+    (void)arg;
+    intervention_manager__endMove();
+    pilot_event_t next = {0};
+    next.type = PILOT_EVT_CHECK_NEXT_MOVE;
+    pilot_post_event(&next);
+}
+
+// 7) CHECK_NEXT_MOVE → si queue non vide, POST NEXT_MOVE ; sinon POST END_ALL_MOVES
+void pilot_action_check_next_move(void *arg)
+{
+    (void)arg;
+    Move dummy;
+    if (move_queue_pop(g_pilot.moveQueue, &dummy))
+    {
+        pilot_event_t next = {0};
+        next.type = PILOT_EVT_NEXT_MOVE;
+        pilot_post_event(&next);
+    }
+    else
+    {
+        pilot_event_t next = {0};
+        next.type = PILOT_EVT_END_ALL_MOVES;
+        pilot_post_event(&next);
+    }
+}
+
+// 8) NEXT_MOVE → on relance startMoves
+void pilot_action_nextMove(void *arg)
+{
+    (void)arg;
+    pilot_action_startMoves(NULL);
+}
+
+// 9) STOP/Urgence → on stoppe immédiatement
+void pilot_action_emergencyStop(void *arg)
+{
+    (void)arg;
+    position_control_stop();
+}
+
+//------------------------------------------------------------------------------
+// pilot_init : initialisation globale
+//------------------------------------------------------------------------------
+int32_t pilot_init(void)
+{
+    XOS_MEMORY_SANITIZE(&g_pilot, sizeof(g_pilot));
+    g_state = PILOT_STATE_WAIT_MOVE;
+
+    int err = move_queue_init(&g_pilot.moveQueue, PILOT_MQ_MOVE_NAME);
+    if (err != PILOT_OK) {
+        return err;
+    }
+    err = event_queue_init(&g_pilot.evtQueue, PILOT_MQ_EVT_NAME);
+    if (err != PILOT_OK) {
+        move_queue_destroy(&g_pilot.moveQueue, PILOT_MQ_MOVE_NAME);
+        return err;
+    }
+
+    int l_iret = osTaskInit(&g_pilot.pilotTask);
+    if (l_iret != OS_TASK_SUCCESS) {
+        event_queue_destroy(&g_pilot.evtQueue, PILOT_MQ_EVT_NAME);
+        move_queue_destroy(&g_pilot.moveQueue, PILOT_MQ_MOVE_NAME);
+        return PILOT_ERROR_INIT_FAILED;
+    }
+    g_pilot.pilotTask.t_ptTask    = pilot_move_task;
+    g_pilot.pilotTask.t_ptTaskArg = NULL;
+    atomic_init(&g_pilot.pilotTask.a_iStopFlag, OS_TASK_SECURE_FLAG);
+
+    l_iret = osTaskCreate(&g_pilot.pilotTask);
+    if (l_iret != OS_TASK_SUCCESS) {
+        osTaskStop(&g_pilot.pilotTask, 0);
+        event_queue_destroy(&g_pilot.evtQueue, PILOT_MQ_EVT_NAME);
+        move_queue_destroy(&g_pilot.moveQueue, PILOT_MQ_MOVE_NAME);
+        return PILOT_ERROR_INIT_FAILED;
+    }
+
+    return PILOT_OK;
+}
+
+//------------------------------------------------------------------------------
+// pilot_shutdown : arrête la tâche et détruit les queues
+//------------------------------------------------------------------------------
+int32_t pilot_shutdown(void)
+{
+    atomic_store_explicit(&g_pilot.pilotTask.a_iStopFlag, OS_TASK_STOP_REQUEST, memory_order_relaxed);
+    osTaskStop(&g_pilot.pilotTask, 2);
+
+    event_queue_destroy(&g_pilot.evtQueue, PILOT_MQ_EVT_NAME);
+    move_queue_destroy(&g_pilot.moveQueue, PILOT_MQ_MOVE_NAME);
+
+    XOS_MEMORY_SANITIZE(&g_pilot, sizeof(g_pilot));
+    return PILOT_OK;
+}
+
+//------------------------------------------------------------------------------
+// pilot_advance : conversion mm → rad roue, queue + EVENT
+//------------------------------------------------------------------------------
+int32_t pilot_advance(int32_t distance_mm, uint32_t max_speed_mm_s)
+{
+    if (distance_mm <= 0 || max_speed_mm_s == 0U) {
+        return PILOT_ERROR_INVALID_ARGUMENT;
+    }
+
+    // NOTE : on ne convertit plus du tout en radians ici.
+    //      distance_mm est déjà en mm, max_speed_mm_s déjà en mm/s.
+
+    Move mv = {
+        .distance_mm      = (uint32_t)distance_mm, // avance finie sur X mm
+        .angle_rad        = 0.0,                   // ignoré pour l'avance
+        .max_speed_mm_s   = (double)max_speed_mm_s,
+        .direction        = DIR_FORWARD,           // flag "avance"
+        .relative         = true
+    };
+
+    if (!move_queue_push(g_pilot.moveQueue, &mv)) {
+        return PILOT_ERROR_QUEUE_FULL;
+    }
+
+    // On poste l'événement ADVANCE (machine à états) :
+    pilot_event_t evt = {0};
+    evt.type = PILOT_EVT_ADVANCE;
+    evt.advance.distance_mm = (uint32_t)distance_mm;
+    evt.advance.speed_mm_s  = max_speed_mm_s;
+    pilot_post_event(&evt);
+
+    return PILOT_OK;
+}
+
+
+//------------------------------------------------------------------------------
+// pilot_continuousAdvance : conversion mm/s → rad/s, queue + EVENT
+//------------------------------------------------------------------------------
+void pilot_continuousAdvance(uint32_t max_speed_mm_s)
+{
+    if (max_speed_mm_s == 0U) return;
+
+    // On ne convertit plus : max_speed_mm_s reste en mm/s.
+    Move mv = {
+        .distance_mm      = UINT32_MAX, // sentinelle "avance continue"
+        .angle_rad        = 0.0,        // ignoré
+        .max_speed_mm_s   = (double)max_speed_mm_s,
+        .direction        = DIR_FORWARD,
+        .relative         = true
+    };
+
+    move_queue_push(g_pilot.moveQueue, &mv);
+
+    // On poste l’événement CONTINUOUS_ADVANCE :
+    pilot_event_t evt = {0};
+    evt.type = PILOT_EVT_CONTINUOUS_ADVANCE;
+    evt.continuous.speed_mm_s = max_speed_mm_s;
+    pilot_post_event(&evt);
+}
+
+
+//------------------------------------------------------------------------------
+// pilot_turn : mise en queue en radians, EVENT
+//------------------------------------------------------------------------------
+int32_t pilot_turn(double angle_rad, double max_speed_rad_s, bool relative)
+{
+    if (fabs(angle_rad) < 1e-9 || max_speed_rad_s <= 0.0) {
+        return PILOT_ERROR_INVALID_ARGUMENT;
+    }
+
+    // On choisit DIR_LEFT ou DIR_RIGHT selon le signe de angle_rad
+    Direction dir = (angle_rad > 0.0) ? DIR_LEFT : DIR_RIGHT;
+
+    // distance_mm reste à 0 pour signaler une rotation
+    Move mv = {
+        .distance_mm      = 0U,           // 0 => rotation
+        .angle_rad        = angle_rad,    // angle du robot en radian
+        .max_speed_mm_s   = max_speed_rad_s, // ici max_speed_mm_s contient la vitesse angulaire (rad/s)
+        .direction        = dir,
+        .relative         = relative
+    };
+
+    if (!move_queue_push(g_pilot.moveQueue, &mv)) {
+        return PILOT_ERROR_QUEUE_FULL;
+    }
+
+    // On poste l’événement TURN
+    pilot_event_t evt = {0};
+    evt.type = PILOT_EVT_TURN;
+    evt.turn.angle_rad   = angle_rad;
+    evt.turn.speed_rad_s = max_speed_rad_s;
+    evt.turn.relative    = relative;
+    pilot_post_event(&evt);
+
+    return PILOT_OK;
+}
+
+
+//------------------------------------------------------------------------------
+// pilot_goTo : calcule rotation + translation en mm, convertit → rad, queue + EVENT
+//------------------------------------------------------------------------------
+void pilot_goTo(int32_t x_mm, int32_t y_mm, uint32_t max_speed_mm_s)
+{
+    g_pilot.gotoTargetX  = x_mm;
+    g_pilot.gotoTargetY  = y_mm;
+    g_pilot.gotoMaxSpeed = max_speed_mm_s;
+
+    double startX     = (double)g_pilot.position.positionX;
+    double startY     = (double)g_pilot.position.positionY;
+    double startAngle = (double)g_pilot.position.angle;
+    double targetX    = (double)x_mm;
+    double targetY    = (double)y_mm;
+    double max_speed  = (double)max_speed_mm_s;
 
     double dx = targetX - startX;
     double dy = targetY - startY;
     double distance = sqrt(dx * dx + dy * dy);
     double angle_to_target = atan2(dy, dx);
     double delta_angle = angle_to_target - startAngle;
+    while (delta_angle > M_PI)  delta_angle -= 2 * M_PI;
+    while (delta_angle < -M_PI) delta_angle += 2 * M_PI;
 
-    // Normalise l'angle entre -PI et PI
-    while (delta_angle > M_PI)
-        delta_angle -= 2 * M_PI;
-    while (delta_angle < -M_PI)
-        delta_angle += 2 * M_PI;
-
-    X_LOG_TRACE("pilot_action_computeGoTo: from (%.2f, %.2f, %.2f) to (%.2f, %.2f), turn %.2f rad, advance %.2f mm",
-                startX, startY, startAngle, targetX, targetY, delta_angle, distance);
-
-    // Ajoute la rotation puis l'avance dans la file de mouvements
-    if (fabs(delta_angle) > 1e-3)
-    {
-        Move turn = {
-            .distance_mm = 0.0,
-            .angle_rad = delta_angle,
-            .max_speed = max_speed,
-            .direction = (delta_angle > 0) ? DIR_LEFT : DIR_RIGHT,
-            .relative = true};
-        move_queue_push(&g_pilot.moveQueue, &turn);
-    }
-    if (distance > 1e-3)
-    {
-        Move advance = {
-            .distance_mm = distance,
-            .angle_rad = 0.0,
-            .max_speed = max_speed,
-            .direction = DIR_FORWARD,
-            .relative = true};
-        move_queue_push(&g_pilot.moveQueue, &advance);
+    // 1) Rotation éventuelle
+    if (fabs(delta_angle) > 1e-6) {
+        Direction dir = (delta_angle > 0.0) ? DIR_LEFT : DIR_RIGHT;
+        Move mv_turn = {
+            .distance_mm      = 0U,             // 0 = rotation
+            .angle_rad        = delta_angle,    // angle de robot
+            .max_speed_mm_s   = max_speed,      // vitesse angulaire en rad/s
+            .direction        = dir,
+            .relative         = true
+        };
+        move_queue_push(g_pilot.moveQueue, &mv_turn);
     }
 
-    pilot_post_event(PILOT_EVT_START_MOVES);
+    // 2) Translation en mm (pas de conversion → on laisse tout en mm)
+    if (distance > 0.5) {
+        Move mv_adv = {
+            .distance_mm      = (uint32_t)distance,   // distance linéaire en mm
+            .angle_rad        = 0.0,                  // ignoré pour forward
+            .max_speed_mm_s   = (double)max_speed_mm_s,
+            .direction        = DIR_FORWARD,
+            .relative         = true
+        };
+        move_queue_push(g_pilot.moveQueue, &mv_adv);
+    }
+
+    // Post de l’événement GOTO
+    pilot_event_t evt = {0};
+    evt.type = PILOT_EVT_GOTO;
+    evt.go_to.x_mm       = x_mm;
+    evt.go_to.y_mm       = y_mm;
+    evt.go_to.speed_mm_s = max_speed_mm_s;
+    pilot_post_event(&evt);
+
+    // On démarre la machine à états
+    pilot_event_t next = {0};
+    next.type = PILOT_EVT_START_MOVES;
+    pilot_post_event(&next);
 }
 
-/////////////////////////////////
-/// pilot_action_startMoves
-/////////////////////////////////
-void pilot_action_startMoves(void *arg)
+//------------------------------------------------------------------------------
+// pilot_stop : simple STOP
+//------------------------------------------------------------------------------
+void pilot_stop(void)
 {
-    (void)arg; // Unused parameter
-    int sz = move_queue_size(&g_pilot.moveQueue);
-    if (sz > 0)
-    {
-        Move move;
-        move_queue_pop(&g_pilot.moveQueue, &move);
-
-        // Notifier le début du mouvement
-        intervention_manager__startMove();
-
-        if (move.angle_rad != 0.0)
-        {
-            position_control_turn(move.angle_rad, (float)move.max_speed);
-        }
-        else
-        {
-            position_control_advance(move.distance_mm, move.max_speed);
-        }
-    }
+    pilot_event_t evt = {0};
+    evt.type = PILOT_EVT_STOP;
+    pilot_post_event(&evt);
 }
 
-/////////////////////////////////
-/// pilot_action_emergencyStop
-/////////////////////////////////
-void pilot_action_emergencyStop(void *arg)
+//------------------------------------------------------------------------------
+// pilot_notify_end_move : appelé par positionControl quand un move est terminé
+//  poste PILOT_EVT_END_MOVE
+//------------------------------------------------------------------------------
+void pilot_notify_end_move(void)
 {
-    (void)arg; // Unused parameter
-    position_control_stop();
+    pilot_event_t evt = {0};
+    evt.type = PILOT_EVT_END_MOVE;
+    pilot_post_event(&evt);
 }
 
-/////////////////////////////////
-/// pilot_action_endMove
-/////////////////////////////////
-void pilot_action_endMove(void *arg)
+//------------------------------------------------------------------------------
+// pilot_getPosition : retourne la position courante
+//------------------------------------------------------------------------------
+int32_t pilot_getPosition(Position *pos_out)
 {
-    (void)arg; // Unused parameter
-    if (position_control_is_motion_finished())
-    {
-        // Notifier la fin du mouvement pour Uriel
-        intervention_manager__endMove();
-
-        // X_LOG_TRACE("pilot_action_endMove: motion finished, posting CHECK_NEXT_MOVE");
-        pilot_post_event(PILOT_EVT_CHECK_NEXT_MOVE);
-    }
-}
-
-/////////////////////////////////
-/// pilot_action_nextMove
-/////////////////////////////////
-void pilot_action_nextMove(void *arg)
-{
-    (void)arg; // Unused parameter
-    pilot_action_startMoves(NULL);
-}
-
-/////////////////////////////////
-/// pilot_action_check_next_move
-/////////////////////////////////
-void pilot_action_check_next_move(void *arg)
-{
-    (void)arg; // Unused parameter
-    if (move_queue_size(&g_pilot.moveQueue) > 0)
-    {
-        pilot_post_event(PILOT_EVT_NEXT_MOVE);
-    }
-    else
-    {
-        pilot_post_event(PILOT_EVT_END_ALL_MOVES);
-    }
-}
-
-/////////////////////////////////
-/// pilot_action_updatePosition
-/////////////////////////////////
-void pilot_action_updatePosition(void *arg)
-{
-    (void)arg; // Unused parameter
-    Position_t pos;
-    if (position_control_get_position(&pos) == 0)
-    {
-        g_pilot.position.positionX = pos.x_mm;
-        g_pilot.position.positionY = pos.y_mm;
-        g_pilot.position.angle = pos.angle_rad;
-    }
-}
-
-/////////////////////////////////
-/// pilot_action_computeStop
-/////////////////////////////////
-void pilot_action_computeStop(void *arg)
-{
-    (void)arg; // Unused parameter
-    position_control_stop();
-}
-
-/////////////////////////////////
-/// pilot_init
-/////////////////////////////////
-int32_t pilot_init()
-{
-    XOS_MEMORY_SANITIZE(&g_pilot, sizeof(g_pilot));
-    XOS_MEMORY_SANITIZE(&g_pilot.moveQueue, sizeof(g_pilot.moveQueue));
-    XOS_MEMORY_SANITIZE(&g_pilot.evtQueue, sizeof(g_pilot.evtQueue));
-
-    int l_iret = 0;
-
-    l_iret = move_queue_init(&g_pilot.moveQueue);
-    if (l_iret != PILOT_OK)
-    {
-        X_LOG_TRACE("pilot_init: move_queue_init failed");
-        return l_iret;
-    }
-    l_iret = event_queue_init(&g_pilot.evtQueue);
-    if (l_iret != PILOT_OK)
-    {
-        X_LOG_TRACE("pilot_init: event_queue_init failed");
-        return l_iret;
-    }
-
-    l_iret = osTaskInit(&g_pilot.pilotTask);
-    if (l_iret != OS_TASK_SUCCESS)
-    {
-        X_LOG_TRACE("pilot_init: osTaskInit failed");
-        return l_iret;
-    }
-
-    // Configure task function
-    g_pilot.pilotTask.t_ptTask = pilot_task;
-    g_pilot.pilotTask.t_ptTaskArg = NULL;
-    atomic_init(&g_pilot.pilotTask.a_iStopFlag, OS_TASK_SECURE_FLAG);
-
-    l_iret = osTaskCreate(&g_pilot.pilotTask);
-    if (l_iret != OS_TASK_SUCCESS)
-    {
-        X_LOG_TRACE("pilot_init: osTaskCreate failed");
-        return l_iret;
-    }
-
-    return PILOT_OK;
-}
-
-/////////////////////////////////
-/// pilot_shutdown
-/////////////////////////////////
-int32_t pilot_shutdown(void)
-{
-    int32_t l_iret = PILOT_OK;
-    atomic_store_explicit(&g_pilot.pilotTask.a_iStopFlag, OS_TASK_STOP_REQUEST, memory_order_relaxed);
-
-    l_iret = osTaskStop(&g_pilot.pilotTask, 2);
-    if (l_iret != OS_TASK_SUCCESS)
-    {
-        X_LOG_TRACE("pilot_shutdown: osTaskStop failed");
-    }
-
-    mutexDestroy(&g_pilot.moveQueue.mutex);
-    mutexDestroy(&g_pilot.evtQueue.mutex);
-    XOS_MEMORY_SANITIZE(&g_pilot, sizeof(g_pilot));
-
-    return l_iret;
-}
-
-/////////////////////////////////
-/// pilot_advance
-/////////////////////////////////
-int32_t pilot_advance(double distance_mm, float max_speed)
-{
-    // Validate input parameters
-    if (max_speed <= 0.0f || distance_mm <= 0.0)
-    {
-        X_LOG_TRACE("pilot_advance: Invalid parameters (distance=%.2f, speed=%.2f)", distance_mm, max_speed);
+    if (pos_out == NULL) {
         return PILOT_ERROR_INVALID_ARGUMENT;
     }
-
-    Move move = {
-        .distance_mm = distance_mm,
-        .angle_rad = 0.0,
-        .max_speed = max_speed,
-        .direction = DIR_FORWARD,
-        .relative = true};
-
-    if (!move_queue_push(&g_pilot.moveQueue, &move))
-    {
-        X_LOG_TRACE("pilot_advance: Failed to push move to queue (queue full)");
-        return PILOT_ERROR_QUEUE_FULL;
-    }
-
-    pilot_post_event(PILOT_EVT_ADVANCE);
+    *pos_out = g_pilot.position;
     return PILOT_OK;
 }
 
-/////////////////////////////////
-/// pilot_continuousAdvance
-/////////////////////////////////
-void pilot_continuousAdvance(int max_speed)
-{
-    Move move = {
-        .distance_mm = 1000000,
-        .angle_rad = 0.0,
-        .max_speed = max_speed,
-        .direction = DIR_FORWARD,
-        .relative = true};
-    move_queue_push(&g_pilot.moveQueue, &move);
-    pilot_post_event(PILOT_EVT_CONTINUOUS_ADVANCE);
-}
-
-/////////////////////////////////
-/// pilot_turn
-/////////////////////////////////
-int32_t pilot_turn(double angle_rad, int max_speed, bool relative)
-{
-    // Validate input parameters
-    if (max_speed <= 0 || angle_rad == 0.0)
-    {
-        X_LOG_TRACE("pilot_turn: Invalid parameters (angle=%.2f, speed=%d)", angle_rad, max_speed);
-        return PILOT_ERROR_INVALID_ARGUMENT;
-    }
-
-    Move move = {
-        .distance_mm = 0.0,
-        .angle_rad = angle_rad,
-        .max_speed = max_speed,
-        .direction = (angle_rad > 0) ? DIR_LEFT : DIR_RIGHT,
-        .relative = relative};
-
-    if (!move_queue_push(&g_pilot.moveQueue, &move))
-    {
-        X_LOG_TRACE("pilot_turn: Failed to push move to queue (queue full)");
-        return PILOT_ERROR_QUEUE_FULL;
-    }
-
-    pilot_post_event(PILOT_EVT_TURN);
-    return PILOT_OK;
-}
-
-/////////////////////////////////
-/// pilot_goTo
-/////////////////////////////////
-void pilot_goTo(double positionX, double positionY, int max_speed)
-{
-    // Stocke la cible dans g_pilot (ajoute ces champs dans la struct Pilot si besoin)
-    g_pilot.gotoTargetX = positionX;
-    g_pilot.gotoTargetY = positionY;
-    g_pilot.gotoMaxSpeed = max_speed;
-
-    pilot_post_event(PILOT_EVT_GOTO);
-}
-
-/////////////////////////////////
-/// pilot_stop
-/////////////////////////////////
-void pilot_stop()
-{
-    pilot_post_event(PILOT_EVT_STOP);
-}
-
-/////////////////////////////////
-/// pilot_getPosition
-/////////////////////////////////
-int32_t pilot_getPosition(Position *p_pttPosition)
-{
-    X_ASSERT(p_pttPosition != NULL);
-    p_pttPosition->positionX = g_pilot.position.positionX;
-    p_pttPosition->positionY = g_pilot.position.positionY;
-    p_pttPosition->angle = g_pilot.position.angle;
-    return PILOT_OK;
-}
-
-/////////////////////////////////
-/// pilot_getSpeed
-/////////////////////////////////
+//------------------------------------------------------------------------------
+// pilot_getSpeed : renvoie targetSpeed
+//------------------------------------------------------------------------------
 int pilot_getSpeed(void)
 {
     return g_pilot.targetSpeed;
 }
 
-/////////////////////////////////
-/// pilot_getDistanceMeter
-/////////////////////////////////
+//------------------------------------------------------------------------------
+// pilot_getDistanceMeter
+//------------------------------------------------------------------------------
 int pilot_getDistanceMeter(void)
 {
     return (int)g_pilot.distanceMeter;
 }
 
-/////////////////////////////////
-/// pilot_resetDistanceMeter
-/////////////////////////////////
+//------------------------------------------------------------------------------
+// pilot_resetDistanceMeter
+//------------------------------------------------------------------------------
 void pilot_resetDistanceMeter(void)
 {
-    g_pilot.distanceMeter = 0.0;
+    g_pilot.distanceMeter = 0.0f;
 }
 
-
-
-/////////////////////////////////
-/// pilot_getErrorString
-/////////////////////////////////
+//------------------------------------------------------------------------------
+// pilot_getErrorString
+//------------------------------------------------------------------------------
 const char *pilot_getErrorString(int32_t error)
 {
-    switch (error)
-    {
-    case PILOT_OK:
-        return "Success";
-    case PILOT_ERROR_INVALID_ARGUMENT:
-        return "Invalid argument";
-    case PILOT_ERROR_QUEUE_FULL:
-        return "Queue is full";
-    case PILOT_ERROR_QUEUE_EMPTY:
-        return "Queue is empty";
-    case PILOT_ERROR_INIT_FAILED:
-        return "Initialization failed";
-    case PILOT_ERROR_NOT_INITIALIZED:
-        return "Module not initialized";
-    default:
-        return "Unknown error";
+    switch (error) {
+        case PILOT_OK:                   return "PILOT_OK";
+        case PILOT_ERROR_INVALID_ARGUMENT: return "PILOT_ERROR_INVALID_ARGUMENT";
+        case PILOT_ERROR_QUEUE_FULL:       return "PILOT_ERROR_QUEUE_FULL";
+        case PILOT_ERROR_QUEUE_EMPTY:      return "PILOT_ERROR_QUEUE_EMPTY";
+        case PILOT_ERROR_INIT_FAILED:      return "PILOT_ERROR_INIT_FAILED";
+        case PILOT_ERROR_NOT_INITIALIZED:  return "PILOT_ERROR_NOT_INITIALIZED";
+        default:                           return "UNKNOWN_PILOT_ERROR";
     }
 }

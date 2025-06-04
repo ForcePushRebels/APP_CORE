@@ -11,6 +11,7 @@
 #include "map_engine.h"
 #include "positionControl.h"
 #include <string.h>
+#include "explorationManager.h"
 
 ////////////////////////////////////////////////////////////
 /// Private variables
@@ -67,7 +68,8 @@ static int32_t sendPosition(tPosition pNewPosition)
 
     int ret = networkServerSendMessage(1, ID_INF_POS, &l_tPosition, sizeof(l_tPosition));
 
-    X_LOG_TRACE("Position sent: %d, %d, %f", pNewPosition.t_iXPosition, pNewPosition.t_iYPosition, pNewPosition.t_fOrientation);
+    X_LOG_TRACE(
+        "Position sent: %d, %d, %f", pNewPosition.t_iXPosition, pNewPosition.t_iYPosition, pNewPosition.t_fOrientation);
     return ret;
 }
 
@@ -99,18 +101,20 @@ static int32_t sendStatus(void)
 ////////////////////////////////////////////////////////////
 static int32_t sendDuration(void)
 {
-    /*
-    tDuration l_tDuration;
+    #ifdef EXPLO_BUILD
+    uint64_t l_StartTime = getStartTimeExploration();
+    #else 
+    uint64_t l_StartTime = 0;
+    #endif
 
-    // Calculate duration since start
-    l_tDuration.t_ulElapsedTime = s_tSupervisorCtx.t_ulTime;
-    l_tDuration.t_ulTotalTime = getTotalOperationTime();
+    uint64_t l_ulDuration = xTimerGetCurrentMs() - l_StartTime;
 
-    return networkServerSendMessage(1, ID_INF_TIME, &l_tDuration, sizeof(tDuration));
-    */
-    X_ASSERT(false); //not implemented
+    if (l_ulDuration > UINT32_MAX)
+    {
+        l_ulDuration = UINT32_MAX;
+    }
 
-    return SUPERVISOR_OK;
+    return networkServerSendMessage(1, ID_INF_TIME, (uint32_t *)&l_ulDuration, sizeof(uint32_t));
 }
 
 ////////////////////////////////////////////////////////////
@@ -240,7 +244,6 @@ static void checkInfo(void *arg)
 
     // Get current position - using Position_t type to match function signature
     l_iResult = position_control_get_position(&l_tCurrentPosition);
-    X_LOG_TRACE("position_control_get_position done");
     if (l_iResult == POSITION_OK)
     {
         // Convert Position_t to tPosition for comparison and storage
@@ -255,10 +258,6 @@ static void checkInfo(void *arg)
             s_tSupervisorCtx.t_tPosition = l_tConvertedPosition;
             sendPosition(l_tConvertedPosition);
             //sendFragmentMap(l_tConvertedPosition);
-        }
-        else
-        {
-            X_LOG_TRACE("Position not changed");
         }
     }
 
@@ -279,6 +278,8 @@ static void checkInfo(void *arg)
 
     // Store current report as last report
     s_tSupervisorCtx.t_tLastReport = s_tSupervisorCtx.t_tCurrentReport;
+
+    sendDuration();
 
     // Unlock mutex
     mutexUnlock(&s_tSupervisorCtx.t_tMutex);

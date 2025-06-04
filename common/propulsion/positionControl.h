@@ -49,11 +49,7 @@ typedef struct {
 #define DECELERATION_COEF   0.5     // Deceleration coefficient (0-1)
 #define MIN_SPEED_RAD_S     0.5     // Minimum speed to start movement
 #define CORRECTION_SPEED    0.1     // Speed for final position correction
-#define REGULATION_PERIOD_MS 5 // Regulation period in milliseconds
-#define ACCELERATION_COEF 0.5  // Acceleration coefficient (0-1)
-#define DECELERATION_COEF 0.5  // Deceleration coefficient (0-1)
-#define MIN_SPEED_RAD_S 0.5    // Minimum speed to start movement
-#define CORRECTION_SPEED 0.1   // Speed for final position correction
+
 
 // Public functions
 

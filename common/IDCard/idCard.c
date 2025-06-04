@@ -7,15 +7,16 @@
 ////////////////////////////////////////////////////////////
 
 #include "idCard.h"
-#include "xNetwork.h"
 #include "networkEncode.h"
+#include "supervisor.h"
 #include "xLog.h"
+#include "xNetwork.h"
 #include "xTask.h"
-#include <ifaddrs.h>
 #include <arpa/inet.h>
-#include <string.h>
-#include <stdio.h>
+#include <ifaddrs.h>
 #include <stdbool.h>
+#include <stdio.h>
+#include <string.h>
 
 
 static char s_pcIpAddr[16] = {0};
@@ -28,7 +29,6 @@ static char s_pcRobotName[] = "Dora l'exploratrice";
 #endif
 static bool s_bUseLoopback = false; // boolean to enable/disable the use of loopback
 static xOsTaskCtx s_xTaskHandle = {0};
-
 
 ///////////////////////////////////////////
 /// findIpAddress
@@ -107,7 +107,6 @@ static void findIpAddress(void)
     }
 
     freeifaddrs(ifaddr);
-
 }
 
 ///////////////////////////////////////////
@@ -156,6 +155,8 @@ static void isAnyRobotHereHandle(clientCtx *p_ptClient, const network_message_t 
     else
     {
         X_LOG_TRACE("Successfully sent manifest response (%d bytes)", sizeof(manifest_t));
+        supervisor_send_full_map(networkServerGetClientID(p_ptClient));
+        supervisor_start();
     }
 }
 
@@ -167,7 +168,7 @@ void *handleIsAnyRobotHere(void *p_pvArg)
     (void)p_pvArg; // unused argument avoid warning
 
     int l_iReturn = 0;
-    uint8_t l_ucBuffer[64];  // Changed to uint8_t and increased size for binary data
+    uint8_t l_ucBuffer[64]; // Changed to uint8_t and increased size for binary data
     manifest_t l_sManifest = {0};
     uint8_t l_ucSendBuffer[3 + sizeof(manifest_t)];
 
@@ -216,23 +217,20 @@ void *handleIsAnyRobotHere(void *p_pvArg)
 
         if (l_iReturn > 0) // check if data has been received
         {
-            X_LOG_TRACE("Received UDP data: %d bytes from %s:%d", 
-                       l_iReturn, l_tSenderAddr.t_cAddress, l_tSenderAddr.t_usPort);
-            
+            X_LOG_TRACE(
+                "Received UDP data: %d bytes from %s:%d", l_iReturn, l_tSenderAddr.t_cAddress, l_tSenderAddr.t_usPort);
+
             if (l_iReturn == 1 && l_ucBuffer[0] == ID_IS_ANY_ROBOT_HERE)
             {
                 X_LOG_TRACE("Received valid robot discovery request (0x%02X)", l_ucBuffer[0]);
 
                 size_t totalSize = sizeof(uint16_t) + sizeof(uint8_t) + sizeof(manifest_t);
 
-                l_iReturn = networkSendTo(l_ptSocket, l_ucSendBuffer,
-                                          totalSize,
-                                          &l_tSenderAddr);
+                l_iReturn = networkSendTo(l_ptSocket, l_ucSendBuffer, totalSize, &l_tSenderAddr);
 
                 if (l_iReturn < 0)
                 {
-                    X_LOG_TRACE("Failed to send manifest: %s",
-                                networkGetErrorString(l_iReturn));
+                    X_LOG_TRACE("Failed to send manifest: %s", networkGetErrorString(l_iReturn));
                 }
                 else
                 {
@@ -241,8 +239,7 @@ void *handleIsAnyRobotHere(void *p_pvArg)
             }
             else
             {
-                X_LOG_TRACE("Received unrecognized UDP message: %d bytes, first byte=0x%02X", 
-                           l_iReturn, l_ucBuffer[0]);
+                X_LOG_TRACE("Received unrecognized UDP message: %d bytes, first byte=0x%02X", l_iReturn, l_ucBuffer[0]);
             }
         }
         else if (l_iReturn == NETWORK_TIMEOUT)

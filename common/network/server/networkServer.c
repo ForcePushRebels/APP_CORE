@@ -35,6 +35,7 @@ struct client_ctx_t
     xOsMutexCtx t_tMutex;      // client mutex
     void *t_ptUserData;        // user data
     serverCtx *t_ptServer;     // reference to the server
+    bool t_bCleanupInProgress; // prevent double cleanup
 };
 
 //-----------------------------------------------------------------------------
@@ -456,16 +457,35 @@ static int removeClient(clientCtx *p_ptClient)
 ///////////////////////////////////////////
 bool networkServerGetClientAddress(ClientID p_tClientId, char *p_ptcBuffer, int p_iSize)
 {
-    clientCtx *l_ptClient = findClientById(p_tClientId);
-    if (l_ptClient == NULL || p_ptcBuffer == NULL || p_iSize <= 0)
+    if (s_ptServerInstance == NULL || p_tClientId == INVALID_CLIENT_ID || p_ptcBuffer == NULL || p_iSize <= 0)
     {
         return false;
     }
 
-    // copy the address to the buffer
+    mutexLock(&s_ptServerInstance->t_tMutex);
+
+    clientCtx *l_ptClient = NULL;
+    for (int i = 0; i < MAX_CLIENTS; i++)
+    {
+        clientCtx *l_ptTempClient = s_ptServerInstance->t_ptClients[i];
+        if (l_ptTempClient != NULL && l_ptTempClient->t_tId == p_tClientId && !l_ptTempClient->t_bCleanupInProgress)
+        {
+            l_ptClient = l_ptTempClient;
+            break;
+        }
+    }
+
+    if (l_ptClient == NULL)
+    {
+        mutexUnlock(&s_ptServerInstance->t_tMutex);
+        return false;
+    }
+
+    // copy the address to the buffer while holding server mutex
     strncpy(p_ptcBuffer, l_ptClient->t_tAddress.t_cAddress, p_iSize - 1);
     p_ptcBuffer[p_iSize - 1] = '\0';
 
+    mutexUnlock(&s_ptServerInstance->t_tMutex);
     return true;
 }
 
@@ -474,13 +494,34 @@ bool networkServerGetClientAddress(ClientID p_tClientId, char *p_ptcBuffer, int 
 ///////////////////////////////////////////
 uint16_t networkServerGetClientPort(ClientID p_tClientId)
 {
-    clientCtx *l_ptClient = findClientById(p_tClientId);
-    if (l_ptClient == NULL)
+    if (s_ptServerInstance == NULL || p_tClientId == INVALID_CLIENT_ID)
     {
         return 0;
     }
 
-    return l_ptClient->t_tAddress.t_usPort;
+    mutexLock(&s_ptServerInstance->t_tMutex);
+
+    clientCtx *l_ptClient = NULL;
+    for (int i = 0; i < MAX_CLIENTS; i++)
+    {
+        clientCtx *l_ptTempClient = s_ptServerInstance->t_ptClients[i];
+        if (l_ptTempClient != NULL && l_ptTempClient->t_tId == p_tClientId && !l_ptTempClient->t_bCleanupInProgress)
+        {
+            l_ptClient = l_ptTempClient;
+            break;
+        }
+    }
+
+    if (l_ptClient == NULL)
+    {
+        mutexUnlock(&s_ptServerInstance->t_tMutex);
+        return 0;
+    }
+
+    uint16_t l_usPort = l_ptClient->t_tAddress.t_usPort;
+    mutexUnlock(&s_ptServerInstance->t_tMutex);
+
+    return l_usPort;
 }
 
 ///////////////////////////////////////////
@@ -488,7 +529,27 @@ uint16_t networkServerGetClientPort(ClientID p_tClientId)
 ///////////////////////////////////////////
 int networkServerDisconnectClient(ClientID p_tClientId)
 {
-    clientCtx *l_ptClient = findClientById(p_tClientId);
+    if (s_ptServerInstance == NULL || p_tClientId == INVALID_CLIENT_ID)
+    {
+        return SERVER_CLIENT_NOT_FOUND;
+    }
+
+    mutexLock(&s_ptServerInstance->t_tMutex);
+
+    clientCtx *l_ptClient = NULL;
+    for (int i = 0; i < MAX_CLIENTS; i++)
+    {
+        clientCtx *l_ptTempClient = s_ptServerInstance->t_ptClients[i];
+        if (l_ptTempClient != NULL && l_ptTempClient->t_tId == p_tClientId && !l_ptTempClient->t_bCleanupInProgress)
+        {
+            l_ptClient = l_ptTempClient;
+            l_ptClient->t_bCleanupInProgress = true; // Mark for cleanup
+            break;
+        }
+    }
+
+    mutexUnlock(&s_ptServerInstance->t_tMutex);
+
     if (l_ptClient == NULL)
     {
         return SERVER_CLIENT_NOT_FOUND;
@@ -505,22 +566,42 @@ int networkServerDisconnectClient(ClientID p_tClientId)
 ///////////////////////////////////////////
 int networkServerSetClientUserData(ClientID p_tClientId, void *p_pvUserData)
 {
-    clientCtx *l_ptClient = findClientById(p_tClientId);
-    if (l_ptClient == NULL)
+    if (s_ptServerInstance == NULL || p_tClientId == INVALID_CLIENT_ID)
     {
         return SERVER_CLIENT_NOT_FOUND;
     }
 
-    // Lock client mutex to protect user data access
+    mutexLock(&s_ptServerInstance->t_tMutex);
+
+    clientCtx *l_ptClient = NULL;
+    for (int i = 0; i < MAX_CLIENTS; i++)
+    {
+        clientCtx *l_ptTempClient = s_ptServerInstance->t_ptClients[i];
+        if (l_ptTempClient != NULL && l_ptTempClient->t_tId == p_tClientId && !l_ptTempClient->t_bCleanupInProgress)
+        {
+            l_ptClient = l_ptTempClient;
+            break;
+        }
+    }
+
+    if (l_ptClient == NULL)
+    {
+        mutexUnlock(&s_ptServerInstance->t_tMutex);
+        return SERVER_CLIENT_NOT_FOUND;
+    }
+
+    // Lock client mutex to protect user data access while keeping server mutex
     int l_iResult = mutexLock(&l_ptClient->t_tMutex);
     if (l_iResult != MUTEX_OK)
     {
+        mutexUnlock(&s_ptServerInstance->t_tMutex);
         return SERVER_ERROR;
     }
 
     l_ptClient->t_ptUserData = p_pvUserData;
 
     mutexUnlock(&l_ptClient->t_tMutex);
+    mutexUnlock(&s_ptServerInstance->t_tMutex);
     return SERVER_OK;
 }
 
@@ -529,22 +610,42 @@ int networkServerSetClientUserData(ClientID p_tClientId, void *p_pvUserData)
 ///////////////////////////////////////////
 void *networkServerGetClientUserData(ClientID p_tClientId)
 {
-    clientCtx *l_ptClient = findClientById(p_tClientId);
-    if (l_ptClient == NULL)
+    if (s_ptServerInstance == NULL || p_tClientId == INVALID_CLIENT_ID)
     {
         return NULL;
     }
 
-    // Lock client mutex to protect user data access
+    mutexLock(&s_ptServerInstance->t_tMutex);
+
+    clientCtx *l_ptClient = NULL;
+    for (int i = 0; i < MAX_CLIENTS; i++)
+    {
+        clientCtx *l_ptTempClient = s_ptServerInstance->t_ptClients[i];
+        if (l_ptTempClient != NULL && l_ptTempClient->t_tId == p_tClientId && !l_ptTempClient->t_bCleanupInProgress)
+        {
+            l_ptClient = l_ptTempClient;
+            break;
+        }
+    }
+
+    if (l_ptClient == NULL)
+    {
+        mutexUnlock(&s_ptServerInstance->t_tMutex);
+        return NULL;
+    }
+
+    // Lock client mutex to protect user data access while keeping server mutex
     int l_iResult = mutexLock(&l_ptClient->t_tMutex);
     if (l_iResult != MUTEX_OK)
     {
+        mutexUnlock(&s_ptServerInstance->t_tMutex);
         return NULL;
     }
 
     void *l_pvUserData = l_ptClient->t_ptUserData;
 
     mutexUnlock(&l_ptClient->t_tMutex);
+    mutexUnlock(&s_ptServerInstance->t_tMutex);
     return l_pvUserData;
 }
 
@@ -553,18 +654,40 @@ void *networkServerGetClientUserData(ClientID p_tClientId)
 ///////////////////////////////////////////
 int networkServerSendToClient(ClientID p_tClientId, const void *p_pvData, int p_iSize)
 {
-    clientCtx *l_ptClient = findClientById(p_tClientId);
-    if (l_ptClient == NULL || p_pvData == NULL || p_iSize <= 0)
+    if (s_ptServerInstance == NULL || p_tClientId == INVALID_CLIENT_ID || p_pvData == NULL || p_iSize <= 0)
     {
         return SERVER_INVALID_PARAM;
     }
 
+    mutexLock(&s_ptServerInstance->t_tMutex);
+
+    clientCtx *l_ptClient = NULL;
+    for (int i = 0; i < MAX_CLIENTS; i++)
+    {
+        clientCtx *l_ptTempClient = s_ptServerInstance->t_ptClients[i];
+        if (l_ptTempClient != NULL && l_ptTempClient->t_tId == p_tClientId && !l_ptTempClient->t_bCleanupInProgress)
+        {
+            l_ptClient = l_ptTempClient;
+            break;
+        }
+    }
+
+    if (l_ptClient == NULL)
+    {
+        mutexUnlock(&s_ptServerInstance->t_tMutex);
+        return SERVER_CLIENT_NOT_FOUND;
+    }
+
     if (!isClientConnected(l_ptClient))
     {
+        mutexUnlock(&s_ptServerInstance->t_tMutex);
         return SERVER_CLIENT_DISCONNECTED;
     }
 
-    return networkSend(l_ptClient->t_ptSocket, p_pvData, p_iSize);
+    int l_iResult = networkSend(l_ptClient->t_ptSocket, p_pvData, p_iSize);
+    mutexUnlock(&s_ptServerInstance->t_tMutex);
+
+    return l_iResult;
 }
 
 ///////////////////////////////////////////
@@ -572,9 +695,27 @@ int networkServerSendToClient(ClientID p_tClientId, const void *p_pvData, int p_
 ///////////////////////////////////////////
 int networkServerSendMessage(ClientID p_tClientId, uint8_t p_ucMsgType, const void *p_pvPayload, uint32_t p_ulPayloadSize)
 {
-    clientCtx *l_ptClient = findClientById(p_tClientId);
+    if (s_ptServerInstance == NULL || p_tClientId == INVALID_CLIENT_ID)
+    {
+        return SERVER_CLIENT_NOT_FOUND;
+    }
+
+    mutexLock(&s_ptServerInstance->t_tMutex);
+
+    clientCtx *l_ptClient = NULL;
+    for (int i = 0; i < MAX_CLIENTS; i++)
+    {
+        clientCtx *l_ptTempClient = s_ptServerInstance->t_ptClients[i];
+        if (l_ptTempClient != NULL && l_ptTempClient->t_tId == p_tClientId && !l_ptTempClient->t_bCleanupInProgress)
+        {
+            l_ptClient = l_ptTempClient;
+            break;
+        }
+    }
+
     if (l_ptClient == NULL)
     {
+        mutexUnlock(&s_ptServerInstance->t_tMutex);
         return SERVER_CLIENT_NOT_FOUND;
     }
 
@@ -582,12 +723,14 @@ int networkServerSendMessage(ClientID p_tClientId, uint8_t p_ucMsgType, const vo
     int l_iReturn = mutexLock(&l_ptClient->t_tMutex);
     if (l_iReturn != MUTEX_OK)
     {
+        mutexUnlock(&s_ptServerInstance->t_tMutex);
         return SERVER_ERROR;
     }
 
     if (!isClientConnected(l_ptClient))
     {
         mutexUnlock(&l_ptClient->t_tMutex);
+        mutexUnlock(&s_ptServerInstance->t_tMutex);
         return SERVER_CLIENT_DISCONNECTED;
     }
 
@@ -596,6 +739,7 @@ int networkServerSendMessage(ClientID p_tClientId, uint8_t p_ucMsgType, const vo
     {
         X_LOG_TRACE("Payload size too large for uint16_t: %u bytes", p_ulPayloadSize);
         mutexUnlock(&l_ptClient->t_tMutex);
+        mutexUnlock(&s_ptServerInstance->t_tMutex);
         return SERVER_INVALID_PARAM;
     }
 
@@ -606,6 +750,7 @@ int networkServerSendMessage(ClientID p_tClientId, uint8_t p_ucMsgType, const vo
     {
         X_LOG_TRACE("Failed to allocate complete message buffer");
         mutexUnlock(&l_ptClient->t_tMutex);
+        mutexUnlock(&s_ptServerInstance->t_tMutex);
         return SERVER_MEMORY_ERROR;
     }
 
@@ -627,6 +772,7 @@ int networkServerSendMessage(ClientID p_tClientId, uint8_t p_ucMsgType, const vo
     int l_iSentBytes = networkSend(l_ptClient->t_ptSocket, l_pucCompleteBuffer, l_ulTotalSize);
 
     mutexUnlock(&l_ptClient->t_tMutex);
+    mutexUnlock(&s_ptServerInstance->t_tMutex);
     free(l_pucCompleteBuffer);
 
     if (l_iSentBytes < 0)
@@ -800,9 +946,9 @@ int networkServerConnect(void)
 ///////////////////////////////////////////
 /// serverThreadFunc
 ///////////////////////////////////////////
-static void *serverThreadFunc(void *p_pvArg)
+static void *serverThreadFunc(void *p_ptArg)
 {
-    serverCtx *p_ptServer = (serverCtx *)p_pvArg;
+    serverCtx *p_ptServer = (serverCtx *)p_ptArg;
     if (p_ptServer == NULL)
     {
         X_LOG_TRACE("Invalid server context in server thread");
@@ -883,6 +1029,7 @@ static void *serverThreadFunc(void *p_pvArg)
         l_ptClient->t_tAddress = l_tClientAddress;
         l_ptClient->t_bConnected = true;
         l_ptClient->t_ptServer = p_ptServer;
+        l_ptClient->t_bCleanupInProgress = false;
 
         // Initialize client mutex
         if (mutexCreate(&l_ptClient->t_tMutex) != MUTEX_OK)
@@ -1079,6 +1226,13 @@ static void cleanupAndFreeClient(clientCtx *p_ptClient)
         return;
     }
 
+    // Check if cleanup already in progress to prevent double cleanup
+    if (p_ptClient->t_bCleanupInProgress)
+    {
+        X_LOG_TRACE("Client %u cleanup already in progress", p_ptClient->t_tId);
+        return;
+    }
+
     X_LOG_TRACE("Cleaning up client %u", p_ptClient->t_tId);
 
     // Mark client as disconnected
@@ -1132,6 +1286,11 @@ static void clientThreadCleanup(clientCtx *p_ptClient)
                 p_ptClient->t_tId,
                 p_ptClient->t_tAddress.t_cAddress,
                 p_ptClient->t_tAddress.t_usPort);
+
+    // Mark for cleanup to prevent external cleanup during self-cleanup
+    mutexLock(&s_ptServerInstance->t_tMutex);
+    p_ptClient->t_bCleanupInProgress = true;
+    mutexUnlock(&s_ptServerInstance->t_tMutex);
 
     // Mark as disconnected
     p_ptClient->t_bConnected = false;
@@ -1214,9 +1373,13 @@ int networkServerSendMessageToAllClients(uint8_t p_ucMsgType, const void *p_pvPa
     for (int i = 0; i < MAX_CLIENTS; i++)
     {
         clientCtx *l_ptClient = s_ptServerInstance->t_ptClients[i];
-        if (l_ptClient != NULL && l_ptClient->t_bConnected)
+        if (l_ptClient != NULL && l_ptClient->t_bConnected && !l_ptClient->t_bCleanupInProgress)
         {
-            int l_iResult = networkServerSendMessage(l_ptClient->t_tId, p_ucMsgType, p_pvPayload, p_ulPayloadSize);
+            // Store client ID and release server mutex temporarily to avoid holding it during send
+            ClientID l_tClientId = l_ptClient->t_tId;
+            mutexUnlock(&s_ptServerInstance->t_tMutex);
+
+            int l_iResult = networkServerSendMessage(l_tClientId, p_ucMsgType, p_pvPayload, p_ulPayloadSize);
             if (l_iResult == SERVER_OK)
             {
                 l_iSuccessCount++;
@@ -1224,9 +1387,11 @@ int networkServerSendMessageToAllClients(uint8_t p_ucMsgType, const void *p_pvPa
             else
             {
                 l_iFailureCount++;
-                X_LOG_TRACE(
-                    "Failed to send message to client %u: %s", l_ptClient->t_tId, networkServerGetErrorString(l_iResult));
+                X_LOG_TRACE("Failed to send message to client %u: %s", l_tClientId, networkServerGetErrorString(l_iResult));
             }
+
+            // Re-acquire server mutex for next iteration
+            mutexLock(&s_ptServerInstance->t_tMutex);
         }
     }
 

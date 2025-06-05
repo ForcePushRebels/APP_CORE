@@ -425,7 +425,9 @@ static void *supervisor_task(void *arg)
     }
     sleep(3);
     X_LOG_TRACE("Supervisor task started");
+#ifdef EXPLO_BUILD
     explorationManager_setState(PRET);
+#endif
 
     tSupervisorCtx *l_ptCtx = (tSupervisorCtx *)arg;
 

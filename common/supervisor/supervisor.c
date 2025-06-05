@@ -406,6 +406,7 @@ static void checkInfo(void *arg)
         last_status_update = xTimerGetCurrentMs();
         sendStatus();
         sendDuration();
+        sendBatteryLevel();
     }
 
     // Unlock mutex

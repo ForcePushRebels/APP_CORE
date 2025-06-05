@@ -99,7 +99,6 @@ NetworkSocket *networkCreateSocket(int p_iType)
     l_pSocket->t_iType = p_iType;
     l_pSocket->t_bConnected = false;
 
-    X_LOG_TRACE("networkCreateSocket: Socket created successfully (mutex-free for performance)");
     return l_pSocket;
 }
 

@@ -14,17 +14,10 @@
 #include <stdlib.h>
 
 ///////////////////////////////////////////
-/// messageHandlerEntry_t
+/// Each index corresponds to a message type (0-47)
 ///////////////////////////////////////////
-typedef struct message_handler_entry_t
-{
-    uint8_t t_ucMessageType;       // Message type
-    message_handler_t t_ptHandler; // Message handler function
-} messageHandlerEntry_t;
-
-static messageHandlerEntry_t *s_ptHandlers = NULL; // list of handlers
-static size_t s_ulHandlersCount = 0;               // number of handlers registered
-static size_t s_ulHandlersCapacity = 0;            // current capacity of the handlers array
+static message_handler_t s_atHandlers[MAX_MESSAGE_HANDLERS];
+static bool s_abInitialized = false;                         // Initialization flag
 
 ///////////////////////////////////////////
 /// handleUnknownMessage
@@ -40,11 +33,13 @@ static void handleUnknownMessage(clientCtx *p_ptClient, const network_message_t 
 ///////////////////////////////////////////
 void initMessageHandlerSystem(void)
 {
-    s_ulHandlersCapacity = 10; // Initial size
-    s_ptHandlers = (messageHandlerEntry_t *)malloc(s_ulHandlersCapacity * sizeof(messageHandlerEntry_t));
-    s_ulHandlersCount = 0;
+    for (int i = 0; i < MAX_MESSAGE_HANDLERS; i++)
+    {
+        s_atHandlers[i] = handleUnknownMessage;
+    }
+    s_abInitialized = true;
 
-    X_LOG_TRACE("Message handler system initialized with capacity %zu", s_ulHandlersCapacity);
+    X_LOG_TRACE("Message handler system initialized with %d slots", MAX_MESSAGE_HANDLERS);
 }
 
 ///////////////////////////////////////////
@@ -52,13 +47,14 @@ void initMessageHandlerSystem(void)
 ///////////////////////////////////////////
 void cleanupMessageHandlerSystem(void)
 {
-    if (s_ptHandlers != NULL)
+    if (s_abInitialized)
     {
-        free(s_ptHandlers);
-        s_ptHandlers = NULL;
+        for (int i = 0; i < MAX_MESSAGE_HANDLERS; i++)
+        {
+            s_atHandlers[i] = handleUnknownMessage;
+        }
+        s_abInitialized = false;
     }
-    s_ulHandlersCount = 0;
-    s_ulHandlersCapacity = 0;
 
     X_LOG_TRACE("Message handler system cleaned up");
 }
@@ -68,34 +64,9 @@ void cleanupMessageHandlerSystem(void)
 ///////////////////////////////////////////
 void registerMessageHandler(uint8_t p_ucMessageType, message_handler_t p_ptHandler)
 {
-    X_ASSERT(s_ptHandlers != NULL); // check if the system is initialized
+    X_ASSERT(s_abInitialized); // check if the system is initialized
 
-    // check if a handler already exists for this type
-    for (size_t i = 0; i < s_ulHandlersCount; i++)
-    {
-        if (s_ptHandlers[i].t_ucMessageType == p_ucMessageType)
-        {
-            s_ptHandlers[i].t_ptHandler = p_ptHandler;
-            X_LOG_TRACE("Updated handler for message type 0x%02X", p_ucMessageType);
-            return;
-        }
-    }
-
-    // increase the capacity if necessary
-    if (s_ulHandlersCount >= s_ulHandlersCapacity)
-    {
-        s_ulHandlersCapacity *= 2;
-        s_ptHandlers = (messageHandlerEntry_t *)realloc(s_ptHandlers,
-                                                        s_ulHandlersCapacity * sizeof(messageHandlerEntry_t));
-        X_ASSERT(s_ptHandlers != NULL);
-
-        X_LOG_TRACE("Expanded handler system capacity to %zu", s_ulHandlersCapacity);
-    }
-
-    // add the new handler
-    s_ptHandlers[s_ulHandlersCount].t_ucMessageType = p_ucMessageType;
-    s_ptHandlers[s_ulHandlersCount].t_ptHandler = p_ptHandler;
-    s_ulHandlersCount++;
+    s_atHandlers[p_ucMessageType] = p_ptHandler;
 
     X_LOG_TRACE("Registered handler for message type 0x%02X", p_ucMessageType);
 }
@@ -105,34 +76,17 @@ void registerMessageHandler(uint8_t p_ucMessageType, message_handler_t p_ptHandl
 ///////////////////////////////////////////
 void unregisterMessageHandler(uint8_t p_ucMessageType)
 {
-    for (size_t i = 0; i < s_ulHandlersCount; i++)
-    {
-        if (s_ptHandlers[i].t_ucMessageType == p_ucMessageType)
-        {
-            // Move the last element to the place of the deleted element
-            s_ptHandlers[i] = s_ptHandlers[s_ulHandlersCount - 1];
-            s_ulHandlersCount--;
-            X_LOG_TRACE("Unregistered handler for message type 0x%02X", p_ucMessageType);
-            return;
-        }
-    }
+    s_atHandlers[p_ucMessageType] = handleUnknownMessage;
 
-    X_LOG_TRACE("No handler found for message type 0x%02X", p_ucMessageType);
+    X_LOG_TRACE("Unregistered handler for message type 0x%02X", p_ucMessageType);
 }
 
 ///////////////////////////////////////////
 /// findMessageHandler
 ///////////////////////////////////////////
-static message_handler_t findMessageHandler(uint8_t p_ucMessageType)
+static inline message_handler_t findMessageHandler(uint8_t p_ucMessageType)
 {
-    for (size_t i = 0; i < s_ulHandlersCount; i++)
-    {
-        if (s_ptHandlers[i].t_ucMessageType == p_ucMessageType)
-        {
-            return s_ptHandlers[i].t_ptHandler;
-        }
-    }
-    return handleUnknownMessage;
+    return s_atHandlers[p_ucMessageType];
 }
 
 ///////////////////////////////////////////

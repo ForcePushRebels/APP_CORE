@@ -33,6 +33,12 @@ void registerMessageHandler(uint8_t p_ucMessageType, message_handler_t p_ptHandl
 void unregisterMessageHandler(uint8_t p_ucMessageType);
 
 ///////////////////////////////////////////
+/// @brief Get maximum number of supported message types
+/// @return Maximum message type value + 1
+///////////////////////////////////////////
+#define MAX_MESSAGE_HANDLERS 48  
+
+///////////////////////////////////////////
 /// @brief Main function to handle network messages
 ///
 /// @param client Client context

@@ -339,6 +339,10 @@ static void* wheel_position_control_task(void* arg)
 
                 if(g_left_wheel.motion_finished && g_right_wheel.motion_finished)
                 {
+
+                    // Les deux roues ont fini leur mouvement : prévenir le pilot
+                    pilot_notify_end_move();
+
                     g_state = WAIT;
                 }
                 break; 
@@ -350,6 +354,9 @@ static void* wheel_position_control_task(void* arg)
 
                 if(g_left_wheel.motion_finished && g_right_wheel.motion_finished)
                 {
+
+                    // Fin du mouvement demandé par STOP : prévenir le pilot aussi
+                    pilot_notify_end_move();
                     g_state = WAIT;
                 }
                 else if (!g_left_wheel.motion_finished)

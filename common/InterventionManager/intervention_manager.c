@@ -295,7 +295,7 @@ void intervention_manager__stopInter()
 
     /* ===== Logique principale ===== */
     int decelerationFactor = 1;
-    pilot_stop(decelerationFactor); // 📌
+    // pilot_stop(decelerationFactor); // 📌
 
     intervention_manager__updateStatus(FIN_DE_MISSION);
 

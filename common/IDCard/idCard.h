@@ -19,12 +19,19 @@
 #include <ifaddrs.h>
 #include <arpa/inet.h>
 
-#pragma pack(push, 1)
+///////////////////////////////////////////
+/// @brief Robot type
+///////////////////////////////////////////
 typedef enum
 {
     IDCARD_ROLE_EXPLO,
     IDCARD_ROLE_INTER
 } RobotType_t;
+
+///////////////////////////////////////////
+/// @brief Manifest structure
+///////////////////////////////////////////
+#pragma pack(push)
 typedef struct idCard_t
 {
     char t_pcRobotName[32];
@@ -33,10 +40,6 @@ typedef struct idCard_t
 } manifest_t;
 #pragma pack(pop)
 
-///////////////////////////////////////////
-/// @brief init the IdCard
-///////////////////////////////////////////
-int idCardInit(RobotType_t type);
 
 ///////////////////////////////////////////
 /// @brief Create manifest for the robot
@@ -44,7 +47,7 @@ int idCardInit(RobotType_t type);
 /// @param p_ptManifest Pointer to the manifest structure
 /// @return 0 if successful, otherwise an error code
 ///////////////////////////////////////////
-int createManifest(manifest_t *p_ptManifest);
+int createManifest(manifest_t* p_ptManifest);
 
 ///////////////////////////////////////////
 /// @brief Initialise network message handlers for the IDCard
@@ -60,11 +63,6 @@ void idCardNetworkInit(void);
 /// Unregisters handlers for messages related to the IDCard
 ///////////////////////////////////////////
 void idCardNetworkCleanup(void);
-
-///////////////////////////////////////////
-/// @brief Handle the ID_IS_ANY_ROBOT_HERE message
-///////////////////////////////////////////
-void *handleIsAnyRobotHere(void *p_pvArg);
 
 ///////////////////////////////////////////
 /// @brief Get the role of the robot

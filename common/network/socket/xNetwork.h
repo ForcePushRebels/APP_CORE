@@ -11,23 +11,24 @@
 #ifndef NETWORK_CORE_H_
 #define NETWORK_CORE_H_
 
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
-#include <unistd.h>
 #include <errno.h>
-#include <sys/types.h>
 #include <netdb.h>
-#include <sys/select.h>
-#include <sys/time.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdbool.h>
+#include <sys/select.h>
+#include <sys/socket.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "xAssert.h"
-#include "xOsMutex.h"
 #include "xLog.h"
+#include "xOsMutex.h"
 
 // Configuration constants
 #define NETWORK_MAX_SOCKETS 16        // Maximum number of simultaneous sockets
@@ -186,7 +187,10 @@ bool networkIsConnected(NetworkSocket *p_ptSocket);
 /// @param p_pAddress Destination address
 /// @return int Bytes sent or error code
 //////////////////////////////////
-int networkSendTo(NetworkSocket *p_ptSocket, const void *p_pBuffer, unsigned long p_ulSize, const NetworkAddress *p_pAddress);
+int networkSendTo(NetworkSocket *p_ptSocket,
+                  const void *p_pBuffer,
+                  unsigned long p_ulSize,
+                  const NetworkAddress *p_pAddress);
 
 //////////////////////////////////
 /// @brief Receive UDP datagram and get sender address

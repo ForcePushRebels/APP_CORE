@@ -9,25 +9,26 @@
 #ifndef SAFETY_CONTROLLER_H_
 #define SAFETY_CONTROLLER_H_
 
-#include <stdint.h>
-#include <stdbool.h>
 #include <stdatomic.h>
+#include <stdbool.h>
+#include <stdint.h>
 
-#include "xLog.h"
 #include "handleNetworkMessage.h"
-#include "xAssert.h"
-#include "sensorManager.h"
 #include "pilot.h"
+#include "sensorManager.h"
+#include "xAssert.h"
+#include "xLog.h"
 
 ///////////////////////////////////////////
 /// @brief Movement type
 ///////////////////////////////////////////
-typedef enum movementType 
+typedef enum movementType
 {
     STOP_MOVEMENT,
     FORWARD_MOVEMENT,
-    RIGHT_MOVEMENT,
     LEFT_MOVEMENT,
+    RIGHT_MOVEMENT,
+    MOVE_COUNT,
 } movement_type_t;
 
 ///////////////////////////////////////////
@@ -47,7 +48,15 @@ void safetyControllerInit(void);
 ///////////////////////////////////////////
 void stopSafetyController(void);
 
+///////////////////////////////////////////
+/// @brief Set autorized movement
+/// @return void
+///////////////////////////////////////////
+void setAutorizedMovement(void);
 
-
+///////////////////////////////////////////
+/// @brief Disable manual movement authorization
+///////////////////////////////////////////
+void disableManualMovement(void);
 
 #endif // SAFETY_CONTROLLER_H_

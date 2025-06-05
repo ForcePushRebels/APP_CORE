@@ -5,33 +5,32 @@
 // general discloser: copy or share the file is forbidden
 // Written : 12/01/2025
 // Modified: 12/05/2025 - Improved thread safety and timing precision
-// Modified: 12/06/2025 - Fixed code execution security issues
+// Modified: 04/06/2025 - Fixed code execution security issues
 ////////////////////////////////////////////////////////////
 #pragma once
 
 #ifndef XOS_TIMER_H_
 #define XOS_TIMER_H_
 
+#include "xOsMutex.h"
 #include <stdint.h>
 #include <time.h>
-#include "xOsMutex.h"
 
 // Timer error codes
-#define XOS_TIMER_OK            0x9A84B10
-#define XOS_TIMER_ERROR         0x9A84B11
-#define XOS_TIMER_INVALID       0x9A84B12
-#define XOS_TIMER_TIMEOUT       0x9A84B13
-#define XOS_TIMER_NOT_INIT      0x9A84B14
-
+#define XOS_TIMER_OK 0x9A84B10
+#define XOS_TIMER_ERROR 0x9A84B11
+#define XOS_TIMER_INVALID 0x9A84B12
+#define XOS_TIMER_TIMEOUT 0x9A84B13
+#define XOS_TIMER_NOT_INIT 0x9A84B14
 
 // Timer modes
 #define XOS_TIMER_MODE_ONESHOT 0
 #define XOS_TIMER_MODE_PERIODIC 1
 
 // Security limits
-#define XOS_TIMER_MAX_PERIOD_MS UINT32_MAX  // Maximum period in milliseconds (uint32_t max value)
-#define XOS_TIMER_MIN_PERIOD_MS 1           // Minimum period in milliseconds
-#define XOS_TIMER_MAX_CALLBACKS 1000        // Maximum callbacks per call to prevent DoS
+#define XOS_TIMER_MAX_PERIOD_MS UINT32_MAX // Maximum period in milliseconds (uint32_t max value)
+#define XOS_TIMER_MIN_PERIOD_MS 1          // Minimum period in milliseconds
+#define XOS_TIMER_MAX_CALLBACKS 1000       // Maximum callbacks per call to prevent DoS
 
 /**
  * Timer context structure
@@ -39,12 +38,13 @@
  */
 typedef struct xos_timer_t
 {
-    uint32_t t_ulPeriod;      // Timer period in milliseconds
-    uint8_t t_ucMode;         // Timer mode (one-shot or periodic)
-    uint8_t t_ucActive;       // Timer active flag
-    struct timespec t_tStart; // Start time
-    struct timespec t_tNext;  // Next trigger time
-    xOsMutexCtx t_tMutex;     // Mutex for thread-safety
+    uint32_t t_ulPeriod;             // Timer period in milliseconds
+    uint8_t t_ucMode;                // Timer mode (one-shot or periodic)
+    uint8_t t_ucActive;              // Timer active flag
+    struct timespec t_tStart;        // Start time
+    struct timespec t_tNext;         // Next trigger time (for periodic mode)
+    xOsMutexCtx t_tMutex;            // Mutex for thread-safety
+    atomic_bool t_bPeriodicLockFlag; // Flag for periodic lock
 } xOsTimerCtx;
 
 //////////////////////////////////
@@ -69,6 +69,13 @@ int xTimerStart(xOsTimerCtx *p_ptTimer);
 /// @return success or error code
 //////////////////////////////////
 int xTimerStop(xOsTimerCtx *p_ptTimer);
+
+//////////////////////////////////
+/// @brief Destroy a timer
+/// @param p_ptTimer : timer structure pointer
+/// @return success or error code
+//////////////////////////////////
+int xTimerDestroy(xOsTimerCtx *p_ptTimer);
 
 //////////////////////////////////
 /// @brief Check if timer has expired
@@ -98,5 +105,14 @@ int xTimerDelay(uint32_t p_ulDelay);
 /// @return Number of periods elapsed, or negative error code
 //////////////////////////////////
 int xTimerProcessElapsedPeriods(xOsTimerCtx *p_ptTimer, void (*p_pfCallback)(void *), void *p_pvData);
+
+//////////////////////////////////
+/// @brief Process periodic callback
+/// @param p_ptTimer : timer structure pointer
+/// @param p_pfCallback : function to call for each elapsed period
+/// @param p_pvData : user data to pass to callback
+/// @return Number of periods elapsed, or negative error code
+//////////////////////////////////
+int xTimerProcessPeriodicCallback(xOsTimerCtx *p_ptTimer, void (*p_pfCallback)(void *), void *p_pvData);
 
 #endif // XOS_TIMER_H_

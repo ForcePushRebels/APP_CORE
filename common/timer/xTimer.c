@@ -8,7 +8,6 @@
 // Modified: 30/05/2025 - Fixed code execution security issues
 ////////////////////////////////////////////////////////////
 
-
 #include "xTimer.h"
 #include "xAssert.h"
 #include "xLog.h"
@@ -107,6 +106,11 @@ int xTimerStart(xOsTimerCtx *p_ptTimer)
         return l_iResult;
     }
 
+    if (p_ptTimer->t_ucMode == XOS_TIMER_MODE_PERIODIC)
+    {
+        atomic_store(&p_ptTimer->t_bPeriodicLockFlag, true);
+    }
+
     return XOS_TIMER_OK;
 }
 
@@ -118,6 +122,11 @@ int xTimerStop(xOsTimerCtx *p_ptTimer)
     X_ASSERT(p_ptTimer != NULL);
 
     int l_iResult;
+
+    if (p_ptTimer->t_ucMode == XOS_TIMER_MODE_PERIODIC)
+    {
+        atomic_store(&p_ptTimer->t_bPeriodicLockFlag, false);
+    }
 
     // Lock mutex for thread safety
     l_iResult = mutexLock(&p_ptTimer->t_tMutex);
@@ -136,6 +145,27 @@ int xTimerStop(xOsTimerCtx *p_ptTimer)
         X_LOG_TRACE("xTimerStop: Failed to unlock mutex");
         return l_iResult;
     }
+
+    return XOS_TIMER_OK;
+}
+
+////////////////////////////////////////////////////////////
+/// xTimerDestroy
+////////////////////////////////////////////////////////////
+int xTimerDestroy(xOsTimerCtx *p_ptTimer)
+{
+    X_ASSERT(p_ptTimer != NULL);
+
+    int l_iResult = mutexDestroy(&p_ptTimer->t_tMutex);
+    if (l_iResult != MUTEX_OK)
+    {
+        X_LOG_TRACE("xTimerDestroy: Failed to destroy mutex");
+        return l_iResult;
+    }
+
+    atomic_store(&p_ptTimer->t_bPeriodicLockFlag, false);
+
+    XOS_MEMORY_SANITIZE(p_ptTimer, sizeof(xOsTimerCtx));
 
     return XOS_TIMER_OK;
 }
@@ -184,7 +214,7 @@ int xTimerExpired(xOsTimerCtx *p_ptTimer)
             // Calculate number of elapsed periods with division by zero protection
             uint64_t l_ulStartNs = (uint64_t)p_ptTimer->t_tStart.tv_sec * 1000000000ULL + p_ptTimer->t_tStart.tv_nsec;
             uint64_t l_ulElapsedNs = l_ulNowNs - l_ulStartNs;
-            
+
             // Check for period overflow and division by zero
             if (p_ptTimer->t_ulPeriod == 0 || p_ptTimer->t_ulPeriod > XOS_TIMER_MAX_PERIOD_MS)
             {
@@ -192,7 +222,7 @@ int xTimerExpired(xOsTimerCtx *p_ptTimer)
                 X_LOG_TRACE("xTimerExpired: Invalid period for calculation");
                 return XOS_TIMER_ERROR;
             }
-            
+
             uint64_t l_ulPeriodNs = (uint64_t)p_ptTimer->t_ulPeriod * 1000000ULL;
             if (l_ulPeriodNs == 0)
             {
@@ -200,7 +230,7 @@ int xTimerExpired(xOsTimerCtx *p_ptTimer)
                 X_LOG_TRACE("xTimerExpired: Zero period in nanoseconds");
                 return XOS_TIMER_ERROR;
             }
-            
+
             uint64_t l_ulPeriods = (l_ulElapsedNs / l_ulPeriodNs) + 1;
 
             // Calculate next trigger time with overflow protection
@@ -210,7 +240,7 @@ int xTimerExpired(xOsTimerCtx *p_ptTimer)
                 X_LOG_TRACE("xTimerExpired: Time calculation overflow");
                 return XOS_TIMER_ERROR;
             }
-            
+
             uint64_t l_ulNextTime = l_ulStartNs + (l_ulPeriods * l_ulPeriodNs);
             p_ptTimer->t_tNext.tv_sec = l_ulNextTime / 1000000000ULL;
             p_ptTimer->t_tNext.tv_nsec = l_ulNextTime % 1000000000ULL;
@@ -246,7 +276,7 @@ inline uint64_t xTimerGetCurrentMs(void)
     if (clock_gettime(CLOCK_MONOTONIC, &l_tNow) != 0)
     {
         X_LOG_TRACE("xTimerGetCurrentMs: clock_gettime failed with errno %d", errno);
-        return 0; 
+        return 0;
     }
     return (uint64_t)((l_tNow.tv_sec * 1000ULL) + (l_tNow.tv_nsec / 1000000ULL));
 }
@@ -323,7 +353,7 @@ int xTimerProcessElapsedPeriods(xOsTimerCtx *p_ptTimer, void (*p_pfCallback)(voi
     uint64_t l_ulNowNs = (uint64_t)l_tNow.tv_sec * 1000000000ULL + l_tNow.tv_nsec;
     uint64_t l_ulStartNs = (uint64_t)p_ptTimer->t_tStart.tv_sec * 1000000000ULL + p_ptTimer->t_tStart.tv_nsec;
     uint64_t l_ulNextNs = (uint64_t)p_ptTimer->t_tNext.tv_sec * 1000000000ULL + p_ptTimer->t_tNext.tv_nsec;
-    
+
     // Validate period for division
     if (p_ptTimer->t_ulPeriod == 0 || p_ptTimer->t_ulPeriod > XOS_TIMER_MAX_PERIOD_MS)
     {
@@ -331,7 +361,7 @@ int xTimerProcessElapsedPeriods(xOsTimerCtx *p_ptTimer, void (*p_pfCallback)(voi
         X_LOG_TRACE("xTimerProcessElapsedPeriods: Invalid period %u", p_ptTimer->t_ulPeriod);
         return XOS_TIMER_ERROR;
     }
-    
+
     uint64_t l_ulPeriodNs = (uint64_t)p_ptTimer->t_ulPeriod * 1000000ULL;
     if (l_ulPeriodNs == 0)
     {
@@ -348,15 +378,16 @@ int xTimerProcessElapsedPeriods(xOsTimerCtx *p_ptTimer, void (*p_pfCallback)(voi
 
         // Calculate complete periods that have passed since last check
         uint64_t l_ulPeriodsSinceLastCheck = (l_ulElapsedNs - l_ulLastPeriodNs) / l_ulPeriodNs + 1;
-        
+
         // Limit the number of callbacks to prevent DoS attacks
         if (l_ulPeriodsSinceLastCheck > XOS_TIMER_MAX_CALLBACKS)
         {
-            X_LOG_TRACE("xTimerProcessElapsedPeriods: Too many periods elapsed (%llu), limiting to %d", 
-                       l_ulPeriodsSinceLastCheck, XOS_TIMER_MAX_CALLBACKS);
+            X_LOG_TRACE("xTimerProcessElapsedPeriods: Too many periods elapsed (%llu), limiting to %d",
+                        l_ulPeriodsSinceLastCheck,
+                        XOS_TIMER_MAX_CALLBACKS);
             l_ulPeriodsSinceLastCheck = XOS_TIMER_MAX_CALLBACKS;
         }
-        
+
         l_iPeriodCount = (int)l_ulPeriodsSinceLastCheck;
 
         // Callback for each elapsed period with security measures
@@ -394,7 +425,7 @@ int xTimerProcessElapsedPeriods(xOsTimerCtx *p_ptTimer, void (*p_pfCallback)(voi
         if (p_ptTimer->t_ucMode == XOS_TIMER_MODE_PERIODIC)
         {
             uint64_t l_ulPeriodsTotal = l_ulElapsedNs / l_ulPeriodNs + 1;
-            
+
             // Check for overflow in multiplication
             if (l_ulPeriodsTotal > (UINT64_MAX / l_ulPeriodNs))
             {
@@ -402,7 +433,7 @@ int xTimerProcessElapsedPeriods(xOsTimerCtx *p_ptTimer, void (*p_pfCallback)(voi
                 X_LOG_TRACE("xTimerProcessElapsedPeriods: Time calculation overflow");
                 return XOS_TIMER_ERROR;
             }
-            
+
             uint64_t l_ulNextTime = l_ulStartNs + (l_ulPeriodsTotal * l_ulPeriodNs);
             p_ptTimer->t_tNext.tv_sec = l_ulNextTime / 1000000000ULL;
             p_ptTimer->t_tNext.tv_nsec = l_ulNextTime % 1000000000ULL;
@@ -422,4 +453,72 @@ int xTimerProcessElapsedPeriods(xOsTimerCtx *p_ptTimer, void (*p_pfCallback)(voi
     }
 
     return l_iPeriodCount;
+}
+
+////////////////////////////////////////////////////////////
+/// xTimerProcessPeriodicCallback
+////////////////////////////////////////////////////////////
+int xTimerProcessPeriodicCallback(xOsTimerCtx *p_ptTimer, void (*p_pfCallback)(void *), void *p_pvData)
+{
+    X_ASSERT(p_ptTimer != NULL);
+    X_ASSERT(p_pfCallback != NULL);
+
+    int l_iResult;
+    int l_iTotalCallbacks = 0;
+    int l_iCallbacksThisRound = 0;
+
+    // Vérifier que c'est bien un timer périodique
+    l_iResult = mutexLock(&p_ptTimer->t_tMutex);
+    if (l_iResult != MUTEX_OK)
+    {
+        return l_iResult;
+    }
+
+    if (p_ptTimer->t_ucMode != XOS_TIMER_MODE_PERIODIC)
+    {
+        mutexUnlock(&p_ptTimer->t_tMutex);
+        return XOS_TIMER_INVALID;
+    }
+
+    mutexUnlock(&p_ptTimer->t_tMutex);
+
+    // Boucle tant que le flag périodique est actif
+    while (atomic_load(&p_ptTimer->t_bPeriodicLockFlag))
+    {
+        // Appeler la fonction standard pour traiter les périodes écoulées
+        l_iCallbacksThisRound = xTimerProcessElapsedPeriods(p_ptTimer, p_pfCallback, p_pvData);
+
+        if (l_iCallbacksThisRound < 0)
+        {
+            // Erreur dans le traitement
+            return l_iCallbacksThisRound;
+        }
+
+        l_iTotalCallbacks += l_iCallbacksThisRound;
+
+        // Vérifier si le timer est toujours actif
+        l_iResult = mutexLock(&p_ptTimer->t_tMutex);
+        if (l_iResult != MUTEX_OK)
+        {
+            return l_iResult;
+        }
+
+        if (!p_ptTimer->t_ucActive)
+        {
+            mutexUnlock(&p_ptTimer->t_tMutex);
+            break;
+        }
+
+        mutexUnlock(&p_ptTimer->t_tMutex);
+
+        // Petite pause pour éviter une boucle trop agressive
+        if (l_iCallbacksThisRound == 0)
+        {
+            // Aucune période écoulée, attendre un peu
+            struct timespec l_tSleep = {0, 1000000}; // 1ms
+            nanosleep(&l_tSleep, NULL);
+        }
+    }
+
+    return l_iTotalCallbacks;
 }

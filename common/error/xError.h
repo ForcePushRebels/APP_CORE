@@ -20,7 +20,6 @@
 #define BASE_OS             0x20000000  // OS related errors (moved to network base)
 
 // System level errors (0x10000000 - 0x1FFFFFFF)
-OK
 #define POSITION_OK                   0x10000000
 #define POSITION_NOT_INITIALIZED      0x10000001
 #define POSITION_INVALID_PARAM        0x10000002
@@ -30,13 +29,13 @@ OK
 #define POSITION_MOTOR_ERROR          0x10000006
 
 // Supervisor errors (moved to system base)
-OK
+
 #define SUPERVISOR_OK                 0x10000010
 #define SUPERVISOR_ERROR_INVALID_PARAM 0x10000011
 #define SUPERVISOR_ERROR_MEMORY_ALLOCATION 0x10000012
 
 // Network errors (0x20000000 - 0x2FFFFFFF)
-OK
+
 #define SERVER_OK                     0x20000000
 #define SERVER_ERROR                  0x20000001
 #define SERVER_MAX_CLIENTS_REACHED    0x20000002
@@ -50,7 +49,7 @@ OK
 #define SERVER_NOT_RUNNING            0x2000000A
 #define SERVER_CLIENT_NOT_FOUND       0x2000000B
 
-OK
+
 #define NETWORK_OK                    0x21000000
 #define NETWORK_ERROR                 0x21000001
 #define NETWORK_TIMEOUT               0x21000002
@@ -58,14 +57,14 @@ OK
 #define NETWORK_ZERO_SIZE             0x21000004
 
 // OS related errors (moved to network base)
-OK
+
 #define XOS_TIMER_OK                  0x22000000
 #define XOS_TIMER_ERROR               0x22000001
 #define XOS_TIMER_INVALID             0x22000002
 #define XOS_TIMER_TIMEOUT             0x22000003
 #define XOS_TIMER_NOT_INIT            0x22000004
 
-OK
+
 #define MUTEX_OK                      0x22100000
 #define MUTEX_ERROR                   0x22100001
 #define MUTEX_TIMEOUT                 0x22100002
@@ -73,7 +72,7 @@ OK
 #define MUTEX_ALREADY_INIT            0x22100004
 #define MUTEX_NOT_INIT                0x22100005
 
-OK
+
 #define OS_TASK_SUCCESS               0x22200000
 #define OS_TASK_ERROR_NULL_POINTER    0x22200001
 #define OS_TASK_ERROR_INVALID_PARAM   0x22200002
@@ -88,7 +87,7 @@ OK
 #define OS_TASK_ERROR_STACK_SIZE      0x2220000B
 #define OS_TASK_ERROR_POLICY          0x2220000C
 
-OK
+
 #define XOS_LOG_OK                    0x22300000
 #define XOS_LOG_ERROR                 0x22300001
 #define XOS_LOG_INVALID               0x22300002
@@ -96,7 +95,7 @@ OK
 #define XOS_LOG_MUTEX_ERROR           0x22300004
 #define XOS_LOG_SECURITY_ERROR        0x22300005
 
-OK
+
 #define WATCHDOG_SUCCESS              0x22400000
 #define WATCHDOG_ERROR_INIT_FAILED    0x22400001
 #define WATCHDOG_ERROR_ALREADY_INIT   0x22400002
@@ -107,22 +106,22 @@ OK
 #define WATCHDOG_ERROR_THREAD_FAILED  0x22400007
 #define WATCHDOG_ERROR_INVALID_PARAM  0x22400008
 
-OK
+
 #define XOS_HORODATEUR_OK             0x22500000
 #define XOS_HORODATEUR_ERROR          0x22500001
 #define XOS_HORODATEUR_INVALID        0x22500002
 
-OK
+
 #define XOS_SECURE_OK                 0x22600000
 #define XOS_SECURE_ERROR_NULL_POINTER 0x22600001
 #define XOS_SECURE_ERROR_INVALID_SIZE 0x22600002
 #define XOS_SECURE_ERROR_SIZE_OVERFLOW 0x22600003
 
-OK
+
 #define OS_CRITICAL_SUCCESS           0x22700000
 #define OS_CRITICAL_ERROR             0x22700001
 
-OK
+
 #define OS_SEM_SUCCESS                0x22800000
 #define OS_SEM_ERROR                  0x22800001
 #define OS_SEM_TIMEOUT                0x22800002
@@ -135,7 +134,7 @@ OK
 #define MAP_ENGINE_ERROR_UPDATE_VISION 0x40000003
 #define MAP_ENGINE_ERROR_UNKNOWN      0x40000004
 
-OK
+
 #define IHM_OK                        0x41000000
 #define IHM_ERROR_INIT                0x41000001
 #define IHM_ERROR_NO_MAP_AVAILABLE    0x41000002
@@ -143,7 +142,7 @@ OK
 #define IHM_ERROR_UNKNOWN             0x41000004
 
 // Pilot control errors (0x50000000 - 0x5FFFFFFF)
-OK
+
 #define PILOT_OK                      0x50000000
 #define PILOT_ERROR_INVALID_ARGUMENT  0x50000001
 #define PILOT_ERROR_QUEUE_FULL        0x50000002
@@ -152,7 +151,7 @@ OK
 #define PILOT_ERROR_NOT_INITIALIZED   0x50000005
 
 // Motor control errors (0x51000000 - 0x51FFFFFF)
-OK
+
 #define MOTOR_OK                      0x51000000
 #define MOTOR_ERROR_NOT_INITIALIZED   0x51000001
 #define MOTOR_ERROR_INVALID_MOTOR_ID  0x51000002
@@ -164,22 +163,22 @@ OK
 #define MOTOR_ERROR_SPEED_SET         0x51000008
 
 // Sensor errors (0x60000000 - 0x6FFFFFFF)
-OK
+
 #define SENSOR_MANAGER_OK             0x60000000
 #define SENSOR_MANAGER_INVALID_ARG    0x60000001
 
 // Strategy management errors (0x70000000 - 0x7FFFFFFF)
-OK
+
 #define STRATEGY_MANAGER_OK           0x70000000
 #define STRATEGY_MANAGER_ERR_INIT     0x70000001
 #define STRATEGY_MANAGER_ERR_NOT_IMPL 0x70000002
 
-OK
+
 #define ASTAR_WRAPPER_OK              0x71000000
 #define ASTAR_WRAPPER_ERR_INIT        0x71000001
 #define ASTAR_WRAPPER_ERR_NOT_IMPL    0x71000002
 
-OK
+
 #define INTERVENTION_MANAGER_OK       0x72000000
 #define INTERVENTION_MANAGER_ERR_INIT 0x72000001
 #define INTERVENTION_MANAGER_ERR_NOT_IMPL 0x72000002

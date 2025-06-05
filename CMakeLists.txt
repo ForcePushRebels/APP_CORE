@@ -34,7 +34,7 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 # Simulation configuration
 if(USE_3D_SIMULATION)
-    set(INTOX_PORT 12348)
+    set(INTOX_PORT 12301)
     set(SIMULATION_TYPE "3D")
     add_compile_definitions(SIMULATION_3D)
 else()

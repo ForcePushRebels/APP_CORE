@@ -12,7 +12,7 @@
 
 static sensorManager_t s_tSensorManager;
 
-#define SENSOR_MANAGER_TASK_PERIOD 100
+#define SENSOR_MANAGER_TASK_PERIOD 200
 #define SENSOR_OBSTACLE_THRESHOLD 50
 
 // prototypes
@@ -157,6 +157,7 @@ static void updateSensorData(void *p_pvParam)
     if (idCardGetRole() == IDCARD_ROLE_EXPLO)
     {
         map_engine_update_vision(s_tSensorManager.t_tISensors, SENSOR_MANAGER_SENSORS_COUNT);
+        map_engine_update_floor_sensor(s_tSensorManager.t_tFloorSensor);
     }
 }
 
@@ -183,7 +184,7 @@ static void *sensorManagerTask(void *p_pvParam)
         }
 
         // Sleep to prevent CPU hogging
-        xTimerDelay(SENSOR_MANAGER_TASK_PERIOD / 4);
+        xTimerDelay(SENSOR_MANAGER_TASK_PERIOD);
     }
 
     xTimerStop(&s_tSensorManager.t_tTimer);

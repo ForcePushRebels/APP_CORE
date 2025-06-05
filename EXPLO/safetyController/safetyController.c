@@ -7,6 +7,7 @@
 ////////////////////////////////////////////////////////////
 
 #include "safetyController.h"
+#include "explorationManager.h"
 
 static atomic_bool s_bAutorizedMovement = ATOMIC_VAR_INIT(false);
 
@@ -41,6 +42,7 @@ static void setMovementHandle(clientCtx *p_ptClient, const network_message_t *p_
         return;
     }
 
+    explorationManager_setState(MODE_MANUEL);
     // call the movement function
     switch (l_eMovement)
     {

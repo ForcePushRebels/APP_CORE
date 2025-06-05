@@ -6,18 +6,19 @@
 #include "xTask.h"
 #include "xLog.h"
 #include <math.h>
+#include <stdbool.h>
 #include <string.h>
+#include "pilot.h"
 
 
 // Définition de la marge de correction en ticks
-#define CORRECTION_MARGIN_TICKS 0
+#define CORRECTION_MARGIN_TICKS 2
 
 #define NB_TOURS_DEMANDE 10
 #define ECART_TOUR 150.0f
 #define CORRECTION_ANGLE_FACTOR ((NB_TOURS_DEMANDE * 360.0f) /  (NB_TOURS_DEMANDE * 360.0f + ECART_TOUR))
 
 // Activer/désactiver la correction du débordement des encodeurs
-#define CORRECTION 1
 bool g_bCorrection = true;
 
 // Variable de position globale
@@ -235,8 +236,6 @@ static void* wheel_position_control_task(void* arg)
 
                 right_wheel_speed = 0.0; 
                 left_wheel_speed = 0.0;
-
-                g_bCorrection = true;
 
                 X_ASSERT(g_left_wheel.max_speed == g_right_wheel.max_speed);
                 

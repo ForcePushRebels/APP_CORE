@@ -787,11 +787,11 @@ int networkServerSendMessage(ClientID p_tClientId, uint8_t p_ucMsgType, const vo
         return SERVER_SOCKET_ERROR;
     }
 
-    X_LOG_TRACE("Sent message type 0x%02X to client %u (atomic send: %d bytes total, %u bytes payload)",
-                p_ucMsgType,
-                p_tClientId,
-                l_iSentBytes,
-                p_ulPayloadSize);
+    // X_LOG_TRACE("Sent message type 0x%02X to client %u (atomic send: %d bytes total, %u bytes payload)",
+    //             p_ucMsgType,
+    //             p_tClientId,
+    //             l_iSentBytes,
+    //             p_ulPayloadSize);
     return SERVER_OK;
 }
 

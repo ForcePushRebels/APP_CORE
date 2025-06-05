@@ -62,12 +62,12 @@ static int32_t send_map_fragments(void)
     map_engine_get_updated_cells(cells, updated_cells_count);
     for (uint32_t i = 0; i < updated_cells_count; i++)
     {
-        X_LOG_TRACE("Cell %d: %d, %d, %d, %d",
-                    i,
-                    cells[i].x_grid,
-                    cells[i].y_grid,
-                    cells[i].cell.type,
-                    cells[i].cell.wall.wall_intensity);
+        // X_LOG_TRACE("Cell %d: %d, %d, %d, %d",
+        //             i,
+        //             cells[i].x_grid,
+        //             cells[i].y_grid,
+        //             cells[i].cell.type,
+        //             cells[i].cell.wall.wall_intensity);
         map_cell_t *cell = &cells[i].cell;
         cells[i].x_grid = HOST_TO_NET_SHORT(cells[i].x_grid);
         cells[i].y_grid = HOST_TO_NET_SHORT(cells[i].y_grid);
@@ -158,8 +158,8 @@ static int32_t sendPosition(tPosition pNewPosition)
     int ret = networkServerSendMessage(1, ID_INF_POS, &l_tPosition, sizeof(l_tPosition));
     if (ret == SERVER_OK)
     {
-        X_LOG_TRACE(
-            "Position sent: %d, %d, %f", pNewPosition.t_iXPosition, pNewPosition.t_iYPosition, pNewPosition.t_fOrientation);
+        // X_LOG_TRACE(
+        //     "Position sent: %d, %d, %f", pNewPosition.t_iXPosition, pNewPosition.t_iYPosition, pNewPosition.t_fOrientation);
     }
     return ret;
 }

@@ -151,6 +151,11 @@ typedef struct {
 } pilot_transition_t;
 
 /////////////////////////////////
+/// @brief Prototype d’une action (callback)
+/////////////////////////////////
+typedef void (*pilot_callback_t)(void* arg);
+
+/////////////////////////////////
 /// @brief Structure principale du pilote
 /////////////////////////////////
 typedef struct {
@@ -174,6 +179,9 @@ typedef struct {
     // === Queues POSIX ===
     mqd_t       evtQueue;            // queue d’événements (pilot_event_t)
     mqd_t       moveQueue;           // queue de moves (Move)
+
+    // === Callbacks ===
+    pilot_callback_t callback;
 } Pilot;
 
 /////////////////////////////////
@@ -219,5 +227,10 @@ const char* pilot_getErrorString(int32_t error);
 /// @brief Table de transitions (définie en pilot.c)
 /////////////////////////////////
 extern pilot_transition_t pilot_transitions[PILOT_STATE_COUNT][PILOT_EVT_COUNT];
+
+/////////////////////////////////
+/// @brief Register a callback
+/////////////////////////////////
+void pilot_register_callback(pilot_callback_t callback);
 
 #endif // PILOT_H

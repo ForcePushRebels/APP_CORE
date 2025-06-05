@@ -345,7 +345,7 @@ int networkSend(NetworkSocket *p_ptSocket, const void *p_pBuffer, unsigned long 
     }
     else
     {
-        X_LOG_TRACE("networkSend: Send successful, sent %d bytes", l_iReturn);
+        // X_LOG_TRACE("networkSend: Send successful, sent %d bytes", l_iReturn);
     }
 
     return l_iReturn;
@@ -574,7 +574,7 @@ int networkSendTo(NetworkSocket *p_ptSocket, const void *p_pBuffer, unsigned lon
     }
     else
     {
-        X_LOG_TRACE("networkSendTo: Send successful, sent %d bytes", l_iReturn);
+        // X_LOG_TRACE("networkSendTo: Send successful, sent %d bytes", l_iReturn);
     }
 
     // Unlock mutex after socket operation

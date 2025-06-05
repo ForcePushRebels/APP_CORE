@@ -355,12 +355,12 @@ void intervention_manager__stopInter()
 
     /* ===== Logique principale ===== */
     int decelerationFactor = 1;
-    pilot__stop(decelerationFactor); // 📌
+    // pilot__stop(decelerationFactor); // 📌
 
     intervention_manager__updateStatus(FIN_DE_MISSION);
 
     X_LOG_DEBUG("Stopping monitoring and timers");
-    sensor_manager__stopMonitoring(); // 📌
+    // sensor_manager__stopMonitoring(); // 📌
 
     intervention_manager__stopTimer();
 

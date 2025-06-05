@@ -22,6 +22,8 @@
 #include "idCard.h"
 #include "sensorManager.h"
 #include "intervention_manager.h"
+#include "xError.h"
+
 
 static const uint8_t s_aCLogPath[] = "inter.log";
 

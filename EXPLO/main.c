@@ -29,6 +29,7 @@
 #include "xLog.h"
 #include "xNetwork.h"
 #include "xTimer.h"
+#include "xError.h"
 
 #include "ihm.h"
 #include "map_engine.h"

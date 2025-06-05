@@ -22,19 +22,7 @@
 #include "xTask.h"
 #include "xTimer.h"
 #include "positionControl.h"
-
-
-/////////////////////////////////
-/// @brief Error codes
-/////////////////////////////////
-#define PILOT_OK                            0x43412000
-#define PILOT_ERROR_INVALID_ARGUMENT        0x43412001
-#define PILOT_ERROR_QUEUE_FULL              0x43412002
-#define PILOT_ERROR_QUEUE_EMPTY             0x43412003
-#define PILOT_ERROR_INIT_FAILED             0x43412004
-#define PILOT_ERROR_NOT_INITIALIZED         0x43412005
-
-
+#include "xError.h"
 
 
 /////////////////////////////////

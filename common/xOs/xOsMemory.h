@@ -13,17 +13,13 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include "xError.h"
 
 // Fixed bounds for security operations
 #define XOS_SECURE_MAX_CLEAR_SIZE (SIZE_MAX / 2)
 #define XOS_SECURE_MAX_ITERATIONS 1024
 #define XOS_SECURE_TIMING_LOOPS 16
 
-// Error codes for secure memory operations
-#define XOS_SECURE_OK 0x5EC00000
-#define XOS_SECURE_ERROR_NULL_POINTER 0x5EC00001
-#define XOS_SECURE_ERROR_INVALID_SIZE 0x5EC00002
-#define XOS_SECURE_ERROR_SIZE_OVERFLOW 0x5EC00003
 
 ////////////////////////////////////////////////////////////
 // Core Memory Sanitization Macros

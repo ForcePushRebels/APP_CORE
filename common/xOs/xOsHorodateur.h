@@ -13,11 +13,7 @@
 #define XOS_HORODATEUR_H_
 
 #include <stdint.h>
-
-// Horodateur error codes
-#define XOS_HORODATEUR_OK            0x67D09A00
-#define XOS_HORODATEUR_ERROR         0x67D09A01
-#define XOS_HORODATEUR_INVALID       0x67D09A02
+#include "xError.h"
 
 #define XOS_HORODATEUR_BUFFER_SIZE   72
 #define XOS_HORODATEUR_MAX_YEAR      9999

@@ -50,6 +50,8 @@
 #include "map_engine.h"
 #include "pilot.h"
 #include "sensorManager.h"
+#include "xError.h"
+
 
 
 #define INTERVENTION_MANAGER_API_VERSION 	VER(1, 0, 0) // current header API version
@@ -60,13 +62,6 @@
 #error "intervention_manager.h: Incompatible Intervention Manager major version"
 #endif
 #endif
-
-
-/* Error codes */
-#define INTERVENTION_MANAGER_BASE 0x1000
-#define INTERVENTION_MANAGER_OK (INTERVENTION_MANAGER_BASE + 0x00) // Operation successful
-#define INTERVENTION_MANAGER_ERR_INIT (INTERVENTION_MANAGER_BASE + 0x01) // Generic error
-#define INTERVENTION_MANAGER_ERR_NOT_IMPL (INTERVENTION_MANAGER_BASE + 0x02) // Not implemented error
 
 typedef struct intervention_manager_s InterventionManager; // To force using the API
 

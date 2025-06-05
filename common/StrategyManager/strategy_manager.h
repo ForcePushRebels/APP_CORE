@@ -37,6 +37,7 @@
 
 #include <time.h> // For timer management
 #include <map_engine.h>
+#include "xError.h"
 
 #include "../../StrategyWrapper/strategy_wrapper.h"
 
@@ -78,11 +79,6 @@ typedef enum {
 
 typedef struct strategy_manager_s StrategyManager; // To force using the API
 
-/* Error codes */
-#define STRATEGY_MANAGER_BASE 0x2000
-#define STRATEGY_MANAGER_OK (STRATEGY_MANAGER_BASE + 0x00) // Operation successful
-#define STRATEGY_MANAGER_ERR_INIT (STRATEGY_MANAGER_BASE + 0x01) // Generic error
-#define STRATEGY_MANAGER_ERR_NOT_IMPL (STRATEGY_MANAGER_BASE + 0x02) // Not implemented error	
 
 /* Public methods */
 

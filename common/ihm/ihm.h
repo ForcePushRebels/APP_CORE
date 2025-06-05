@@ -12,16 +12,10 @@
 
 /* ******************************************************* Includes ****************************************************** */
 #include <stdint.h>
+#include "xError.h"
 
 /* ***************************************************** Public macros *************************************************** */
 
-// clang-format off
-#define IHM_BASE                     0x56E09A00
-#define IHM_OK                       (IHM_BASE + 0)
-#define IHM_ERROR_INIT               (IHM_BASE + 1)
-#define IHM_ERROR_NO_MAP_AVAILABLE   (IHM_BASE + 2)
-#define IHM_ERROR_UPDATE_VISION      (IHM_BASE + 3)
-#define IHM_ERROR_UNKNOWN            (IHM_BASE + 4)
 
 #define IHM_MAX_CMD_LENGTH           64
 #define IHM_MAX_CMD_NAME_LENGTH      16

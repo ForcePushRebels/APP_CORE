@@ -20,10 +20,9 @@
 #include <pthread.h>
 #include <sys/time.h>
 #include <stdatomic.h>
-#define _POSIX_C_SOURCE 200809L
+#include "xError.h"
 
-#define OS_CRITICAL_SUCCESS 0x6FB2A70
-#define OS_CRITICAL_ERROR 0x6FB2A71
+#define _POSIX_C_SOURCE 200809L
 
 #define OS_CRITICAL_LOCKED 0
 #define OS_CRITICAL_UNLOCKED 1

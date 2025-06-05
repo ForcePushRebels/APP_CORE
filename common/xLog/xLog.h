@@ -13,14 +13,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-
-// Log error codes
-#define XOS_LOG_OK 0x9E82F70
-#define XOS_LOG_ERROR 0x9E82F71
-#define XOS_LOG_INVALID 0x9E82F72
-#define XOS_LOG_NOT_INIT 0x9E82F73
-#define XOS_LOG_MUTEX_ERROR 0x9E82F74
-#define XOS_LOG_SECURITY_ERROR 0x9E82F75
+#include "xError.h"
 
 // Log buffer sizes - FIXED BOUNDS for security
 #define XOS_LOG_PATH_SIZE 512

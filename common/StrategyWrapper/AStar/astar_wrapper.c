@@ -1,5 +1,6 @@
 #include "astar_wrapper.h"
 #include "AStar.h"
+#include <string.h>
 // #include "debug_utils.h"  // Use relative path version
 
 // Define your node structure

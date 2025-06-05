@@ -103,9 +103,11 @@ add_compile_options(
     -MP
 )
 
+# AddressSanitizer link options - improved for ARM64 compatibility
 add_link_options(
 	-fsanitize=address
 	-fno-omit-frame-pointer
+	-static-libasan
 )
 
 # Add C standard and source definitions

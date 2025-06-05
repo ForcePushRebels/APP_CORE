@@ -25,6 +25,7 @@
 #define STRATEGY_MANAGER_IMPL_VERSION VER(1, 0, 0)
 #include "strategy_manager.h"
 #include "strategy_wrapper.h"
+#include "AStar/astar_wrapper.h"
 
 #include "ret_codes.h"
 #include "supervisor.h"
@@ -98,7 +99,7 @@ func_exit:
 
 void strategy_manager__setMap()
 {
-	map_engine_get_map(&strategyManager.matrix);
+	map_engine_get_map(&strategyManager.matrix[0][0]);
 
 	strategy_wrapper__bindMap(strategyManager.matrix);
 }
@@ -251,7 +252,7 @@ void strategy_manager__alertEndConditionReach()
 		       Par exemple :
 		       - Marquer un drapeau interne indiquant que l'objectif est atteint
 		       - Passer à une autre stratégie ou arrêter le système
-		       - Notifier un autre module (logique d’état ou communication)
+		       - Notifier un autre module (logique d'état ou communication)
 		       Exemple :
 		           strategyManager.hasReachedEndCondition = true;
 		           strategy_manager__switchToIdle(self);

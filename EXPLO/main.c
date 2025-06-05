@@ -32,6 +32,7 @@
 
 #include "ihm.h"
 #include "map_engine.h"
+#include "explorationManager.h"
 
 // chemin des logs avec l'executable en chemin de l'executable
 static const uint8_t s_aCLogPath[] = "explo.log";

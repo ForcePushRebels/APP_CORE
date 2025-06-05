@@ -18,14 +18,7 @@
 #include <time.h>
 #include <stdatomic.h>
 #include "xOsMemory.h"
-
-// Mutex error codes
-#define MUTEX_OK            0x3B59E20
-#define MUTEX_ERROR         0x3B59E21
-#define MUTEX_TIMEOUT       0x3B59E22
-#define MUTEX_INVALID       0x3B59E23
-#define MUTEX_ALREADY_INIT  0x3B59E24
-#define MUTEX_NOT_INIT      0x3B59E25
+#include "xError.h"
 
 // Mutex states - atomic safe values
 #define MUTEX_UNLOCKED  0

@@ -29,6 +29,7 @@
 #include "xLog.h"
 #include "xNetwork.h"
 #include "xTimer.h"
+#include "xError.h"
 
 #include "explorationManager.h"
 #include "ihm.h"

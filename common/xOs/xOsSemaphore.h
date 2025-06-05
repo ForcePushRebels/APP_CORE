@@ -20,12 +20,7 @@
 #include <time.h>
 #include <errno.h>
 #include "xAssert.h"
-
-// Codes de retour
-#define OS_SEM_SUCCESS       0x7D64C80
-#define OS_SEM_ERROR         0x7D64C81
-#define OS_SEM_TIMEOUT       0x7D64C82
-#define OS_SEM_NOT_AVAILABLE 0x7D64C83
+#include "xError.h"
 
 // États du sémaphore
 #define OS_SEM_UNLOCKED      0

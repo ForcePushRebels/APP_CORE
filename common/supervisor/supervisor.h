@@ -21,10 +21,6 @@
 
 #define SUPERVISOR_TIMER_PERIOD_MS 200
 
-#define SUPERVISOR_OK 0x6E00A000
-#define SUPERVISOR_ERROR_INVALID_PARAM 0x6E00A002
-#define SUPERVISOR_ERROR_MEMORY_ALLOCATION 0x6E00A003
-
 ////////////////////////////////////////////////////////////
 /// @brief Position structure
 ////////////////////////////////////////////////////////////

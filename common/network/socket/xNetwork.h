@@ -29,6 +29,7 @@
 #include "xAssert.h"
 #include "xLog.h"
 #include "xOsMutex.h"
+#include "xError.h"
 
 // Configuration constants
 #define NETWORK_MAX_SOCKETS 16        // Maximum number of simultaneous sockets
@@ -36,12 +37,6 @@
 #define NETWORK_MAX_PENDING 5         // Default pending connections queue
 #define NETWORK_DEFAULT_TIMEOUT 30000 // Default timeout in milliseconds (30 seconds)
 
-// Network error codes
-#define NETWORK_OK 0x17A2B40
-#define NETWORK_ERROR 0x17A2B41
-#define NETWORK_TIMEOUT 0x17A2B42
-#define NETWORK_INVALID_PARAM 0x17A2B43
-#define NETWORK_ZERO_SIZE 0x17A2B44
 // Byte order conversion macros
 #define HOST_TO_NET_LONG(p_uiValue) htonl(p_uiValue)
 #define HOST_TO_NET_SHORT(p_usValue) htons(p_usValue)

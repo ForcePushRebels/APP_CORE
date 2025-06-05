@@ -13,18 +13,9 @@
 /* ******************************************************* Includes ****************************************************** */
 #include <stddef.h>
 #include <stdint.h>
+#include "xError.h"
 
 /* ***************************************************** Public macros *************************************************** */
-
-// clang-format off
-#define MAP_ENGINE_BASE                     0x56D09A00
-#define MAP_ENGINE_OK                       (MAP_ENGINE_BASE + 0)
-#define MAP_ENGINE_ERROR_INIT               (MAP_ENGINE_BASE + 1)
-#define MAP_ENGINE_ERROR_NO_MAP_AVAILABLE   (MAP_ENGINE_BASE + 2)
-#define MAP_ENGINE_ERROR_UPDATE_VISION      (MAP_ENGINE_BASE + 3)
-#define MAP_ENGINE_ERROR_UNKNOWN            (MAP_ENGINE_BASE + 4)
-
-// clang-format on
 
 /* ************************************************** Public types definition ******************************************** */
 typedef enum

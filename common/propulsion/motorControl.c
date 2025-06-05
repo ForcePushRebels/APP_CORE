@@ -3,6 +3,7 @@
 #include "xTimer.h"
 #include "xOsMutex.h"
 #include "xTask.h"
+#include "xError.h"
 #include <math.h>
 #include <string.h>
 
@@ -212,7 +213,7 @@ static void* motor_regulator_task(void* arg)
 int motor_control_init(void) 
 {
     if (g_initialized) {
-        return 0;
+        return MOTOR_OK;
     }
 
     // Initialize regulators with constant IDs
@@ -220,7 +221,7 @@ int motor_control_init(void)
     xTimerDelay(100);  // Wait a bit between initializations
     motor_regulator_init(&g_left_motor);
     g_initialized = true;
-    return 0;
+    return MOTOR_OK;
 }
 
 void motor_control_shutdown(void) 
@@ -239,11 +240,11 @@ void motor_control_shutdown(void)
 int motor_control_set_speed(uint16_t motor_id, double speed_rad_s) 
 {
     if (!g_initialized) {
-        return -1;
+        return MOTOR_ERROR_NOT_INITIALIZED;
     }
 
     if (!is_valid_motor_id(motor_id)) {
-        return -1;
+        return MOTOR_ERROR_INVALID_MOTOR_ID;
     }
 
     // Limit speed to maximum speed
@@ -258,7 +259,7 @@ int motor_control_set_speed(uint16_t motor_id, double speed_rad_s)
     reg->target_speed_rad_s = (float)speed_rad_s;
     mutexUnlock(&reg->mutex);
     
-    return 0;
+    return MOTOR_OK;
 }
 
 int motor_control_set_left_speed(double speed_rad_s) 
@@ -301,10 +302,10 @@ double motor_control_get_right_speed(void)
 
 int motor_control_stop(void) 
 {
-    if (!g_initialized) return -1;
+    if (!g_initialized) return MOTOR_ERROR_NOT_INITIALIZED;
     motor_control_set_left_speed(0.0);
     motor_control_set_right_speed(0.0);
-    return 0;
+    return MOTOR_OK;
 }
 
 // --- End of file ---

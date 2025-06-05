@@ -12,15 +12,7 @@
 #include "motorControl.h"
 #include "mrpiz.h"
 #include "robotConfiguration.h"
-
-// Error codes
-#define POSITION_OK                   0x200C000
-#define POSITION_ERROR                0x200C001
-#define POSITION_NOT_INITIALIZED      0x200C002
-#define POSITION_INVALID_PARAM        0x200C003
-#define POSITION_MUTEX_ERROR          0x200C004
-#define POSITION_TASK_ERROR           0x200C005
-#define POSITION_MOTOR_ERROR          0x200C006
+#include "xError.h"
 
 typedef enum moveType
 {

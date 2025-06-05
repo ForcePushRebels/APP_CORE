@@ -22,17 +22,7 @@
 #include <stdatomic.h>
 #include "xTask.h"
 #include "xOsMemory.h"
-
-// Specific error codes for the watchdog
-#define WATCHDOG_SUCCESS                  0x57D09A00
-#define WATCHDOG_ERROR_INIT_FAILED        0x57D09A01
-#define WATCHDOG_ERROR_ALREADY_INIT       0x57D09A02
-#define WATCHDOG_ERROR_NOT_INIT           0x57D09A03
-#define WATCHDOG_ERROR_TIMER_CREATE       0x57D09A05
-#define WATCHDOG_ERROR_TIMER_SET          0x57D09A06
-#define WATCHDOG_ERROR_THREAD_CREATE      0x57D09A07
-#define WATCHDOG_ERROR_THREAD_FAILED      0x57D09A08
-#define WATCHDOG_ERROR_INVALID_PARAM      0x57D09A09
+#include "xError.h"
 
 // Fixed upper bounds for validation 
 #define WATCHDOG_DEFAULT_TIMEOUT        1000        // 1000 ms default timeout

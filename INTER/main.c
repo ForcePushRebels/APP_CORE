@@ -22,6 +22,8 @@
 #include "xAssert.h"
 #include "xLog.h"
 #include "xNetwork.h"
+#include "xError.h"
+
 
 static const uint8_t s_aCLogPath[] = "inter.log";
 

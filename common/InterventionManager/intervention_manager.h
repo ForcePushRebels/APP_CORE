@@ -14,14 +14,18 @@
 #include "pilot.h"
 #include "sensorManager.h"
 #include "strategy_manager.h"
+#include "xError.h"
 
-////////////////////////////////////////////////////////////
-/// @brief Error codes
-////////////////////////////////////////////////////////////
-#define INTERVENTION_MANAGER_BASE 0x1AE07800
-#define INTERVENTION_MANAGER_OK (INTERVENTION_MANAGER_BASE + 0x00)           // Operation successful
-#define INTERVENTION_MANAGER_ERR_INIT (INTERVENTION_MANAGER_BASE + 0x01)     // Generic error
-#define INTERVENTION_MANAGER_ERR_NOT_IMPL (INTERVENTION_MANAGER_BASE + 0x02) // Not implemented error
+
+
+#define INTERVENTION_MANAGER_API_VERSION 	VER(1, 0, 0) // current header API version
+
+// -- Intervention Manager Compatibility --
+#ifdef INTERVENTION_MANAGER_IMPL_VERSION
+#if MIN(INTERVENTION_MANAGER_IMPL_VERSION) != MIN(INTERVENTION_MANAGER_API_VERSION)
+#error "intervention_manager.h: Incompatible Intervention Manager major version"
+#endif
+#endif
 
 ////////////////////////////////////////////////////////////
 /// @brief Intervention manager structure

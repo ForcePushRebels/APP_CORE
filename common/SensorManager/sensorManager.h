@@ -16,6 +16,7 @@
 #include "hardwareAbstraction.h"
 #include "xTimer.h"
 #include "stdint.h"
+#include "xError.h"
 
 #define SENSOR_MANAGER_SENSORS_COUNT 3
 
@@ -36,10 +37,6 @@ typedef struct sensorManager_t
     uint16_t t_tISensors[SENSOR_MANAGER_SENSORS_COUNT];
     uint16_t t_tFloorSensor;
 } sensorManager_t;
-
-// error codes
-#define SENSOR_MANAGER_OK 0x5d8c6010
-#define SENSOR_MANAGER_INVALID_ARG 0x5d8c6011
 
 ///////////////////////////////////////////
 /// @brief Initialize the sensor manager

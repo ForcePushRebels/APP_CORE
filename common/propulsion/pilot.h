@@ -23,22 +23,8 @@
 #include "xTask.h"
 #include "xTimer.h"
 #include "positionControl.h"
+#include "xError.h"
 
-/////////////////////////////////
-/// @brief Codes d’erreur
-/////////////////////////////////
-#define PILOT_OK                            0x43412000
-#define PILOT_ERROR_INVALID_ARGUMENT        0x43412001
-#define PILOT_ERROR_QUEUE_FULL              0x43412002
-#define PILOT_ERROR_QUEUE_EMPTY             0x43412003
-#define PILOT_ERROR_INIT_FAILED             0x43412004
-#define PILOT_ERROR_NOT_INITIALIZED         0x43412005
-
-/////////////////////////////////
-/// @brief Noms (paths) des POSIX queues
-/////////////////////////////////
-#define PILOT_MQ_EVT_NAME      "/pilot_event_queue"
-#define PILOT_MQ_MOVE_NAME     "/pilot_move_queue"
 
 /////////////////////////////////
 /// @brief Types d’événements du pilot

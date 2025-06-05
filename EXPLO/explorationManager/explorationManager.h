@@ -45,6 +45,12 @@ void explorationManager_stop(void);
 exploration_manager_state_t explorationManager_getState(void);
 
 ////////////////////////////////////////////////////////////
+/// @brief Set the exploration manager state
+/// @param p_eExplorationManagerState The exploration manager state
+////////////////////////////////////////////////////////////
+void explorationManager_setState(exploration_manager_state_t p_eExplorationManagerState);
+
+////////////////////////////////////////////////////////////
 /// @brief Get the mission start time
 /// @return The mission start time
 ////////////////////////////////////////////////////////////

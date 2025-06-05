@@ -81,14 +81,14 @@ int map_engine_explo_ask_current_map();
  * @param y_size The size of the map on the y axis (output)
  * @return The size of the map
  */
-size_t map_engine_get_map_size(size_t *x_size, size_t *y_size);
+size_t map_engine_get_map_size(size_t *x_size, size_t *y_size, size_t *resolution_mm_per_cell);
 
 /**
  * @brief Get the map
  * @param map The map to get
  * @return MAP_ENGINE_OK if successful, MAP_ENGINE_ERROR_NO_MAP_AVAILABLE otherwise
  */
-int map_engine_get_map(map_cell_t (*map)[10]);
+int map_engine_get_map(map_cell_t *map);
 
 /**
  * @brief Get the discovery percent
@@ -143,6 +143,14 @@ void map_engine_clear_updated_cells(map_fragment_t *cells, size_t cell_count);
  * @return The robot fragment
  */
 map_fragment_t map_engine_get_robot_fragment();
+
+/**
+ * @brief Get the fragment
+ * @param x_mm The x position in mm
+ * @param y_mm The y position in mm
+ * @return The fragment
+ */
+map_fragment_t map_engine_get_fragment(int16_t x_mm, int16_t y_mm);
 
 /* ******************************************* Public callback functions declarations ************************************ */
 

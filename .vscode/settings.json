@@ -2,19 +2,5 @@
     "cmake.copyCompileCommands": "${workspaceFolder}/build/compile_commands.json",
     "clangd.arguments": [
         "--compile-commands-dir=${workspaceFolder}/build"
-	],
-	"files.associations": {
-		"astar.h": "c",
-		"astar_wrapper.h": "c",
-		"intervention_manager.h": "c",
-		"strategy_wrapper.h": "c",
-		"map_engine.h": "c",
-		"strategy_manager.h": "c",
-		"stddef.h": "c",
-		"debug_utils.h": "c",
-		"assert.h": "c",
-		"util_macros.h": "c",
-		"xlog.h": "c",
-		"typeinfo": "c"
-	}
+    ]
 }

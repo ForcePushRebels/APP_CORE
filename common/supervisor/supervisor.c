@@ -7,8 +7,8 @@
 ////////////////////////////////////////////////////////////
 
 #include "supervisor.h"
-#include "handleNetworkMessage.h"
 #include "explorationManager.h"
+#include "handleNetworkMessage.h"
 #include "hardwareAbstraction.h"
 #include "map_engine.h"
 #include "networkEncode.h"
@@ -78,17 +78,6 @@ static int32_t send_map_fragments(void)
         }
     }
 
-    map_fragment_t robot_fragment = map_engine_get_robot_fragment();
-    X_LOG_TRACE("Robot fragment: %d, %d", robot_fragment.x_grid, robot_fragment.y_grid);
-    robot_fragment.x_grid = HOST_TO_NET_SHORT(robot_fragment.x_grid);
-    robot_fragment.y_grid = HOST_TO_NET_SHORT(robot_fragment.y_grid);
-    int ret = networkServerSendMessage(1, ID_MAP_FRAGMENT, &robot_fragment, sizeof(map_fragment_t));
-    if (ret != SERVER_OK)
-    {
-        X_LOG_TRACE("Failed to send robot fragment: 0x%x", ret);
-    }
-
-
     X_LOG_TRACE("Map delta %d cells sent", updated_cells_count);
     map_engine_clear_updated_cells(cells, updated_cells_count);
     free(cells);
@@ -111,19 +100,20 @@ static void sendFullMapHandle(clientCtx *p_ptClient, const network_message_t *p_
 int32_t supervisor_send_full_map(ClientID client_id)
 {
     // get map size
-    size_t x_size, y_size, map_size;
+    size_t x_size, y_size, map_size, resolution_mm_per_cell;
 
-    map_size = map_engine_get_map_size(&x_size, &y_size);
+    map_size = map_engine_get_map_size(&x_size, &y_size, &resolution_mm_per_cell);
     X_LOG_TRACE("Map size: %d, %d", x_size, y_size);
 
     typedef struct __attribute__((packed))
     {
-        uint8_t x_size;
-        uint8_t y_size;
+        uint16_t x_size;
+        uint16_t y_size;
+        uint16_t resolution_mm_per_cell;
         map_cell_t map;
     } map_buffer_t;
 
-    size_t map_buffer_size = 2 + map_size;
+    size_t map_buffer_size = 6 + map_size;
 
     map_buffer_t *map_buffer = (map_buffer_t *)malloc(map_buffer_size);
     if (map_buffer == NULL)
@@ -132,8 +122,9 @@ int32_t supervisor_send_full_map(ClientID client_id)
         return SUPERVISOR_ERROR_MEMORY_ALLOCATION;
     }
 
-    map_buffer->x_size = x_size;
-    map_buffer->y_size = y_size;
+    map_buffer->x_size = HOST_TO_NET_SHORT(x_size);
+    map_buffer->y_size = HOST_TO_NET_SHORT(y_size);
+    map_buffer->resolution_mm_per_cell = HOST_TO_NET_SHORT(resolution_mm_per_cell);
 
     // Use temporary buffer to avoid packed member address issue
     map_cell_t *temp_map = (map_cell_t *)malloc(map_size);
@@ -165,9 +156,11 @@ static int32_t sendPosition(tPosition pNewPosition)
     };
 
     int ret = networkServerSendMessage(1, ID_INF_POS, &l_tPosition, sizeof(l_tPosition));
-
-    X_LOG_TRACE(
-        "Position sent: %d, %d, %f", pNewPosition.t_iXPosition, pNewPosition.t_iYPosition, pNewPosition.t_fOrientation);
+    if (ret == SERVER_OK)
+    {
+        X_LOG_TRACE(
+            "Position sent: %d, %d, %f", pNewPosition.t_iXPosition, pNewPosition.t_iYPosition, pNewPosition.t_fOrientation);
+    }
     return ret;
 }
 
@@ -176,15 +169,14 @@ static int32_t sendPosition(tPosition pNewPosition)
 ////////////////////////////////////////////////////////////
 static int32_t sendStatus(void)
 {
-    #ifdef EXPLO_BUILD
+#ifdef EXPLO_BUILD
     exploration_manager_state_t l_eStatus = explorationManager_getState();
     // Convert enum to uint32_t for network transmission
     uint32_t l_ulStatusNetwork = HOST_TO_NET_LONG((uint32_t)l_eStatus);
-
     return networkServerSendMessage(1, ID_INF_STATUS, &l_ulStatusNetwork, sizeof(uint32_t));
-    #else 
+#else
     return 0;
-    #endif
+#endif
 }
 
 ////////////////////////////////////////////////////////////
@@ -192,7 +184,7 @@ static int32_t sendStatus(void)
 ////////////////////////////////////////////////////////////
 static int32_t sendDuration(void)
 {
-    #ifdef EXPLO_BUILD
+#ifdef EXPLO_BUILD
     uint64_t l_ulStartTime = getStartTimeExploration();
     uint64_t l_ulCurrentTime = xTimerGetCurrentMs();
     uint64_t l_ulDuration = l_ulCurrentTime - l_ulStartTime;
@@ -203,13 +195,27 @@ static int32_t sendDuration(void)
         l_ulDuration = UINT32_MAX;
     }
 
+    exploration_manager_state_t l_eStatus = explorationManager_getState();
+    switch (l_eStatus)
+    {
+        case MISSION_EN_COURS:
+        case MODE_MANUEL:
+            l_ulDuration = l_ulCurrentTime - l_ulStartTime;
+            break;
+        default:
+            l_ulDuration = 0;
+            break;
+    }
+
+    l_ulDuration /= 1000; // convert to seconds
+
     // Convert to network byte order
     uint32_t l_ulDurationNetwork = HOST_TO_NET_LONG((uint32_t)l_ulDuration);
 
     return networkServerSendMessage(1, ID_INF_TIME, &l_ulDurationNetwork, sizeof(uint32_t));
-    #else 
+#else
     return 0;
-    #endif
+#endif
 }
 
 ////////////////////////////////////////////////////////////
@@ -330,6 +336,9 @@ static void checkInfo(void *arg)
         return;
     }
 
+    static uint64_t last_position_update = 0;
+    static uint64_t last_status_update = 0;
+
     Position_t l_tCurrentPosition;
     int32_t l_iResult;
     (void)arg; // Unused parameter
@@ -355,9 +364,14 @@ static void checkInfo(void *arg)
         l_tConvertedPosition.t_fOrientation = l_tCurrentPosition.angle_rad;
 
         // Update position if changed
-        if (memcmp(&s_tSupervisorCtx.t_tPosition, &l_tConvertedPosition, sizeof(tPosition)) != 0)
+        bool position_changed = memcmp(&s_tSupervisorCtx.t_tPosition, &l_tConvertedPosition, sizeof(tPosition)) != 0;
+        bool position_timeout = ((last_position_update + 1000) < xTimerGetCurrentMs());
+
+        if (position_changed || position_timeout)
         {
             s_tSupervisorCtx.t_tPosition = l_tConvertedPosition;
+            // get timestamp ms
+            last_position_update = xTimerGetCurrentMs();
             sendPosition(l_tConvertedPosition);
         }
     }
@@ -387,9 +401,12 @@ static void checkInfo(void *arg)
     // Store current report as last report
     s_tSupervisorCtx.t_tLastReport = s_tSupervisorCtx.t_tCurrentReport;
 
-    // Send periodic reports
-    sendDuration();
-    sendStatus();
+    if ((last_status_update + 1000) < xTimerGetCurrentMs())
+    {
+        last_status_update = xTimerGetCurrentMs();
+        sendStatus();
+        sendDuration();
+    }
 
     // Unlock mutex
     mutexUnlock(&s_tSupervisorCtx.t_tMutex);
@@ -408,6 +425,9 @@ static void *supervisor_task(void *arg)
     }
     sleep(3);
     X_LOG_TRACE("Supervisor task started");
+#ifdef EXPLO_BUILD
+    explorationManager_setState(PRET);
+#endif
 
     tSupervisorCtx *l_ptCtx = (tSupervisorCtx *)arg;
 

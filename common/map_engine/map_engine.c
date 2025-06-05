@@ -227,9 +227,10 @@ int map_engine_update_vision(uint16_t *sensor_data, uint8_t sensor_count)
 
         angle = robot_pos.angle_rad + sensor_angles_rad[i];
         // On ajoute le point
-        points[i].x_mm = (int16_t)(cosf(angle) * distance) + offset_x;
-        points[i].y_mm = (int16_t)(sinf(angle) * distance) + offset_y;
+        points[points_count].x_mm = (int16_t)(cosf(angle) * distance) + offset_x;
+        points[points_count].y_mm = (int16_t)(sinf(angle) * distance) + offset_y;
         points_count++;
+        // X_LOG_TRACE("sensor %d: %d [%d, %d]", i, distance, points[i].x_mm, points[i].y_mm);
     }
 
     mutexLock(&map_engine.map_mutex);
@@ -240,11 +241,13 @@ int map_engine_update_vision(uint16_t *sensor_data, uint8_t sensor_count)
         int16_t grid_y = points[i].y_mm / MAP_CELL_SIZE_MM;
         if (grid_x < 0 || grid_x >= MAP_WIDTH || grid_y < 0 || grid_y >= MAP_HEIGHT)
         {
+            X_LOG_TRACE("Point %d: %d, %d is out of bounds", i, points[i].x_mm, points[i].y_mm);
             continue;
         }
         if (map_engine.map[grid_x][grid_y].type == MAP_CELL_INTEREST_AREA)
         {
             // interest area is priority over wall
+            X_LOG_TRACE("Point %d: %d, %d is in interest area", i, points[i].x_mm, points[i].y_mm);
             continue;
         }
         map_engine.map[grid_x][grid_y].type = MAP_CELL_WALL;
@@ -277,6 +280,7 @@ int map_engine_update_floor_sensor(uint16_t floor_sensor)
     typedef enum
     {
         FLOOR_SENSOR_LIGHT_RED = 293,
+        FLOOR_SENSOR_RED = 343,
         FLOOR_SENSOR_WHITE = 251,
         FLOOR_SENSOR_PURPLE = 401,
 
@@ -286,6 +290,7 @@ int map_engine_update_floor_sensor(uint16_t floor_sensor)
         FLOOR_SENSOR_LIGHT_RED,
         FLOOR_SENSOR_WHITE,
         FLOOR_SENSOR_PURPLE,
+        FLOOR_SENSOR_RED,
     };
 
     bool is_interest_area = false;

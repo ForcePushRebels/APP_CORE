@@ -53,8 +53,18 @@ void pilot_callback_exploration(void *arg)
         MOVING_FORWARD_4,
         MOVING_TURN_5,
         MOVING_FORWARD_5,
+        MOVING_FORWARD_6,
         MOVING_TURN_6,
+        MOVING_TURN_7,
+        MOVING_FORWARD_7,
+        MOVING_TURN_8,
+        MOVING_FORWARD_8,
+        MOVING_TURN_9,
+        MOVING_FORWARD_9,
+        MOVING_TURN_10,
+        MOVING_FORWARD_10,
         MOVING_END,
+        MOVING_END_2,
     } state_t;
 
     static state_t s_eState = MOVING_FORWARD;
@@ -102,18 +112,68 @@ void pilot_callback_exploration(void *arg)
             X_LOG_TRACE("Turning 5");
             position_control_turn(-M_PI / 2, speed);
             break;
+        case MOVING_TURN_5:
+            s_eState = MOVING_FORWARD_5;
+            X_LOG_TRACE("Moving forward end");
+            position_control_advance(300, speed);
+            break;
         case MOVING_FORWARD_5:
+            s_eState = MOVING_FORWARD_6;
+            X_LOG_TRACE("Turning 6");
+            position_control_turn(-M_PI / 2, speed);
+            break;
+        case MOVING_FORWARD_6:
             s_eState = MOVING_TURN_6;
             X_LOG_TRACE("Moving forward end");
-            position_control_advance(250, speed);
+            position_control_advance(300, speed);
             break;
         case MOVING_TURN_6:
-            s_eState = MOVING_END;
+            s_eState = MOVING_TURN_7;
             X_LOG_TRACE("Turning 6");
-            position_control_turn(2 * M_PI, speed);
+            position_control_turn(M_PI, speed);
+            break;
+        case MOVING_TURN_7:
+            s_eState = MOVING_END;
+            X_LOG_TRACE("Turning 7");
+            position_control_turn(M_PI, speed);
+            break;
+        case MOVING_FORWARD_7:
+            s_eState = MOVING_TURN_8;
+            X_LOG_TRACE("Moving forward end");
+            position_control_advance(400, speed);
+            break;
+        case MOVING_TURN_8:
+            s_eState = MOVING_END;
+            X_LOG_TRACE("Turning 8");
+            position_control_turn(-M_PI / 2, speed);
+            break;
+        case MOVING_FORWARD_8:
+            s_eState = MOVING_TURN_9;
+            X_LOG_TRACE("Moving forward");
+            position_control_advance(120, speed);
+            break;
+        case MOVING_TURN_9:
+            s_eState = MOVING_FORWARD_9;
+            X_LOG_TRACE("Turning 9");
+            position_control_turn(M_PI / 2, speed);
+            break;
+        case MOVING_FORWARD_9:
+            s_eState = MOVING_TURN_10;
+            X_LOG_TRACE("Moving forward end");
+            position_control_advance(50, speed);
+            break;
+        case MOVING_TURN_10:
+            s_eState = MOVING_FORWARD_10;
+            X_LOG_TRACE("Turning 10");
+            position_control_turn(M_PI, speed);
+            break;
+        case MOVING_FORWARD_10:
+            s_eState = MOVING_END;
+            X_LOG_TRACE("Moving forward end");
+            position_control_advance(450, speed);
             break;
         case MOVING_END:
-            s_eState = MOVING_END;
+            s_eState = MOVING_END_2;
             X_LOG_TRACE("Moving end");
             position_control_stop();
             break;

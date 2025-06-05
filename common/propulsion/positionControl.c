@@ -12,7 +12,7 @@
 
 
 // Définition de la marge de correction en ticks
-#define CORRECTION_MARGIN_TICKS 2
+#define CORRECTION_MARGIN_TICKS 5
 
 #define NB_TOURS_DEMANDE 10
 #define ECART_TOUR 150.0f
@@ -22,7 +22,7 @@
 bool g_bCorrection = true;
 
 // Variable de position globale
-static Position_t g_robot_position = {50, 1100, 0.0};
+static Position_t g_robot_position = {50, 900, 0.0};
 static xOsMutexCtx g_position_mutex;
 
 // Structure de contrôle de position pour chaque roue

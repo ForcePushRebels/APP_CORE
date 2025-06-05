@@ -72,7 +72,6 @@ int xLogWrite(const char *p_ptkcFile, uint32_t p_ulLine, const char *p_ptkcForma
 int xLogClose(void);
 
 // Enhanced log macros with severity levels and proper color handling
-#define X_LOG_TRACE(msg, ...) xLogWrite(__FILE__, __LINE__, "\033[90m[TRACE] " msg "\033[0m", ##__VA_ARGS__)
 #define X_LOG_DEBUG(msg, ...) xLogWrite(__FILE__, __LINE__, "\033[36m[DEBUG] " msg "\033[0m", ##__VA_ARGS__)
 #define X_LOG_INFO(msg, ...) xLogWrite(__FILE__, __LINE__, "\033[32m[INFO] " msg "\033[0m", ##__VA_ARGS__)
 #define X_LOG_WARN(msg, ...) xLogWrite(__FILE__, __LINE__, "\033[33m[WARN] " msg "\033[0m", ##__VA_ARGS__)
@@ -80,6 +79,8 @@ int xLogClose(void);
 #define X_LOG_FATAL(msg, ...) xLogWrite(__FILE__, __LINE__, "\033[35m[FATAL] " msg "\033[0m", ##__VA_ARGS__)
 
 // Legacy macro (keep for compatibility)
-#define X_LOG_ASSERT(msg, ...) X_LOG_ERROR("ASSERT | " msg, ##__VA_ARGS__)
+#define X_LOG_TRACE(msg, ...) xLogWrite(__FILE__, __LINE__, "TRACE | " msg, ##__VA_ARGS__)
+#define X_LOG_ASSERT(msg, ...) xLogWrite(__FILE__, __LINE__, "ASSERT | " msg, ##__VA_ARGS__)
+
 
 #endif // XOS_LOG_H_

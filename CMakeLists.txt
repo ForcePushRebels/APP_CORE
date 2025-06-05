@@ -92,7 +92,6 @@ set(CMAKE_C_STANDARD 11)
 add_compile_options(
 	-g
 	-O0
-	-fsanitize=address
 	-fno-omit-frame-pointer
     -Wall
     -Wextra
@@ -103,12 +102,21 @@ add_compile_options(
     -MP
 )
 
-# AddressSanitizer link options - improved for ARM64 compatibility
-add_link_options(
-	-fsanitize=address
-	-fno-omit-frame-pointer
-	-static-libasan
-)
+# AddressSanitizer support - conditional compilation
+option(USE_ASAN "Enable AddressSanitizer" OFF)
+
+if(USE_ASAN)
+    message(STATUS "AddressSanitizer enabled")
+    add_compile_options(-fsanitize=address)
+    add_link_options(
+        -fsanitize=address
+        -fno-omit-frame-pointer
+        -static-libasan
+    )
+    add_compile_definitions(USE_ASAN)
+else()
+    message(STATUS "AddressSanitizer disabled")
+endif()
 
 # Add C standard and source definitions
 add_compile_definitions(

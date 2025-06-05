@@ -17,6 +17,10 @@ int grid[GRID_SIZE][GRID_SIZE]; // 0 for empty, 1 for obstacle
 static float GridHeuristic(void *fromNode, void *toNode, void *context);
 static const ASPathNodeSource PathNodeSource;
 
+// Forward declarations
+int astar_wrapper__prepare(mat_t (*mat)[10]);
+int astar_wrapper__execute(seq_t *seq, point_t *initial, point_t *final);
+
 static AStarWrapper astar_wrapper;
 
 int astar_wrapper__init()
@@ -63,15 +67,19 @@ int astar_wrapper__prepare(mat_t (*mat)[10])
 }
 
 //@Override
-int astar_wrapper__execute(seq_t *seq, Point *initial, Point *final)
+int astar_wrapper__execute(seq_t *seq, point_t *initial, point_t *final)
 {
-    X_LOG_DEBUG("Executing AStar pathfinding from (%d,%d) to (%d,%d)", initial->x, initial->y, final->x, final->y);
+    X_LOG_DEBUG("Executing AStar pathfinding from (%d,%d) to (%d,%d)",
+                initial->xPosition,
+                initial->yPosition,
+                final->xPosition,
+                final->yPosition);
 
     // debug_print_point("Start position", initial);
     // debug_print_point("Goal position", final);
 
-    GridNode start = {initial->x, initial->y};
-    GridNode goal = {final->x, final->y};
+    GridNode start = {initial->xPosition, initial->yPosition};
+    GridNode goal = {final->xPosition, final->yPosition};
 
     // Find the path
     ASPath path = ASPathCreate(&PathNodeSource, NULL, &start, &goal);
@@ -83,8 +91,8 @@ int astar_wrapper__execute(seq_t *seq, Point *initial, Point *final)
         for (size_t i = 0; i < pathCount; i++)
         {
             GridNode *node = (GridNode *)ASPathGetNode(path, i);
-            seq[i].x = node->x;
-            seq[i].y = node->y;
+            seq[i].xPosition = node->x;
+            seq[i].yPosition = node->y;
         }
         X_LOG_INFO("Path found with %zu points", pathCount);
         // debug_print_sequence("AStar path", seq, pathCount);
@@ -101,7 +109,7 @@ int astar_wrapper__execute(seq_t *seq, Point *initial, Point *final)
 }
 
 // Node neighbor function
-static void GridNodeNeighbors(ASNeighborList neighbors, void *node, void *context)
+static void GridNodeNeighbors(ASNeighborList neighbors, void *node, void *context __attribute__((unused)))
 {
     GridNode *currentNode = (GridNode *)node;
     int dx[] = {0, 1, 0, -1}; // Right, Down, Left, Up
@@ -123,7 +131,7 @@ static void GridNodeNeighbors(ASNeighborList neighbors, void *node, void *contex
 }
 
 // Manhattan distance heuristic
-static float GridHeuristic(void *fromNode, void *toNode, void *context)
+static float GridHeuristic(void *fromNode, void *toNode, void *context __attribute__((unused)))
 {
     GridNode *from = (GridNode *)fromNode;
     GridNode *to = (GridNode *)toNode;

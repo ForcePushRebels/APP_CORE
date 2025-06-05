@@ -5,7 +5,7 @@
  * @brief Source file for the Strategy Manager module.
  *
  * @author
- * ForcePushRebels – PATO Project (collective contributor)  
+ * ForcePushRebels – PATO Project (collective contributor)
  * Uriel Fodong <uriel.fodong@reseau.eseo.fr> (individual contributor)
  *
  * @version 1.0.0
@@ -20,328 +20,266 @@
 #include <assert.h>
 #include <stdlib.h>
 
-#include "util_macros.h"
-
-#define STRATEGY_MANAGER_IMPL_VERSION VER(1, 0, 0)
+#include "AStar/astar_wrapper.h"
 #include "strategy_manager.h"
 #include "strategy_wrapper.h"
-#include "AStar/astar_wrapper.h"
 
-#include "ret_codes.h"
 #include "supervisor.h"
-
-#include <stdio.h>
 #include "xLog.h"
 
-#define LOG_TAG "StrategyManager"
-
-#define config_launcher__giveStrat(listStratName)  // TODO
+#define config_launcher__giveStrat(listStratName) // TODO
 
 #define supervisor__giveEndCondition(listEndCondition) // TODO
 
 static void print_colored_grid(seq_t *path, size_t path_len);
 
-static StrategyManager strategyManager;
+static strategyManager_t strategyManager;
 
-struct strategy_manager_s
+int strategyManagerInit()
 {
-	Status status;
+    int l_iReturn = STRATEGY_MANAGER_ERR_INIT;
 
-	mat_t matrix[MAP_SIZE][MAP_SIZE];
-	seq_t sequence[MAP_SIZE];
+    memset(&strategyManager, 0, sizeof(strategyManager));
 
-	// TODO Ajouter à la conception
-	// FIXME time_t Timer;
-	struct timespec start_time, end_time;
-};
+    l_iReturn = astar_wrapper__init();
+    if (l_iReturn != STRATEGY_MANAGER_OK)
+    {
+        return l_iReturn;
+    }
 
-int strategy_manager__init()
-{
-	/* ===== Préconditions ===== */
-	X_ASSERT(&strategyManager != NULL);
+    l_iReturn = STRATEGY_MANAGER_OK;
 
-	X_LOG_TRACE("entering strategy_manager__init()");
-
-	/* ===== Variables locales ===== */
-	int ret = RET_ERR_GENERIC;
-
-	/* ===== Logique principale ===== */
-	memset(&strategyManager, 0, sizeof(strategyManager));
-
-	if(strategyManager.matrix == NULL || strategyManager.sequence == NULL)
-	{
-		X_LOG_ERROR("Failed to allocate memory for strategyManager components");
-		goto func_exit; // ⬅️ Sortie anticipée en cas d'erreur
-	}
-	map_engine_init();
-	ret = astar_wrapper__init();
-	if (ret != RET_OK)
-	{
-		goto func_exit; // ⬅️ Sortie anticipée en cas d'erreur
-	}
-
-	X_LOG_TRACE("AStar strategy initialized successfully");
-
-	ret = STRATEGY_MANAGER_OK;
-
-	/* ===== Postconditions ===== */
-	X_ASSERT(strategyManager.status == INIT); // Vérifie que le statut initial est correct
-	X_ASSERT(strategyManager.matrix != NULL); // Vérifie que la matrice est initialisée
-	X_ASSERT(strategyManager.sequence != NULL); // Vérifie que la séquence est initialisée
-	X_ASSERT(strategyManager.start_time.tv_sec == 0 && strategyManager.end_time.tv_sec == 0); // Vérifie que les temps sont initialisés à zéro
-
-func_exit:
-
-	X_LOG_TRACE("exiting strategy_manager__init()");
-
-	return ret;
+    return l_iReturn;
 }
 
 void strategy_manager__setMap()
 {
-	map_engine_get_map(&strategyManager.matrix[0][0]);
+    map_engine_get_map(&strategyManager.matrix[0][0]);
 
-	strategy_wrapper__bindMap(strategyManager.matrix);
+    strategy_wrapper__bindMap(strategyManager.matrix);
 }
 
 void strategy_manager__askStrat()
 {
-	/* ===== Préconditions ===== */
-	X_ASSERT(&strategyManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
+    X_LOG_TRACE("entering strategy_manager__askStrat()");
 
-	/* ===== Variables locales ===== */
-    // Déclare les variables temporaires
+    char *listStratName;
+    config_launcher__giveStrat(listStratName);
 
-	X_LOG_TRACE("entering strategy_manager__askStrat()");
+    X_LOG_TRACE("exiting strategy_manager__askStrat()");
 
-	/* ===== Logique principale ===== */
-	char * listStratName;
-	config_launcher__giveStrat(listStratName)  // 📌
-
-	X_LOG_TRACE("exiting strategy_manager__askStrat()");
-
-	/* ===== Postconditions ===== */
-	// Vérifie les invariants après logique
-
-	return; // ⬅️ À conserver. Retour explicite (void)
+    return;
 }
 
 int strategy_manager__giveIDStrategieToFollow(int idStrat)
 {
-	/* ===== Préconditions ===== */
-	X_ASSERT(&strategyManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
+    X_LOG_TRACE("entering strategy_manager__giveIDStrategieToFollow()");
 
-	UNUSED(idStrat); // ⬅️ À retirer dès que 'idStrat' est utilisé dans la logique
+    int ret = RET_ERR_GENERIC;
 
-	X_LOG_TRACE("entering strategy_manager__giveIDStrategieToFollow()");
+    ret = strategy_wrapper__giveIDStrategieToFollow(idStrat); // 📌
+    supervisor__giveEndCondition(listEndCondition);           // 📌
 
-	/* ===== Variables locales ===== */
-	int ret = RET_ERR_GENERIC; // ⬅️ "Rater-vite". Initialisé par un code d'erreur (prog défensive)
+    X_LOG_TRACE("exiting strategy_manager__giveIDStrategieToFollow()");
 
-	/* ===== Logique principale ===== */
-	ret = strategy_wrapper__giveIDStrategieToFollow(idStrat); // 📌
-	supervisor__giveEndCondition(listEndCondition); // 📌
+    /* ===== Postconditions ===== */
+    // Vérifie les invariants après logique
 
-	X_LOG_TRACE("exiting strategy_manager__giveIDStrategieToFollow()");
-
-	/* ===== Postconditions ===== */
-	// Vérifie les invariants après logique
-
-	return ret; // ⬅️ À conserver. Retour explicite (void)
+    return ret; // ⬅️ À conserver. Retour explicite (void)
 }
 
 void strategy_manager__startMove()
 {
-	/* ===== Préconditions ===== */
-	X_ASSERT(&strategyManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
+    /* ===== Préconditions ===== */
+    X_ASSERT(&strategyManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
 
-	X_LOG_TRACE("entering strategy_manager__startMove()");
+    X_LOG_TRACE("entering strategy_manager__startMove()");
 
-	/* ===== Variables locales ===== */
-	// Déclare les variables temporaires
+    /* ===== Variables locales ===== */
+    // Déclare les variables temporaires
 
-	/* ===== Logique principale ===== */
-	/*
-		TODO : Démarrer un déplacement basé sur la stratégie courante.
-		       Cette fonction peut :
-		       - Lire strategyManager.currentStrategyID ou une structure de mouvement
-		       - Initialiser un mouvement (ex : appel moteur, consigne de distance/vitesse)
-		       - Changer l'état interne : strategyManager.isMoving = true;
+    /* ===== Logique principale ===== */
+    /*
+        TODO : Démarrer un déplacement basé sur la stratégie courante.
+               Cette fonction peut :
+               - Lire strategyManager.currentStrategyID ou une structure de mouvement
+               - Initialiser un mouvement (ex : appel moteur, consigne de distance/vitesse)
+               - Changer l'état interne : strategyManager.isMoving = true;
 
-		       Exemple :
-		           motion_controller__start(strategyManager.motion);
-		           strategyManager.isMoving = true;
-	*/
+               Exemple :
+                   motion_controller__start(strategyManager.motion);
+                   strategyManager.isMoving = true;
+    */
 
-	X_LOG_TRACE("exiting strategy_manager__startMove()");
+    X_LOG_TRACE("exiting strategy_manager__startMove()");
 
-	/* ===== Postconditions ===== */
-	// Vérifie les invariants après logique
+    /* ===== Postconditions ===== */
+    // Vérifie les invariants après logique
 
-	return; // ⬅️ À conserver. Retour explicite (void)
+    return; // ⬅️ À conserver. Retour explicite (void)
 }
 
 void strategy_manager__endMove()
 {
-	/* ===== Préconditions ===== */
-	X_ASSERT(&strategyManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
+    /* ===== Préconditions ===== */
+    X_ASSERT(&strategyManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
 
-	X_LOG_TRACE("entering strategy_manager__endMove()");
+    X_LOG_TRACE("entering strategy_manager__endMove()");
 
-	/* ===== Variables locales ===== */
+    /* ===== Variables locales ===== */
     // Déclare les variables temporaires
 
-	/* ===== Logique principale ===== */
-	/*
-		TODO : Gérer la fin d'un déplacement stratégique.
-		       Cette fonction pourrait :
-		       - Arrêter proprement les moteurs ou contrôleurs de mouvement
-		       - Mettre à jour l'état interne : strategyManager.isMoving = false;
-		       - Notifier le système ou enchaîner vers la prochaine action
+    /* ===== Logique principale ===== */
+    /*
+        TODO : Gérer la fin d'un déplacement stratégique.
+               Cette fonction pourrait :
+               - Arrêter proprement les moteurs ou contrôleurs de mouvement
+               - Mettre à jour l'état interne : strategyManager.isMoving = false;
+               - Notifier le système ou enchaîner vers la prochaine action
 
-		       Exemple :
-		           motion_controller__stop(strategyManager.motion);
-		           strategyManager.isMoving = false;
-	*/
+               Exemple :
+                   motion_controller__stop(strategyManager.motion);
+                   strategyManager.isMoving = false;
+    */
 
-	X_LOG_TRACE("exiting strategy_manager__endMove()");
+    X_LOG_TRACE("exiting strategy_manager__endMove()");
 
-	/* ===== Postconditions ===== */
-	// Vérifie les invariants après logique
+    /* ===== Postconditions ===== */
+    // Vérifie les invariants après logique
 
-	return; // ⬅️ À conserver. Retour explicite (void)
+    return; // ⬅️ À conserver. Retour explicite (void)
 }
 
 bool strategy_manager__alertWallNear()
 {
-	/* ===== Préconditions ===== */
-	X_ASSERT(&strategyManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
+    /* ===== Préconditions ===== */
+    X_ASSERT(&strategyManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
 
-	X_LOG_TRACE("entering strategy_manager__alertWallNear()");
+    X_LOG_TRACE("entering strategy_manager__alertWallNear()");
 
-	/* ===== Variables locales ===== */
-	bool ret = RET_NOT_IMPL_BOOL; // ⬅️ "Rater-vite". Initialisé par un code d'erreur (prog défensive)
+    /* ===== Variables locales ===== */
+    bool ret = RET_NOT_IMPL_BOOL; // ⬅️ "Rater-vite". Initialisé par un code d'erreur (prog défensive)
 
-	/* ===== Logique principale ===== */
-	/*
-		TODO : Implémenter la logique pour détecter si un mur est proche.
-		Probablement via les données de strategyManager.Timer ou capteurs associés.
-	*/
+    /* ===== Logique principale ===== */
+    /*
+        TODO : Implémenter la logique pour détecter si un mur est proche.
+        Probablement via les données de strategyManager.Timer ou capteurs associés.
+    */
 
-	X_LOG_TRACE("exiting strategy_manager__alertWallNear()");
+    X_LOG_TRACE("exiting strategy_manager__alertWallNear()");
 
-	/* ===== Postconditions ===== */
-	// Vérifie les invariants après logique
+    /* ===== Postconditions ===== */
+    // Vérifie les invariants après logique
 
-	return ret; // ⬅️ À remplacer par la vraie valeur de retour une fois implémenté
+    return ret; // ⬅️ À remplacer par la vraie valeur de retour une fois implémenté
 }
 
 void strategy_manager__alertEndConditionReach()
 {
-	/* ===== Préconditions ===== */
-	X_ASSERT(&strategyManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
+    /* ===== Préconditions ===== */
+    X_ASSERT(&strategyManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
 
-	X_LOG_TRACE("entering strategy_manager__alertEndConditionReach()");
+    X_LOG_TRACE("entering strategy_manager__alertEndConditionReach()");
 
-	/* ===== Variables locales ===== */
+    /* ===== Variables locales ===== */
     // Déclare les variables temporaires
 
-	/* ===== Logique principale ===== */
-	/*
-		TODO : Implémenter le traitement lorsqu'une condition de fin est atteinte.
-		       Par exemple :
-		       - Marquer un drapeau interne indiquant que l'objectif est atteint
-		       - Passer à une autre stratégie ou arrêter le système
-		       - Notifier un autre module (logique d'état ou communication)
-		       Exemple :
-		           strategyManager.hasReachedEndCondition = true;
-		           strategy_manager__switchToIdle(self);
-	*/
+    /* ===== Logique principale ===== */
+    /*
+        TODO : Implémenter le traitement lorsqu'une condition de fin est atteinte.
+               Par exemple :
+               - Marquer un drapeau interne indiquant que l'objectif est atteint
+               - Passer à une autre stratégie ou arrêter le système
+               - Notifier un autre module (logique d'état ou communication)
+               Exemple :
+                   strategyManager.hasReachedEndCondition = true;
+                   strategy_manager__switchToIdle(self);
+    */
 
-	X_LOG_TRACE("exiting strategy_manager__alertEndConditionReach()");
+    X_LOG_TRACE("exiting strategy_manager__alertEndConditionReach()");
 
-	/* ===== Postconditions ===== */
-	// Vérifie les invariants après logique
+    /* ===== Postconditions ===== */
+    // Vérifie les invariants après logique
 
-	return; // ⬅️ À conserver. Retour explicite (void)
+    return; // ⬅️ À conserver. Retour explicite (void)
 }
 
 int strategy_manager__getStatus()
 {
-	/* ===== Préconditions ===== */
-	X_ASSERT(&strategyManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
+    /* ===== Préconditions ===== */
+    X_ASSERT(&strategyManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
 
-	X_LOG_TRACE("entering strategy_manager__getStatus()");
+    X_LOG_TRACE("entering strategy_manager__getStatus()");
 
-	/* ===== Variables locales ===== */
-	int ret = RET_NOT_IMPL_INT; // ⬅️ "Rater-vite". Initialisé par un code d'erreur (prog défensive)
+    /* ===== Variables locales ===== */
+    int ret = RET_NOT_IMPL_INT; // ⬅️ "Rater-vite". Initialisé par un code d'erreur (prog défensive)
 
-	/* ===== Logique principale ===== */
-	/*
-		TODO : Retourner le statut courant de la stratégie.
-		       Cela pourrait impliquer :
-		       - Lire un champ d'état interne, ex : strategyManager.status
-		       - Évaluer l'état courant à partir de plusieurs flags
-		       - Combiner ou normaliser plusieurs états internes
+    /* ===== Logique principale ===== */
+    /*
+        TODO : Retourner le statut courant de la stratégie.
+               Cela pourrait impliquer :
+               - Lire un champ d'état interne, ex : strategyManager.status
+               - Évaluer l'état courant à partir de plusieurs flags
+               - Combiner ou normaliser plusieurs états internes
 
-		       Exemple :
-		           return strategyManager.status;
-		           // ou : return strategy_manager__computeStatus(self);
-	*/
+               Exemple :
+                   return strategyManager.status;
+                   // ou : return strategy_manager__computeStatus(self);
+    */
 
-	X_LOG_TRACE("exiting strategy_manager__getStatus()");
+    X_LOG_TRACE("exiting strategy_manager__getStatus()");
 
-	/* ===== Postconditions ===== */
-	// Vérifie les invariants après logique
+    /* ===== Postconditions ===== */
+    // Vérifie les invariants après logique
 
-	return ret; // ⬅️ Constante temporaire, à remplacer par un vrai code de statut
+    return ret; // ⬅️ Constante temporaire, à remplacer par un vrai code de statut
 }
 
 void strategy_manager__reportStatus(MoveReason pilotStatus)
 {
-	/* ===== Préconditions ===== */
-	X_ASSERT(&strategyManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
-	assert(0 <= pilotStatus &&           // ⬅️ Vérifie que pilotStatus est dans la plage valide
-	       pilotStatus < MOVE_REASON_NB);
-	UNUSED(pilotStatus); // ⬅️ À retirer. Dès que 'pilotStatus' est utilisé en dehors des assert()
+    /* ===== Préconditions ===== */
+    X_ASSERT(&strategyManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
+    assert(0 <= pilotStatus &&          // ⬅️ Vérifie que pilotStatus est dans la plage valide
+           pilotStatus < MOVE_REASON_NB);
+    (void)pilotStatus; // ⬅️ À retirer. Dès que 'pilotStatus' est utilisé en dehors des assert()
 
-	X_LOG_TRACE("entering strategy_manager__reportStatus()");
+    X_LOG_TRACE("entering strategy_manager__reportStatus()");
 
-	/* ===== Variables locales ===== */
+    /* ===== Variables locales ===== */
     // Déclare les variables temporaires
 
-	/* ===== Logique principale ===== */
-	/*
-		TODO : Traiter et reporter le statut reçu.
-		       Par exemple :
-		       - Mettre à jour un champ interne dans self avec pilotStatus
-		       - Envoyer un log ou un événement à un autre module
-		       - Déclencher une action liée au changement de statut pilote
+    /* ===== Logique principale ===== */
+    /*
+        TODO : Traiter et reporter le statut reçu.
+               Par exemple :
+               - Mettre à jour un champ interne dans self avec pilotStatus
+               - Envoyer un log ou un événement à un autre module
+               - Déclencher une action liée au changement de statut pilote
 
-		       Exemple pseudo-code :
-		           strategyManager.lastPilotStatus = pilotStatus;
-		           log_info("Pilot status reporté : %d", pilotStatus);
-	*/
+               Exemple pseudo-code :
+                   strategyManager.lastPilotStatus = pilotStatus;
+                   log_info("Pilot status reporté : %d", pilotStatus);
+    */
 
-	X_LOG_TRACE("exiting strategy_manager__reportStatus()");
+    X_LOG_TRACE("exiting strategy_manager__reportStatus()");
 
-	/* ===== Postconditions ===== */
-	// Vérifie les invariants après logique
+    /* ===== Postconditions ===== */
+    // Vérifie les invariants après logique
 
-	return; // ⬅️ À conserver. Retour explicite (void)
+    return; // ⬅️ À conserver. Retour explicite (void)
 }
 
 void strategy_manager__interlockManuMode()
 {
-	/* ===== Préconditions ===== */
+    /* ===== Préconditions ===== */
     X_ASSERT(&strategyManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
 
-	X_LOG_TRACE("entering strategy_manager__interlockManuMode()");
+    X_LOG_TRACE("entering strategy_manager__interlockManuMode()");
 
-	/* ===== Variables locales ===== */
+    /* ===== Variables locales ===== */
     // Déclare les variables temporaires
 
-	/* ===== Logique principale ===== */
+    /* ===== Logique principale ===== */
     /*
         TODO : Implémenter ici la logique d'interverrouillage (interlock) en mode manuel.
         Exemple possible :
@@ -350,188 +288,201 @@ void strategy_manager__interlockManuMode()
             - Mettre à jour l'état interne en conséquence
     */
 
-	X_LOG_TRACE("exiting strategy_manager__interlockManuMode()");
+    X_LOG_TRACE("exiting strategy_manager__interlockManuMode()");
 
-	/* ===== Postconditions ===== */
-	// Vérifie les invariants après logique
+    /* ===== Postconditions ===== */
+    // Vérifie les invariants après logique
 
-	return; // ⬅️ À conserver. Retour explicite (void)matrix
+    return; // ⬅️ À conserver. Retour explicite (void)
 }
 
 void strategy_manager__computeStrat(seq_t *sequence)
 {
-	/* ===== Préconditions ===== */
+    /* ===== Préconditions ===== */
     X_ASSERT(&strategyManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
 
-	X_LOG_TRACE("entering strategy_manager__computeStrat()");
+    X_LOG_TRACE("entering strategy_manager__computeStrat()");
 
-	/* ===== Variables locales ===== */
+    /* ===== Variables locales ===== */
     // Déclare les variables temporaires
 
-	/* ===== Logique principale ===== */
+    /* ===== Logique principale ===== */
 
-	strategy_wrapper__prepare(strategyManager.matrix);
+    strategy_wrapper__prepare(strategyManager.matrix);
 
-	Point initial = {0, 0}, final = {9, 8};
+    point_t initial = {0, 0}, final = {9, 8};
 
-	strategy_wrapper__execute(sequence, &initial, &final);
+    strategy_wrapper__execute(sequence, &initial, &final);
 
-	print_colored_grid(sequence, MAP_SIZE * MAP_SIZE);
+    print_colored_grid(sequence, MAP_SIZE * MAP_SIZE);
 
-	X_LOG_TRACE("exiting strategy_manager__computeStrat()");
+    X_LOG_TRACE("exiting strategy_manager__computeStrat()");
 
-	/* ===== Postconditions ===== */
-	// Vérifie les invariants après logique
+    /* ===== Postconditions ===== */
+    // Vérifie les invariants après logique
 
-	return; // ⬅️ À conserver. Retour explicite (void)
+    return; // ⬅️ À conserver. Retour explicite (void)
 }
 
 int strategy_manager__startTimer()
 {
-	/* ===== Préconditions ===== */
+    /* ===== Préconditions ===== */
     X_ASSERT(&strategyManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
     // X_ASSERT(strategyManager.Timer != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
 
-	X_LOG_TRACE("entering strategy_manager__startTimer()");
+    X_LOG_TRACE("entering strategy_manager__startTimer()");
 
-	/* ===== Variables locales ===== */
-	int ret = RET_NOT_IMPL_INT; // ⬅️ "Rater-vite". Initialisé par un code d'erreur (prog défensive)
+    /* ===== Variables locales ===== */
+    int ret = RET_NOT_IMPL_INT; // ⬅️ "Rater-vite". Initialisé par un code d'erreur (prog défensive)
 
-	/* ===== Logique principale ===== */
+    /* ===== Logique principale ===== */
     ret = clock_gettime(CLOCK_MONOTONIC, &strategyManager.start_time);
 
-	X_LOG_TRACE("exiting strategy_manager__startTimer()");
+    X_LOG_TRACE("exiting strategy_manager__startTimer()");
 
-	/* ===== Postconditions ===== */
-	// assert(ret == RET_OK); // ⬅️ À décommenter. Pour les plus téméraires
+    /* ===== Postconditions ===== */
+    // assert(ret == RET_OK); // ⬅️ À décommenter. Pour les plus téméraires
 
     return ret;
 }
 
 int strategy_manager__stopTimer()
 {
-	/* ===== Préconditions ===== */
+    /* ===== Préconditions ===== */
     X_ASSERT(&strategyManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
     // X_ASSERT(strategyManager.Timer != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
 
-	X_LOG_TRACE("entering strategy_manager__stopTimer()");
+    X_LOG_TRACE("entering strategy_manager__stopTimer()");
 
-	/* ===== Variables locales ===== */
-	int ret = RET_NOT_IMPL_INT; // ⬅️ "Rater-vite". Initialisé par un code d'erreur (prog défensive)
+    /* ===== Variables locales ===== */
+    int ret = RET_NOT_IMPL_INT; // ⬅️ "Rater-vite". Initialisé par un code d'erreur (prog défensive)
 
-	/* ===== Logique principale ===== */
-	clock_gettime(CLOCK_MONOTONIC, &strategyManager.end_time);
+    /* ===== Logique principale ===== */
+    clock_gettime(CLOCK_MONOTONIC, &strategyManager.end_time);
 
-	X_LOG_TRACE("exiting strategy_manager__stopTimer()");
+    X_LOG_TRACE("exiting strategy_manager__stopTimer()");
 
-	/* ===== Postconditions ===== */
-	// assert(ret == RET_OK); // ⬅️ À décommenter. Pour les plus téméraires
+    /* ===== Postconditions ===== */
+    // assert(ret == RET_OK); // ⬅️ À décommenter. Pour les plus téméraires
 
     return ret;
 }
 
-int strategy_manager__getTimeElapsed() {
-	return strategyManager.end_time.tv_sec - strategyManager.start_time.tv_sec;
+int strategy_manager__getTimeElapsed()
+{
+    return strategyManager.end_time.tv_sec - strategyManager.start_time.tv_sec;
 }
 
 void strategy_manager__updateStatus(Status status)
 {
-	/* ===== Préconditions ===== */
-	// Vérifie les invariants avant logique
+    /* ===== Préconditions ===== */
+    // Vérifie les invariants avant logique
 
     X_ASSERT(&strategyManager != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
 
-	UNUSED(status); // ⬅️ À retirer. Dès que 'status' est utilisé en dehors des assert()
+    // Use status parameter
+    strategyManager.status = status;
 
-	X_LOG_TRACE("entering strategy_manager__updateStatus()");
+    X_LOG_TRACE("entering strategy_manager__updateStatus()");
 
-	/* ===== Variables locales ===== */
+    /* ===== Variables locales ===== */
     // Déclare les variables temporaires
 
-	/* ===== Logique principale ===== */
-	strategyManager.status = status;
-   
-	X_LOG_TRACE("exiting strategy_manager__updateStatus()");
+    /* ===== Logique principale ===== */
+    // Status already set above
 
-	/* ===== Postconditions ===== */
-	// Vérifie les invariants après logique
+    X_LOG_TRACE("exiting strategy_manager__updateStatus()");
 
-	return; // ⬅️ À conserver. Retour explicite (void)
+    /* ===== Postconditions ===== */
+    // Vérifie les invariants après logique
+
+    return; // ⬅️ À conserver. Retour explicite (void)
 }
 
-void strategy_manager__getInstance(StrategyManager *instance)
+void strategy_manager__getInstance(strategyManager_t *instance)
 {
-	/* ===== Préconditions ===== */
-	X_ASSERT(instance != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
+    /* ===== Préconditions ===== */
+    X_ASSERT(instance != NULL); // ⬅️ À conserver. Désactivé si NDEBUG est défini (build release)
 
-	X_LOG_TRACE("entering strategy_manager__getInstance()");
+    X_LOG_TRACE("entering strategy_manager__getInstance()");
 
-	/* ===== Logique principale ===== */
-	*instance = strategyManager;
+    /* ===== Logique principale ===== */
+    *instance = strategyManager;
 
-	X_LOG_TRACE("exiting strategy_manager__getInstance()");
+    X_LOG_TRACE("exiting strategy_manager__getInstance()");
 
-	/* ===== Postconditions ===== */
-	// Vérifie les invariants après logique
+    /* ===== Postconditions ===== */
+    // Vérifie les invariants après logique
 
-	return; // ⬅️ À conserver. Retour explicite (void)
+    return; // ⬅️ À conserver. Retour explicite (void)
 }
 
 #define ROWS 10
 #define COLS 10
-#define PATH_MAX_LEN MAP_SIZE * MAP_SIZE
-static void print_colored_grid(seq_t *path, size_t path_len) {
-	int grid[ROWS][COLS] = {0};  // 0: empty, 1: path, 2: obstacle
+#define PATH_MAX_LEN MAP_SIZE *MAP_SIZE
+static void print_colored_grid(seq_t *path, size_t path_len)
+{
+    int grid[ROWS][COLS] = {0}; // 0: empty, 1: path, 2: obstacle
 
-	// Mark obstacles and path in single loop
-	for (int i = 0; i < ROWS; ++i) {
-		for (int j = 0; j < COLS; ++j) {
-		if (strategyManager.matrix[i][j].type == MAP_CELL_WALL) {
-			grid[i][j] = 2; // Mark as obstacle
-		}
-		}
-	}
+    // Mark obstacles and path in single loop
+    for (int i = 0; i < ROWS; ++i)
+    {
+        for (int j = 0; j < COLS; ++j)
+        {
+            if (strategyManager.matrix[i][j].type == MAP_CELL_WALL)
+            {
+                grid[i][j] = 2; // Mark as obstacle
+            }
+        }
+    }
 
-	// Mark path points
-	for (size_t i = 0; i < path_len; ++i) {
-		int x = path[i].x;
-		int y = path[i].y;
-		
-		if (x >= 0 && x < ROWS && y >= 0 && y < COLS) {
-		grid[x][y] = 1; // Mark as path
-		}
-	}
+    // Mark path points
+    for (size_t i = 0; i < path_len; ++i)
+    {
+        int x = path[i].xPosition;
+        int y = path[i].yPosition;
 
-	// Print column headers
-	printf("   ");
-	for (int j = 0; j < COLS; ++j) {
-		printf("%2d ", j);
-	}
-	printf("\n");
+        if (x >= 0 && x < ROWS && y >= 0 && y < COLS)
+        {
+            grid[x][y] = 1; // Mark as path
+        }
+    }
 
-	// Print separator line
-	printf("   ");
-	for (int j = 0; j < COLS; ++j) {
-		printf("---");
-	}
-	printf("\n");
+    // Print column headers
+    printf("   ");
+    for (int j = 0; j < COLS; ++j)
+    {
+        printf("%2d ", j);
+    }
+    printf("\n");
 
-	// Print grid with coloring
-	for (int i = 0; i < ROWS; ++i) {
-		printf("%2d|", i);  // Row label
-		for (int j = 0; j < COLS; ++j) {
-			switch (grid[i][j]) {
-				case 1: // Path
-					printf("\033[1;30;47m # \033[0m");  // black on white
-					break;
-				case 2: // Obstacle
-					printf("\033[1;31m @ \033[0m");     // red
-					break;
-				default:
-					printf(" . ");                      // empty
-			}
-		}
-		printf("\n");
-	}
-	printf("\n");
+    // Print separator line
+    printf("   ");
+    for (int j = 0; j < COLS; ++j)
+    {
+        printf("---");
+    }
+    printf("\n");
+
+    // Print grid with coloring
+    for (int i = 0; i < ROWS; ++i)
+    {
+        printf("%2d|", i); // Row label
+        for (int j = 0; j < COLS; ++j)
+        {
+            switch (grid[i][j])
+            {
+                case 1:                                // Path
+                    printf("\033[1;30;47m # \033[0m"); // black on white
+                    break;
+                case 2:                             // Obstacle
+                    printf("\033[1;31m @ \033[0m"); // red
+                    break;
+                default:
+                    printf(" . "); // empty
+            }
+        }
+        printf("\n");
+    }
+    printf("\n");
 }

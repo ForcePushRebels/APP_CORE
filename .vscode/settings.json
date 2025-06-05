@@ -2,5 +2,9 @@
     "cmake.copyCompileCommands": "${workspaceFolder}/build/compile_commands.json",
     "clangd.arguments": [
         "--compile-commands-dir=${workspaceFolder}/build"
-    ]
+    ],
+    "files.associations": {
+        "assert.h": "c",
+        "intervention_manager.h": "c"
+    }
 }

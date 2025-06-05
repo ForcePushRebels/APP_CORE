@@ -8,20 +8,20 @@
 
 // system includes
 #include <stdio.h>
-#include <unistd.h>
 #include <string.h>
+#include <unistd.h>
 
 // project includes
-#include "hardwareAbstraction.h"
-#include "xNetwork.h"
-#include "xLog.h"
-#include "xAssert.h"
-#include "watchdog.h"
-#include "networkServer.h"
 #include "handleNetworkMessage.h"
+#include "hardwareAbstraction.h"
 #include "idCard.h"
-#include "sensorManager.h"
 #include "intervention_manager.h"
+#include "networkServer.h"
+#include "sensorManager.h"
+#include "watchdog.h"
+#include "xAssert.h"
+#include "xLog.h"
+#include "xNetwork.h"
 
 static const uint8_t s_aCLogPath[] = "inter.log";
 
@@ -86,7 +86,7 @@ int main()
     t_logCtx t_LogConfig;
     t_LogConfig.t_bLogToFile = true;
     t_LogConfig.t_bLogToConsole = true;
-    strncpy(t_LogConfig.t_cLogPath, (const char*)s_aCLogPath, sizeof(t_LogConfig.t_cLogPath) - 1);
+    strncpy(t_LogConfig.t_cLogPath, (const char *)s_aCLogPath, sizeof(t_LogConfig.t_cLogPath) - 1);
     t_LogConfig.t_cLogPath[sizeof(t_LogConfig.t_cLogPath) - 1] = '\0';
 
     // initialisation des logs
@@ -98,7 +98,7 @@ int main()
     X_ASSERT(l_iReturn == 0);
 
     // init watchdog
-    l_iReturn = watchdog_init(5000);
+    l_iReturn = watchdog_init(300);
     X_ASSERT(l_iReturn == WATCHDOG_SUCCESS);
     watchdog_set_expiry_handler(l_fWatchdogExpiryHandler);
 
@@ -138,14 +138,15 @@ int main()
     l_iReturn = networkServerStart();
     X_ASSERT(l_iReturn == SERVER_OK);
 
-	l_iReturn = intervention_manager__init();
-    X_ASSERT(l_iReturn == INTERVENTION_MANAGER_OK);
+    // Intervention manager initialization disabled
+    // l_iReturn = intervention_manager__init();
+    // X_ASSERT(l_iReturn == INTERVENTION_MANAGER_OK);
 
-	l_iReturn = intervention_manager__giveIDStrategieToFollow(STRATEGY_ASTAR);
-    X_ASSERT(l_iReturn == INTERVENTION_MANAGER_OK);
+    // l_iReturn = giveIdStrategyToFollow(STRATEGY_ASTAR);
+    // X_ASSERT(l_iReturn == INTERVENTION_MANAGER_OK);
 
-	l_iReturn = intervention_manager__startInter();
-    X_ASSERT(l_iReturn == INTERVENTION_MANAGER_OK);
+    // l_iReturn = intervention_manager__startInter();
+    // X_ASSERT(l_iReturn == INTERVENTION_MANAGER_OK);
 
     // main loop
     while (1)

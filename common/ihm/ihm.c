@@ -544,5 +544,6 @@ int ihm_cmd_quitter(const char *args)
     (void)args;
     printf("Arrêt du système EXPLO ...\n");
     fflush(stdout);
+    exit(0);
     return IHM_OK;
 }

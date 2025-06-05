@@ -30,9 +30,9 @@
 #include "xNetwork.h"
 #include "xTimer.h"
 
+#include "explorationManager.h"
 #include "ihm.h"
 #include "map_engine.h"
-#include "explorationManager.h"
 
 // chemin des logs avec l'executable en chemin de l'executable
 static const uint8_t s_aCLogPath[] = "explo.log";
@@ -97,7 +97,7 @@ int main()
     // Configuration des logs - le chemin complet sera construit automatiquement
     t_logCtx t_LogConfig;
     t_LogConfig.t_bLogToFile = false;
-    t_LogConfig.t_bLogToConsole = true;
+    t_LogConfig.t_bLogToConsole = false;
     strncpy(t_LogConfig.t_cLogPath, (const char *)s_aCLogPath, sizeof(t_LogConfig.t_cLogPath) - 1);
     t_LogConfig.t_cLogPath[sizeof(t_LogConfig.t_cLogPath) - 1] = '\0';
 
@@ -176,7 +176,7 @@ int main()
     X_LOG_TRACE("Supervisor initialized");
 
     safetyControllerInit();
-
+    ihm_init();
     // init exploration manager
     explorationManager_start();
     X_LOG_TRACE("Exploration manager initialized");

@@ -10,6 +10,7 @@
 #include "explorationManager.h"
 #include "handleNetworkMessage.h"
 #include "hardwareAbstraction.h"
+#include "ihm.h"
 #include "map_engine.h"
 #include "networkEncode.h"
 #include "networkServer.h"
@@ -335,7 +336,17 @@ static void checkInfo(void *arg)
     {
         return;
     }
-
+    ihm_robot_status_t l_tIhmStatus = {
+        .status = "PRÊT",
+        .battery_level = (uint8_t)s_tSupervisorCtx.t_iBatteryLevel,
+        .mode = "AUTO",
+        .position_x = (float)s_tSupervisorCtx.t_tPosition.t_iXPosition,
+        .position_y = (float)s_tSupervisorCtx.t_tPosition.t_iYPosition,
+        .orientation = (float)s_tSupervisorCtx.t_tPosition.t_fOrientation,
+        .version = "1.0",
+    };
+    ihm_set_robot_status(&l_tIhmStatus);
+    
     static uint64_t last_position_update = 0;
     static uint64_t last_status_update = 0;
 
@@ -422,6 +433,17 @@ static void *supervisor_task(void *arg)
 
     while (!supervisor_is_running)
     {
+        ihm_robot_status_t l_tIhmStatus = {
+            .status = "PRÊT",
+            .battery_level = (uint8_t)s_tSupervisorCtx.t_iBatteryLevel,
+            .mode = "AUTO",
+            .position_x = (float)s_tSupervisorCtx.t_tPosition.t_iXPosition,
+            .position_y = (float)s_tSupervisorCtx.t_tPosition.t_iYPosition,
+            .orientation = (float)s_tSupervisorCtx.t_tPosition.t_fOrientation,
+            .version = "1.0",
+        };
+        ihm_set_robot_status(&l_tIhmStatus);
+
         sleep(1);
     }
     sleep(3);

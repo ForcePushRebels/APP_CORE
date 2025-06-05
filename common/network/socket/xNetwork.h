@@ -38,12 +38,9 @@
 
 // Performance and configuration constants
 #define NETWORK_MAX_SOCKETS 16        // Maximum number of simultaneous sockets
-#define NETWORK_BUFFER_SIZE 512       // Default buffer size for operations
+#define NETWORK_BUFFER_SIZE 4096       // Default buffer size for operations
 #define NETWORK_MAX_PENDING 5         // Default pending connections queue
 #define NETWORK_DEFAULT_TIMEOUT 30000 // Default timeout in milliseconds (30 seconds)
-
-// Socket pool for eliminating dynamic allocations
-#define NETWORK_SOCKET_POOL_SIZE 32   // Pre-allocated socket pool size
 
 
 // Socket options for high-performance scenarios

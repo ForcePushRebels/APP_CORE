@@ -734,46 +734,38 @@ int networkServerSendMessage(ClientID p_tClientId, uint8_t p_ucMsgType, const vo
         return SERVER_CLIENT_DISCONNECTED;
     }
 
-    // Validate the payload size can fit in uint16_t
-    if (p_ulPayloadSize > UINT16_MAX)
+    // Validate the payload size can fit in protocol
+    if (!protocolIsValidPayloadSize(p_ulPayloadSize))
     {
-        X_LOG_TRACE("Payload size too large for uint16_t: %u bytes", p_ulPayloadSize);
+        X_LOG_TRACE("Payload size too large for protocol: %u bytes (max: %u)", p_ulPayloadSize, PROTOCOL_MAX_PAYLOAD_SIZE);
         mutexUnlock(&l_ptClient->t_tMutex);
         mutexUnlock(&s_ptServerInstance->t_tMutex);
         return SERVER_INVALID_PARAM;
     }
 
-    // OPTIMIZED: Build complete message in single buffer for atomic send
-    uint32_t l_ulTotalSize = sizeof(uint16_t) + 1 + p_ulPayloadSize; // size header + msg type + payload
-    uint8_t *l_pucCompleteBuffer = (uint8_t *)malloc(l_ulTotalSize);
-    if (l_pucCompleteBuffer == NULL)
+    uint8_t l_aucFrameBuffer [PROTOCOL_MAX_FRAME_SIZE];
+    uint32_t l_ulFrameSize;
+    
+    int l_iProtocolResult = protocolCreateFrame((network_message_type_t)p_ucMsgType, 
+                                               (const uint8_t*)p_pvPayload, 
+                                               p_ulPayloadSize,
+                                               l_aucFrameBuffer, 
+                                               sizeof(l_aucFrameBuffer),
+                                               &l_ulFrameSize);
+    
+    if (l_iProtocolResult != PROTOCOL_OK)
     {
-        X_LOG_TRACE("Failed to allocate complete message buffer");
+        X_LOG_TRACE("Failed to create protocol frame: %s", protocolGetErrorString(l_iProtocolResult));
         mutexUnlock(&l_ptClient->t_tMutex);
         mutexUnlock(&s_ptServerInstance->t_tMutex);
-        return SERVER_MEMORY_ERROR;
-    }
-
-    // Build the complete message:
-    // 1. Size header (2 bytes) - includes message type (1 byte) + payload
-    uint16_t l_usNetworkPayloadSize = HOST_TO_NET_SHORT((uint16_t)(1 + p_ulPayloadSize));
-    memcpy(l_pucCompleteBuffer, &l_usNetworkPayloadSize, sizeof(uint16_t));
-
-    // 2. Message type (1 byte)
-    l_pucCompleteBuffer[sizeof(uint16_t)] = p_ucMsgType;
-
-    // 3. Payload (if any)
-    if (p_ulPayloadSize > 0 && p_pvPayload != NULL)
-    {
-        memcpy(l_pucCompleteBuffer + sizeof(uint16_t) + 1, p_pvPayload, p_ulPayloadSize);
+        return SERVER_ERROR;
     }
 
     // ATOMIC SEND: Single network operation for entire message
-    int l_iSentBytes = networkSend(l_ptClient->t_ptSocket, l_pucCompleteBuffer, l_ulTotalSize);
+    int l_iSentBytes = networkSend(l_ptClient->t_ptSocket, l_aucFrameBuffer, l_ulFrameSize);
 
     mutexUnlock(&l_ptClient->t_tMutex);
     mutexUnlock(&s_ptServerInstance->t_tMutex);
-    free(l_pucCompleteBuffer);
 
     if (l_iSentBytes < 0)
     {
@@ -781,9 +773,9 @@ int networkServerSendMessage(ClientID p_tClientId, uint8_t p_ucMsgType, const vo
         return SERVER_SOCKET_ERROR;
     }
 
-    if ((uint32_t)l_iSentBytes != l_ulTotalSize)
+    if ((uint32_t)l_iSentBytes != l_ulFrameSize)
     {
-        X_LOG_TRACE("Incomplete send: expected %u bytes, sent %d bytes", l_ulTotalSize, l_iSentBytes);
+        X_LOG_TRACE("Incomplete send: expected %u bytes, sent %d bytes", l_ulFrameSize, l_iSentBytes);
         return SERVER_SOCKET_ERROR;
     }
 

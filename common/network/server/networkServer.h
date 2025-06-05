@@ -13,6 +13,7 @@
 #include "xTask.h"
 #include "xOsMutex.h"
 #include "networkEncode.h"
+#include "xProtocol.h"
 #include <stdbool.h>
 #include <stdint.h>
 

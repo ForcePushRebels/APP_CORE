@@ -12,12 +12,16 @@
 // Définition de la marge de correction en ticks
 #define CORRECTION_MARGIN_TICKS 0
 
+#define NB_TOURS_DEMANDE 10
+#define ECART_TOUR 150.0f
+#define CORRECTION_ANGLE_FACTOR ((NB_TOURS_DEMANDE * 360.0f) /  (NB_TOURS_DEMANDE * 360.0f + ECART_TOUR))
+
 // Activer/désactiver la correction du débordement des encodeurs
 #define CORRECTION 1
 bool g_bCorrection = true;
 
 // Variable de position globale
-static Position_t g_robot_position = {700, 700, 0.0};
+static Position_t g_robot_position = {50, 1100, 0.0};
 static xOsMutexCtx g_position_mutex;
 
 // Structure de contrôle de position pour chaque roue
@@ -83,7 +87,7 @@ static int32_t angle_to_ticks(double angle_rad)
     // Calculer la rotation de roue pour l'angle souhaité
     // Pour une propulsion différentielle, la rotation de roue est:
     // rotation_roue = (angle * distance_roues) / rayon_roue
-    double wheel_rotation_rad = ((WHEEL_DISTANCE_CM/2.0) * angle_rad)*0.962;
+    double wheel_rotation_rad = ((WHEEL_DISTANCE_CM/2.0) * angle_rad)*CORRECTION_ANGLE_FACTOR;
     
     // Convertir les radians en ticks d'encodeur
     // Multiplier par 10 pour corriger l'échelle
@@ -440,6 +444,8 @@ static void wheel_position_control_init(wheel_position_control_t* control)
 
     control->running = true;
     // X_LOG_TRACE("Tâche de contrôle de position de roue initialisée avec succès");
+
+    X_LOG_TRACE("CORRECTION_ANGLE_FACTOR: %f", CORRECTION_ANGLE_FACTOR);
 }
 
 static void wheel_position_control_shutdown(wheel_position_control_t *control)

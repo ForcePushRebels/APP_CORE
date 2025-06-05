@@ -20,8 +20,8 @@
 /* **************************************************** Private macros *************************************************** */
 #define MAP_DEBUG 0
 
-#define MAP_WIDTH_MM 1500
-#define MAP_HEIGHT_MM 1500
+#define MAP_WIDTH_MM 1400
+#define MAP_HEIGHT_MM 1400
 
 #define MAP_CELL_SIZE_MM 15
 

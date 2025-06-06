@@ -630,7 +630,8 @@ int networkServerSendToClient(ClientID p_tClientId, const void *p_pvData, int p_
         return SERVER_CLIENT_NOT_FOUND;
     }
 
-    if (!isClientConnected(l_ptClient))
+    // Check connection status more comprehensively
+    if (!l_ptClient->t_bConnected || l_ptClient->t_ptSocket == NULL || l_ptClient->t_bCleanupInProgress)
     {
         rwlockUnlock(&s_ptServerInstance->t_tRwLock);
         return SERVER_CLIENT_DISCONNECTED;
@@ -668,16 +669,13 @@ int networkServerSendMessage(ClientID p_tClientId, uint8_t p_ucMsgType, const vo
         return SERVER_ERROR;
     }
 
-    bool l_bConnected = false;
-    l_bConnected = isClientConnected(l_ptClient);
-
-    if (!l_bConnected)
+    // Check connection status directly (we already have the write lock)
+    if (!l_ptClient->t_bConnected || l_ptClient->t_ptSocket == NULL || l_ptClient->t_bCleanupInProgress)
     {
         pthread_rwlock_unlock(&l_ptClient->t_tRwLock);
         rwlockUnlock(&s_ptServerInstance->t_tRwLock);
         return SERVER_CLIENT_DISCONNECTED;
     }
-
 
     // Validate the payload size can fit in protocol
     if (!protocolIsValidPayloadSize(p_ulPayloadSize))

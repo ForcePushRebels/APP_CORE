@@ -19,7 +19,7 @@
 /// Protocol Constants
 //////////////////////////////////
 
-#define PROTOCOL_MAX_FRAME_SIZE     4096    // Maximum frame size
+#define PROTOCOL_MAX_FRAME_SIZE     24000    // Maximum frame size
 #define PROTOCOL_HEADER_SIZE        3       // Size header (2 bytes) + message type (1 byte)
 #define PROTOCOL_MAX_PAYLOAD_SIZE   (PROTOCOL_MAX_FRAME_SIZE - PROTOCOL_HEADER_SIZE)
 

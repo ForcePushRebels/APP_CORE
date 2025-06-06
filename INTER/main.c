@@ -120,9 +120,6 @@ int main()
     l_iReturn = networkServerConfigure(&l_tServerConfig);
     X_ASSERT(l_iReturn == SERVER_OK);
 
-    // Définir le gestionnaire de messages
-    networkServerSetMessageHandler(handleNetworkMessage);
-
     // Configurer et initialiser la découverte UDP
     idCardNetworkInit();
 
@@ -138,15 +135,6 @@ int main()
     l_iReturn = networkServerStart();
     X_ASSERT(l_iReturn == SERVER_OK);
 
-    // Intervention manager initialization disabled
-    // l_iReturn = intervention_manager__init();
-    // X_ASSERT(l_iReturn == INTERVENTION_MANAGER_OK);
-
-    // l_iReturn = giveIdStrategyToFollow(STRATEGY_ASTAR);
-    // X_ASSERT(l_iReturn == INTERVENTION_MANAGER_OK);
-
-    // l_iReturn = intervention_manager__startInter();
-    // X_ASSERT(l_iReturn == INTERVENTION_MANAGER_OK);
 
     // main loop
     while (1)

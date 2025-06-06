@@ -118,10 +118,6 @@ int main()
     // Initialisation du système de handlers de messages
     initMessageHandlerSystem();
 
-    // init server
-    l_iReturn = networkServerInit();
-    X_ASSERT(l_iReturn == SERVER_OK);
-
     ServerConfig l_tServerConfig = networkServerCreateDefaultConfig();
     l_tServerConfig.t_usPort = 8080;
     l_tServerConfig.t_pcBindAddress = "0.0.0.0";
@@ -129,12 +125,6 @@ int main()
     l_tServerConfig.t_iBacklog = 5;
     l_tServerConfig.t_bUseTimeout = false;
     l_tServerConfig.t_iReceiveTimeout = 0;
-
-    l_iReturn = networkServerConfigure(&l_tServerConfig);
-    X_ASSERT(l_iReturn == SERVER_OK);
-
-    // Définir le gestionnaire de messages
-    networkServerSetMessageHandler(handleNetworkMessage);
 
     // Configurer et initialiser la découverte UDP
     idCardNetworkInit();
@@ -162,9 +152,17 @@ int main()
     X_ASSERT(l_iReturn == PILOT_OK);
     X_LOG_TRACE("Pilot initialized");
 
+    // init server
+    l_iReturn = networkServerInit();
+    X_ASSERT(l_iReturn == SERVER_OK);
+
+    l_iReturn = networkServerConfigure(&l_tServerConfig);
+    X_ASSERT(l_iReturn == SERVER_OK);
+
     // start server
     l_iReturn = networkServerStart();
     X_ASSERT(l_iReturn == SERVER_OK);
+    X_LOG_TRACE("Server started");
 
     // init map engine
     l_iReturn = map_engine_init();

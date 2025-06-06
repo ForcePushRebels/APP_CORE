@@ -271,7 +271,7 @@ NetworkSocket *networkAccept(NetworkSocket *p_ptSocket, NetworkAddress *p_pClien
         X_LOG_TRACE("networkAccept: Failed to set receive buffer size on client socket");
     }
 
-    X_LOG_TRACE("networkAccept: Connection successful (mutex-free)");
+    X_LOG_TRACE("networkAccept: Connection successful");
     return l_pClientSocket;
 }
 

@@ -9,20 +9,18 @@
 #ifndef NETWORK_SERVER_H
 #define NETWORK_SERVER_H
 
-#include "xNetwork.h"
-#include "xTask.h"
-#include "xOsMutex.h"
 #include "networkEncode.h"
+#include "xNetwork.h"
+#include "xOsMutex.h"
 #include "xProtocol.h"
+#include "xTask.h"
+#include <pthread.h>
 #include <stdbool.h>
 #include <stdint.h>
 
 // Forward declarations
 typedef struct server_ctx_t serverCtx;
 typedef struct client_ctx_t clientCtx;
-
-// Message handler function type
-typedef void (*MessageHandler)(clientCtx *p_pttClient, const network_message_t *p_pttMessage);
 
 // Server configuration
 typedef struct
@@ -46,19 +44,18 @@ typedef uint32_t ClientID;
 #define INVALID_CLIENT_ID 0
 
 // Error codes
-#define SERVER_OK                   0x200B000
-#define SERVER_ERROR                0x200B001
-#define SERVER_MAX_CLIENTS_REACHED  0x200B002
-#define SERVER_INVALID_STATE        0x200B003
-#define SERVER_THREAD_ERROR         0x200B004
-#define SERVER_CLIENT_DISCONNECTED  0x200B005
-#define SERVER_SOCKET_ERROR         0x200B006
-#define SERVER_MEMORY_ERROR         0x200B007
-#define SERVER_TIMEOUT              0x200B008
-#define SERVER_INVALID_PARAM        0x200B009
-#define SERVER_NOT_RUNNING          0x200B00A
-#define SERVER_CLIENT_NOT_FOUND     0x200B00B
-
+#define SERVER_OK 0x200B000
+#define SERVER_ERROR 0x200B001
+#define SERVER_MAX_CLIENTS_REACHED 0x200B002
+#define SERVER_INVALID_STATE 0x200B003
+#define SERVER_THREAD_ERROR 0x200B004
+#define SERVER_CLIENT_DISCONNECTED 0x200B005
+#define SERVER_SOCKET_ERROR 0x200B006
+#define SERVER_MEMORY_ERROR 0x200B007
+#define SERVER_TIMEOUT 0x200B008
+#define SERVER_INVALID_PARAM 0x200B009
+#define SERVER_NOT_RUNNING 0x200B00A
+#define SERVER_CLIENT_NOT_FOUND 0x200B00B
 
 ///////////////////////////////////////////
 /// @brief Initialize the network server system
@@ -72,12 +69,6 @@ int networkServerInit(void);
 /// @return SERVER_OK or error code
 ///////////////////////////////////////////
 int networkServerConfigure(const ServerConfig *p_pttConfig);
-
-///////////////////////////////////////////
-/// @brief Set the message handler function to process incoming messages
-/// @param handler The message handler function
-///////////////////////////////////////////
-void networkServerSetMessageHandler(MessageHandler p_pttHandler);
 
 ///////////////////////////////////////////
 /// @brief Start the server
@@ -165,10 +156,7 @@ int networkServerSendToClient(ClientID p_tClientId, const void *p_pvData, int p_
 /// @param payloadSize Size of the payload in bytes (must be <= UINT16_MAX)
 /// @return SERVER_OK or error code
 ///////////////////////////////////////////
-int networkServerSendMessage(ClientID p_tClientId,
-                             uint8_t p_ucMsgType,
-                             const void *p_pvPayload,
-                             uint32_t p_ulPayloadSize);
+int networkServerSendMessage(ClientID p_tClientId, uint8_t p_ucMsgType, const void *p_pvPayload, uint32_t p_ulPayloadSize);
 
 ///////////////////////////////////////////
 /// @brief Get the error string representation
@@ -197,7 +185,6 @@ ClientID networkServerGetClientID(clientCtx *p_ptClient);
 ///////////////////////////////////////////
 clientCtx *networkServerGetClientCtx(ClientID p_tClientId);
 
-
 ///////////////////////////////////////////
 /// @brief Send a message to all clients
 /// @param msgType Type of message from network_message_type_t
@@ -206,7 +193,5 @@ clientCtx *networkServerGetClientCtx(ClientID p_tClientId);
 /// @return SERVER_OK or error code
 ///////////////////////////////////////////
 int networkServerSendMessageToAllClients(uint8_t p_ucMsgType, const void *p_pvPayload, uint32_t p_ulPayloadSize);
-
-
 
 #endif // NETWORK_SERVER_H

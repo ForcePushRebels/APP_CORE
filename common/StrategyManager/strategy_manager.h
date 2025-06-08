@@ -1,164 +1,200 @@
-// SPDX-License-Identifier: LicenseRef-PATO-ESEO
-
-/**
- * @file strategy_manager.h
- * @brief Header file for the Strategy Manager module.
- *
- * @details
- * This file is part of the PATO project developed by ForcePushRebels.
- * The project was coordinated by Mr. Jérôme DELATOURin collaboration with
- * faculty of the Embedded Software and Cybersecurity (LEC) option at ESEO.
- *
- * It constitutes a collective work as per Article L113-2 of the French
- * Intellectual Property Code.
- *
- * Usage is restricted to educational purposes within ESEO. Redistribution,
- * public useor commercial exploitation without prior written consent is prohibited.
- *
- * The content is provided "as is," without any warranty or guarantee.
- *
- * @author
- * ForcePushRebels – PATO Project (collective contributor)
- * Uriel Fodong <uriel.fodong@reseau.eseo.fr> (individual contributor)
- *
- * @version 1.0.0
- *
- * @copyright
- * © 2025 ESEO – All rights reserved.
- *
- * @par License
- * PATO ESEO License (see LICENSE.md)
- */
+////////////////////////////////////////////////////////////
+//  strategy manager header file
+//  defines strategy manager types and functions
+//
+// general discloser: copy or share the file is forbidden
+// Written : 08/06/2025
+////////////////////////////////////////////////////////////
 
 #ifndef __STRATEGY_MANAGER_H__
 #define __STRATEGY_MANAGER_H__
 
-#include <stdbool.h> // For boolean pseudo-type
+#include <stdbool.h>
+#include <stdint.h>
+#include <time.h>
+#include "map_engine.h"
+#include "xAssert.h"
+#include "xLog.h"
 
-#include <map_engine.h>
-#include <time.h> // For timer management
-
-#include "../../StrategyWrapper/strategy_wrapper.h"
-
-#define MAX_WRAPPER_PER_MANAGER 5
-#define MAP_SIZE 10
+/* ************************************************** Public macros *************************************************** */
 
 // Return codes
-#define RET_OK 0
-#define RET_ERR_GENERIC -1
-#define RET_NOT_IMPL_INT -2
-#define RET_NOT_IMPL_BOOL false
-#define RET_ERR_RANGE -3
-#define RET_ERR_NULL -4
+#define STRATEGY_MANAGER_BASE               0x2000
+#define STRATEGY_MANAGER_OK                 (STRATEGY_MANAGER_BASE + 0x00)
+#define STRATEGY_MANAGER_ERR_INIT           (STRATEGY_MANAGER_BASE + 0x01)
+#define STRATEGY_MANAGER_ERR_NOT_IMPL       (STRATEGY_MANAGER_BASE + 0x02)
+#define STRATEGY_MANAGER_ERR_INVALID_PARAM  (STRATEGY_MANAGER_BASE + 0x03)
+#define STRATEGY_MANAGER_ERR_NO_PATH        (STRATEGY_MANAGER_BASE + 0x04)
+#define STRATEGY_MANAGER_ERR_OUT_OF_BOUNDS  (STRATEGY_MANAGER_BASE + 0x05)
 
-// Point structure
-typedef struct
-{
-    int x;
-    int y;
-} Point;
+/* ************************************************** Public types *************************************************** */
 
-typedef enum
+/**
+ * @brief Point structure for pathfinding
+ */
+typedef struct point_s
 {
-    INIT,             // Initialisation
-    PRET,             // Prêt à démarrer
-    MISSION_EN_COURS, // Mission en cours
-    MODE_MANUEL,      // Contrôle manuel actif
-    FIN_DE_MISSION,   // Mission terminée normalement
-    ECHEC,            // Échec ou interruption anormale
-    STATUS_NB,
-} Status;
+    int16_t x_position;
+    int16_t y_position;
+} point_t;
 
-typedef enum
+/**
+ * @brief Path sequence structure
+ */
+typedef struct sequence_s
 {
-    END_MOVE,       // Fin d'un déplacement élémentaire
-    END_ALL_MOVES,  // Fin de la séquence de déplacements
-    EMERGENCY_STOP, // Arrêt d'urgence
+    point_t *points;
+    size_t length;
+    size_t capacity;
+} sequence_t;
+
+/**
+ * @brief Strategy manager status
+ */
+typedef enum strategy_status_e
+{
+    STRATEGY_STATUS_INIT,             // Initialisation
+    STRATEGY_STATUS_READY,            // Prêt à démarrer
+    STRATEGY_STATUS_MISSION_RUNNING,  // Mission en cours
+    STRATEGY_STATUS_MANUAL_MODE,      // Contrôle manuel actif
+    STRATEGY_STATUS_MISSION_COMPLETE, // Mission terminée normalement
+    STRATEGY_STATUS_FAILURE,          // Échec ou interruption anormale
+    STRATEGY_STATUS_NB,
+} strategy_status_t;
+
+/**
+ * @brief Move completion reasons
+ */
+typedef enum move_reason_e
+{
+    MOVE_REASON_END_MOVE,       // Fin d'un déplacement élémentaire
+    MOVE_REASON_END_ALL_MOVES,  // Fin de la séquence de déplacements
+    MOVE_REASON_EMERGENCY_STOP, // Arrêt d'urgence
     MOVE_REASON_NB,
-} MoveReason;
+} move_reason_t;
 
-////////////////////////////////////////////////////////////
-/// @brief Strategy manager structure
-/// @note This structure is used to store the strategy manager state
-////////////////////////////////////////////////////////////
+/**
+ * @brief Strategy manager structure
+ */
 typedef struct strategy_manager_s
 {
-    Status status; // Status of the strategy manager
+    strategy_status_t status;           // Current status
+    map_cell_t *current_map;           // Pointer to current map data
+    size_t map_width;                  // Map width in cells
+    size_t map_height;                 // Map height in cells
+    size_t resolution_mm_per_cell;     // Map resolution
+    sequence_t current_path;           // Current computed path
+    struct timespec start_time;        // Start time for timing operations
+    struct timespec end_time;          // End time for timing operations
+    bool is_moving;                    // Movement state flag
+    bool manual_mode_active;           // Manual mode flag
+} strategy_manager_t;
 
-    mat_t matrix[MAP_SIZE][MAP_SIZE]; // Matrix of the strategy manager
-    seq_t sequence[MAP_SIZE];         // Sequence of the strategy manager
-    struct timespec start_time;       // Start time of the strategy manager
-    struct timespec end_time;         // End time of the strategy manager
-} strategyManager_t;
+/* *********************************************** Public functions declarations ***************************************** */
 
-typedef strategyManager_t StrategyManager;
+/**
+ * @brief Initialize the strategy manager
+ * @return STRATEGY_MANAGER_OK if successful, error code otherwise
+ */
+int strategy_manager_init(void);
 
-////////////////////////////////////////////////////////////
-/// @brief Error codes
-////////////////////////////////////////////////////////////
-#define STRATEGY_MANAGER_BASE 0x2000
-#define STRATEGY_MANAGER_OK (STRATEGY_MANAGER_BASE + 0x00)           // Operation successful
-#define STRATEGY_MANAGER_ERR_INIT (STRATEGY_MANAGER_BASE + 0x01)     // Generic error
-#define STRATEGY_MANAGER_ERR_NOT_IMPL (STRATEGY_MANAGER_BASE + 0x02) // Not implemented error
+/**
+ * @brief Shutdown the strategy manager
+ * @return STRATEGY_MANAGER_OK if successful, error code otherwise
+ */
+int strategy_manager_shutdown(void);
 
-/* Public methods */
+/**
+ * @brief Update the internal map from the map engine
+ * @return STRATEGY_MANAGER_OK if successful, error code otherwise
+ */
+int strategy_manager_update_map(void);
 
-// Constructor and destructor
+/**
+ * @brief Compute a path from start to goal
+ * @param start_point Starting position
+ * @param goal_point Goal position
+ * @param path Output path sequence
+ * @return STRATEGY_MANAGER_OK if successful, error code otherwise
+ */
+int strategy_manager_compute_path(const point_t *start_point, const point_t *goal_point, sequence_t *path);
 
-int strategyManagerInit(void);
+/**
+ * @brief Start movement execution
+ * @return STRATEGY_MANAGER_OK if successful, error code otherwise
+ */
+int strategy_manager_start_movement(void);
 
-void strategy_manager__delete();
+/**
+ * @brief Stop movement execution
+ * @return STRATEGY_MANAGER_OK if successful, error code otherwise
+ */
+int strategy_manager_stop_movement(void);
 
-// Strategy management
+/**
+ * @brief Check if wall is near based on current sensors
+ * @return true if wall is detected nearby, false otherwise
+ */
+bool strategy_manager_is_wall_near(void);
 
-void strategy_manager__askStrat();
+/**
+ * @brief Handle end condition reached notification
+ */
+void strategy_manager_end_condition_reached(void);
 
-int strategy_manager__giveIDStrategieToFollow(int);
+/**
+ * @brief Get current strategy manager status
+ * @return Current status code
+ */
+strategy_status_t strategy_manager_get_status(void);
 
-void strategy_manager__setMap();
+/**
+ * @brief Report pilot/movement status
+ * @param pilot_status Status to report
+ */
+void strategy_manager_report_status(move_reason_t pilot_status);
 
-int strategy_manager__getTimeElapsed();
+/**
+ * @brief Enable/disable manual mode interlock
+ * @param enable true to enable manual mode, false to disable
+ */
+void strategy_manager_set_manual_mode(bool enable);
 
-// Movement control
+/**
+ * @brief Start internal timer
+ * @return STRATEGY_MANAGER_OK if successful, error code otherwise
+ */
+int strategy_manager_start_timer(void);
 
-void strategy_manager__startMove();
+/**
+ * @brief Stop internal timer
+ * @return STRATEGY_MANAGER_OK if successful, error code otherwise
+ */
+int strategy_manager_stop_timer(void);
 
-void strategy_manager__endMove();
+/**
+ * @brief Get elapsed time in seconds
+ * @return Elapsed time since timer start
+ */
+int32_t strategy_manager_get_elapsed_time(void);
 
-// External alert
+/**
+ * @brief Update strategy manager status
+ * @param new_status New status to set
+ */
+void strategy_manager_update_status(strategy_status_t new_status);
 
-bool strategy_manager__alertWallNear();
+/**
+ * @brief Get strategy manager instance (for debugging/monitoring)
+ * @param instance Pointer to fill with current instance data
+ * @return STRATEGY_MANAGER_OK if successful, error code otherwise
+ */
+int strategy_manager_get_instance(strategy_manager_t *instance);
 
-void strategy_manager__alertEndConditionReach();
-
-// Status management
-
-int strategy_manager__getStatus();
-
-void strategy_manager__reportStatus(MoveReason);
-
-// Manual interlock
-
-void strategy_manager__interlockManuMode();
-
-/* Assertions */
-
-void strategy_manager__getInstance(strategyManager_t *instance);
-
-/* Private methods */
-
-// Strategy computation
-
-void strategy_manager__computeStrat(seq_t *);
-
-// Timer management
-
-int strategy_manager__startTimer();
-
-int strategy_manager__stopTimer();
-
-// Status update
-
-void strategy_manager__updateStatus(Status);
+/**
+ * @brief Free a sequence structure
+ * @param seq Sequence to free
+ */
+void strategy_manager_free_sequence(sequence_t *seq);
 
 #endif /* __STRATEGY_MANAGER_H__ */

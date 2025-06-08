@@ -184,7 +184,7 @@ int main()
         sleep(1);
     }
 
-    // Ce code ne sera jamais atteint, mais pour être complet:
+
     hardwareAbstractionClose();
     motor_control_shutdown();
     position_control_shutdown();

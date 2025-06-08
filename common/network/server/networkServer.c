@@ -22,7 +22,7 @@
 #define SERVER_MAX_BUFFER_SIZE 4096          // Max buffer size
 #define MAX_CLIENTS 10                       // Max number of clients
 
-// Hash table optimization for O(1) client lookup
+// Hash table for O(1) client lookup
 #define CLIENT_HASH_TABLE_SIZE 16 // Must be power of 2 for fast modulo
 #define CLIENT_HASH_MASK (CLIENT_HASH_TABLE_SIZE - 1)
 
@@ -60,13 +60,18 @@ struct server_ctx_t
     clientCtx *t_ptClientHashTable[CLIENT_HASH_TABLE_SIZE]; // hash table for O(1) client lookup
     int t_iNumClients;                                      // number of connected clients
 
-    ProtocolFrameBuffer *t_ptBroadcastBuffer; // reusable buffer for broadcast optimization
+    ProtocolFrameBuffer *t_ptBroadcastBuffer;               // reusable buffer for broadcast optimization
 };
 
 ///////////////////////////////////////////
 /// s_ptServerInstance
 ///////////////////////////////////////////
 static serverCtx *s_ptServerInstance = NULL;
+
+///////////////////////////////////////////
+/// s_tAndroidClientId - Client ID for Android application
+///////////////////////////////////////////
+static ClientID s_tAndroidClientId = INVALID_CLIENT_ID;
 
 ///////////////////////////////////////////
 /// serverThreadFunc
@@ -79,11 +84,9 @@ static void *clientThreadFunc(void *p_ptArg);
 ///////////////////////////////////////////
 static void cleanupAndFreeClient(clientCtx *p_ptClient);
 static void clientThreadCleanup(clientCtx *p_ptClient);
-static bool parseMessageHeader(const uint8_t *p_ptucData, int p_iSize, uint8_t *p_ptucMsgType);
 static clientCtx *findClientById(ClientID p_tClientId);
 static int addClient(clientCtx *p_ptClient);
 static int removeClient(clientCtx *p_ptClient);
-static bool isClientConnected(clientCtx *p_ptClient);
 
 ///////////////////////////////////////////
 /// rwlock helper functions
@@ -122,7 +125,7 @@ int networkServerInit(void)
         return SERVER_ERROR;
     }
 
-    // Initialize broadcast buffer for performance optimization
+    // Initialize broadcast buffer 
     s_ptServerInstance->t_ptBroadcastBuffer = protocolCreateFrameBuffer(PROTOCOL_MAX_FRAME_SIZE);
     if (!s_ptServerInstance->t_ptBroadcastBuffer)
     {
@@ -644,7 +647,7 @@ int networkServerSendToClient(ClientID p_tClientId, const void *p_pvData, int p_
 }
 
 ///////////////////////////////////////////
-/// networkServerSendMessage - Optimisé avec rwlock et frame buffer
+/// networkServerSendMessage 
 ///////////////////////////////////////////
 int networkServerSendMessage(ClientID p_tClientId, uint8_t p_ucMsgType, const void *p_pvPayload, uint32_t p_ulPayloadSize)
 {
@@ -1048,75 +1051,91 @@ static void *clientThreadFunc(void *p_pvArg)
             l_iClientStopFlag = atomic_load_explicit(&p_ptClient->t_tTask.a_iStopFlag, memory_order_relaxed);
         }
 
-        // STEP 1: First receive the size (2 bytes) - FIXED: use complete receive
-        p_iReceived = networkReceiveComplete(p_ptClient->t_ptSocket, p_aucBuffer, sizeof(uint16_t));
+        // STEP 1: Receive complete frame header (size + message type)
+        uint8_t l_aucHeaderBuffer[PROTOCOL_HEADER_SIZE];
+        p_iReceived = networkReceiveComplete(p_ptClient->t_ptSocket, l_aucHeaderBuffer, PROTOCOL_HEADER_SIZE);
 
-        X_LOG_TRACE("Size data received: %d bytes", p_iReceived);
+        X_LOG_TRACE("Header data received: %d bytes", p_iReceived);
 
-        if (p_iReceived == sizeof(uint16_t))
+        if (p_iReceived == PROTOCOL_HEADER_SIZE)
         {
-            // Extract payload size
-            uint16_t l_usPayloadSize;
-            memcpy(&l_usPayloadSize, p_aucBuffer, sizeof(uint16_t));
-            uint32_t l_ulPayloadSize = NET_TO_HOST_SHORT(l_usPayloadSize);
+            // Validate header and extract payload size and message type
+            uint32_t l_ulExpectedPayloadSize;
+            uint8_t l_ucMsgType;
+            
+            int l_iHeaderResult = protocolValidateHeader(l_aucHeaderBuffer, &l_ulExpectedPayloadSize, &l_ucMsgType);
+            if (l_iHeaderResult != PROTOCOL_OK)
+            {
+                X_LOG_TRACE("Invalid protocol header: %s", protocolGetErrorString(l_iHeaderResult));
+                continue;
+            }
+
+            // Calculate actual payload size (exclude message type from protocol payload size)
+            uint32_t l_ulActualPayloadSize = l_ulExpectedPayloadSize - 1; // -1 for message type
+
+            X_LOG_TRACE("Received message type: 0x%02X, payload size: %u bytes", l_ucMsgType, l_ulActualPayloadSize);
 
             // Validate payload size before allocation
-            if (l_ulPayloadSize > SERVER_MAX_BUFFER_SIZE)
+            if (l_ulActualPayloadSize > SERVER_MAX_BUFFER_SIZE)
             {
-                X_LOG_TRACE("Payload size too large: %u bytes (max: %d)", l_ulPayloadSize, SERVER_MAX_BUFFER_SIZE);
+                X_LOG_TRACE("Payload size too large: %u bytes (max: %d)", l_ulActualPayloadSize, SERVER_MAX_BUFFER_SIZE);
                 continue;
             }
 
-            X_LOG_TRACE("Received payload size: %u bytes", l_ulPayloadSize);
-
-            // STEP 2: Allocate memory for the message (header + payload)
-            uint8_t *l_pucMessageBuffer = (uint8_t *)malloc(1 + l_ulPayloadSize); // 1 byte header + payload
-            if (l_pucMessageBuffer == NULL)
+            // STEP 2: Allocate memory for complete frame
+            uint32_t l_ulCompleteFrameSize = protocolCalculateFrameSize(l_ulExpectedPayloadSize - 1);
+            uint8_t *l_pucCompleteFrameBuffer = (uint8_t *)malloc(l_ulCompleteFrameSize);
+            if (l_pucCompleteFrameBuffer == NULL)
             {
-                X_LOG_TRACE("Failed to allocate memory for message buffer (%u bytes)", 1 + l_ulPayloadSize);
+                X_LOG_TRACE("Failed to allocate memory for complete frame (%u bytes)", l_ulCompleteFrameSize);
                 continue;
             }
 
-            // STEP 3: Receive the message (header + payload) - FIXED: use complete receive
-            p_iReceived = networkReceiveComplete(p_ptClient->t_ptSocket, l_pucMessageBuffer, l_ulPayloadSize);
+            // Copy header to complete frame buffer
+            memcpy(l_pucCompleteFrameBuffer, l_aucHeaderBuffer, PROTOCOL_HEADER_SIZE);
 
-            if (p_iReceived == (int)l_ulPayloadSize)
+            // STEP 3: Receive the payload (if any)
+            if (l_ulActualPayloadSize > 0)
             {
-                // Process the received message
-                uint8_t l_ucMsgType;
+                p_iReceived = networkReceiveComplete(p_ptClient->t_ptSocket, 
+                                                   l_pucCompleteFrameBuffer + PROTOCOL_HEADER_SIZE, 
+                                                   l_ulActualPayloadSize);
 
-                // Parse the message header (extract the type)
-                if (parseMessageHeader(l_pucMessageBuffer, p_iReceived, &l_ucMsgType))
+                if (p_iReceived != (int)l_ulActualPayloadSize)
                 {
-                    // Create network message structure
-                    network_message_t l_sMessage;
-                    l_sMessage.t_iHeader[0] = l_ucMsgType;
-                    l_sMessage.t_ptucPayload = l_pucMessageBuffer + 1; // Skip header byte
-                    l_sMessage.t_iPayloadSize = l_ulPayloadSize - 1;   // Subtract header byte
-
-                    // Use the dedicated message handling system
-                    handleNetworkMessage(p_ptClient, &l_sMessage);
-                }
-                else
-                {
-                    X_LOG_TRACE("Failed to parse message header");
+                    if (p_iReceived > 0)
+                    {
+                        X_LOG_TRACE("Incomplete payload: expected %u bytes, got %d", l_ulActualPayloadSize, p_iReceived);
+                    }
+                    else
+                    {
+                        X_LOG_TRACE("Error receiving payload data: %s", networkGetErrorString(p_iReceived));
+                    }
+                    free(l_pucCompleteFrameBuffer);
+                    continue;
                 }
             }
-            else if (p_iReceived > 0)
+
+            // STEP 4: Parse the complete frame using xProtocol
+            ProtocolFrame l_tParsedFrame;
+            int l_iParseResult = protocolParseFrame(l_pucCompleteFrameBuffer, l_ulCompleteFrameSize, &l_tParsedFrame);
+            
+            if (l_iParseResult == PROTOCOL_OK)
             {
-                X_LOG_TRACE("Incomplete message: expected %u bytes, got %d", 1 + l_ulPayloadSize, p_iReceived);
+                // Use the dedicated message handling system
+                handleNetworkMessage(p_ptClient, &l_tParsedFrame);
             }
             else
             {
-                X_LOG_TRACE("Error receiving message data: %d", p_iReceived);
+                X_LOG_TRACE("Failed to parse frame: %s", protocolGetErrorString(l_iParseResult));
             }
 
             // Free the allocated memory
-            free(l_pucMessageBuffer);
+            free(l_pucCompleteFrameBuffer);
         }
         else if (p_iReceived > 0)
         {
-            X_LOG_TRACE("Incomplete size data: expected %lu bytes, got %d", sizeof(uint16_t), p_iReceived);
+            X_LOG_TRACE("Incomplete header data: expected %d bytes, got %d", PROTOCOL_HEADER_SIZE, p_iReceived);
         }
         else if (p_iReceived == NETWORK_TIMEOUT)
         {
@@ -1156,6 +1175,13 @@ static void cleanupAndFreeClient(clientCtx *p_ptClient)
     }
 
     X_LOG_TRACE("Cleaning up client %u", p_ptClient->t_tId);
+
+    // Check if this is the Android client and reset if so
+    if (s_tAndroidClientId == p_ptClient->t_tId)
+    {
+        X_LOG_TRACE("Android client %u disconnecting, resetting stored ID", s_tAndroidClientId);
+        s_tAndroidClientId = INVALID_CLIENT_ID;
+    }
 
     // Mark client as disconnected
     p_ptClient->t_bConnected = false;
@@ -1236,44 +1262,7 @@ static void clientThreadCleanup(clientCtx *p_ptClient)
     X_LOG_TRACE("Client thread terminated");
 }
 
-///////////////////////////////////////////
-/// parseMessageHeader
-///////////////////////////////////////////
-static bool parseMessageHeader(const uint8_t *p_ptucData, int p_iSize, uint8_t *p_ptucMsgType)
-{
-    if (p_ptucData == NULL || p_iSize < 1 || p_ptucMsgType == NULL)
-    {
-        return false;
-    }
 
-    // Extract the message type (now the first byte)
-    *p_ptucMsgType = p_ptucData[0];
-
-    return true;
-}
-
-///////////////////////////////////////////
-/// isClientConnected - Optimisé avec rwlock
-/// Validates if a client is properly connected and ready for communication
-///////////////////////////////////////////
-static bool isClientConnected(clientCtx *p_ptClient)
-{
-    if (p_ptClient == NULL)
-    {
-        return false;
-    }
-
-    // Lock client rwlock to safely check connection status
-    if (pthread_rwlock_rdlock(&p_ptClient->t_tRwLock) != 0)
-    {
-        return false;
-    }
-
-    bool l_bConnected = p_ptClient->t_bConnected && p_ptClient->t_ptSocket != NULL;
-
-    pthread_rwlock_unlock(&p_ptClient->t_tRwLock);
-    return l_bConnected;
-}
 
 ///////////////////////////////////////////
 /// networkServerSendMessageToAllClients - Optimisé avec rwlock, hash table et buffer réutilisé
@@ -1367,6 +1356,72 @@ int networkServerSendMessageToAllClients(uint8_t p_ucMsgType, const void *p_pvPa
         "Broadcast message type 0x%02X: %d clients succeeded, %d failed", p_ucMsgType, l_iSuccessCount, l_iFailureCount);
 
     return (l_iFailureCount == 0) ? SERVER_OK : SERVER_ERROR;
+}
+
+//-----------------------------------------------------------------------------
+// Android Client Management Implementation
+//-----------------------------------------------------------------------------
+
+///////////////////////////////////////////
+/// networkServerSetAndroidClient
+///////////////////////////////////////////
+int networkServerSetAndroidClient(ClientID p_tClientId)
+{
+    if (s_ptServerInstance == NULL)
+    {
+        X_LOG_TRACE("Server not initialized");
+        return SERVER_INVALID_STATE;
+    }
+
+    if (p_tClientId == INVALID_CLIENT_ID)
+    {
+        X_LOG_TRACE("Invalid client ID");
+        return SERVER_INVALID_PARAM;
+    }
+
+    // Verify that the client exists and is connected
+    rwlockReadLock(&s_ptServerInstance->t_tRwLock);
+    clientCtx *l_ptClient = findClientById(p_tClientId);
+    bool l_bClientValid = (l_ptClient != NULL && l_ptClient->t_bConnected && !l_ptClient->t_bCleanupInProgress);
+    rwlockUnlock(&s_ptServerInstance->t_tRwLock);
+
+    if (!l_bClientValid)
+    {
+        X_LOG_TRACE("Client %u not found or not connected", p_tClientId);
+        return SERVER_CLIENT_NOT_FOUND;
+    }
+
+    // Store the Android client ID
+    s_tAndroidClientId = p_tClientId;
+
+    return SERVER_OK;
+}
+
+///////////////////////////////////////////
+/// networkServerGetAndroidClient
+///////////////////////////////////////////
+ClientID networkServerGetAndroidClient(void)
+{
+    if (s_ptServerInstance == NULL || s_tAndroidClientId == INVALID_CLIENT_ID)
+    {
+        return INVALID_CLIENT_ID;
+    }
+
+    // Validate that the Android client is still connected
+    rwlockReadLock(&s_ptServerInstance->t_tRwLock);
+    clientCtx *l_ptClient = findClientById(s_tAndroidClientId);
+    bool l_bClientValid = (l_ptClient != NULL && l_ptClient->t_bConnected && !l_ptClient->t_bCleanupInProgress);
+    rwlockUnlock(&s_ptServerInstance->t_tRwLock);
+
+    if (!l_bClientValid)
+    {
+        // Client is no longer valid, reset the stored ID
+        X_LOG_TRACE("Android client %u no longer connected, resetting", s_tAndroidClientId);
+        s_tAndroidClientId = INVALID_CLIENT_ID;
+        return INVALID_CLIENT_ID;
+    }
+
+    return s_tAndroidClientId;
 }
 
 ///////////////////////////////////////////

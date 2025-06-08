@@ -94,7 +94,7 @@ void registerMessageHandler(uint8_t p_ucMessageType, message_handler_t p_ptHandl
 
     s_atHandlers[p_ucMessageType] = p_ptHandler;
 
-    X_LOG_TRACE("Registered handler for message type 0x%02X (address: %p)", p_ucMessageType, (void *)p_ptHandler);
+    X_LOG_TRACE("Registered handler for message type 0x%02X", p_ucMessageType);
 }
 
 ///////////////////////////////////////////
@@ -175,11 +175,12 @@ void handleNetworkMessage(clientCtx *p_ptClient, const network_message_t *p_ptMe
     bool l_bAddressValid
         = networkServerGetClientAddress(networkServerGetClientID(p_ptClient), clientAddress, sizeof(clientAddress));
 
+    /*
     X_LOG_TRACE("Received message from %s: type=0x%02X, size=%u bytes",
                 l_bAddressValid ? clientAddress : "UNKNOWN",
                 p_ptMessage->t_iHeader[0],
                 p_ptMessage->t_iPayloadSize);
-
+    */
     uint8_t l_ucMsgType = p_ptMessage->t_iHeader[0];
 
     // find the handler for this type of message

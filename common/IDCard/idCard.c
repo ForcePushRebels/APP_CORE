@@ -104,7 +104,6 @@ static void findIpAddress(void)
     {
         strcpy(s_pcIpAddr, "127.0.0.1");
     }
-
     freeifaddrs(ifaddr);
 }
 
@@ -154,7 +153,19 @@ static void isAnyRobotHereHandle(clientCtx *p_ptClient, const network_message_t 
     else
     {
         X_LOG_TRACE("Successfully sent manifest response (%d bytes)", sizeof(manifest_t));
-        supervisor_send_full_map(networkServerGetClientID(p_ptClient));
+        
+        // Register this client as the Android client for supervisor communication
+        int l_iSetResult = networkServerSetAndroidClient(l_tClientId);
+        if (l_iSetResult == SERVER_OK)
+        {
+            X_LOG_TRACE("Client %u registered as Android client", l_tClientId);
+        }
+        else
+        {
+            X_LOG_TRACE("Failed to register Android client %u: %s", l_tClientId, networkServerGetErrorString(l_iSetResult));
+        }
+        
+        supervisor_send_full_map(l_tClientId);
         supervisor_start();
     }
 }

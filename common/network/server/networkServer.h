@@ -194,4 +194,21 @@ clientCtx *networkServerGetClientCtx(ClientID p_tClientId);
 ///////////////////////////////////////////
 int networkServerSendMessageToAllClients(uint8_t p_ucMsgType, const void *p_pvPayload, uint32_t p_ulPayloadSize);
 
+//-----------------------------------------------------------------------------
+// Android Client Management Functions
+//-----------------------------------------------------------------------------
+
+///////////////////////////////////////////
+/// @brief Set the Android client ID for supervisor communication
+/// @param clientId Client ID of the Android client
+/// @return SERVER_OK or error code
+///////////////////////////////////////////
+int networkServerSetAndroidClient(ClientID p_tClientId);
+
+///////////////////////////////////////////
+/// @brief Get the Android client ID (validated)
+/// @return Valid Android client ID or INVALID_CLIENT_ID if not connected
+///////////////////////////////////////////
+ClientID networkServerGetAndroidClient(void);
+
 #endif // NETWORK_SERVER_H

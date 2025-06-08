@@ -72,7 +72,15 @@ static int32_t send_map_fragments(void)
         map_cell_t *cell = &cells[i].cell;
         cells[i].x_grid = HOST_TO_NET_SHORT(cells[i].x_grid);
         cells[i].y_grid = HOST_TO_NET_SHORT(cells[i].y_grid);
-        int ret = networkServerSendMessage(1, ID_MAP_FRAGMENT, &cells[i], sizeof(map_fragment_t));
+        
+        ClientID l_tClientId = networkServerGetAndroidClient();
+        if (l_tClientId == INVALID_CLIENT_ID)
+        {
+            X_LOG_TRACE("No Android client connected, skipping map fragment %d", i);
+            continue;
+        }
+        
+        int ret = networkServerSendMessage(l_tClientId, ID_MAP_FRAGMENT, &cells[i], sizeof(map_fragment_t));
         if (ret != SERVER_OK)
         {
             X_LOG_TRACE("Failed to send map fragment %d: 0x%x, next cell", i, ret);
@@ -156,7 +164,13 @@ static int32_t sendPosition(tPosition pNewPosition)
         HOST_TO_NET_LONG(float_to_uint32(pNewPosition.t_fOrientation)),
     };
 
-    int ret = networkServerSendMessage(1, ID_INF_POS, &l_tPosition, sizeof(l_tPosition));
+    ClientID androidClient = networkServerGetAndroidClient();
+    if (androidClient == INVALID_CLIENT_ID)
+    {
+        return SERVER_CLIENT_NOT_FOUND;
+    }
+    
+    int ret = networkServerSendMessage(androidClient, ID_INF_POS, &l_tPosition, sizeof(l_tPosition));
     if (ret == SERVER_OK)
     {
         // X_LOG_TRACE(
@@ -174,7 +188,13 @@ static int32_t sendStatus(void)
     exploration_manager_state_t l_eStatus = explorationManager_getState();
     // Convert enum to uint32_t for network transmission
     uint32_t l_ulStatusNetwork = HOST_TO_NET_LONG((uint32_t)l_eStatus);
-    return networkServerSendMessage(1, ID_INF_STATUS, &l_ulStatusNetwork, sizeof(uint32_t));
+    ClientID androidClient = networkServerGetAndroidClient();
+    if (androidClient == INVALID_CLIENT_ID)
+    {
+        return SERVER_CLIENT_NOT_FOUND;
+    }
+    
+    return networkServerSendMessage(androidClient, ID_INF_STATUS, &l_ulStatusNetwork, sizeof(uint32_t));
 #else
     return 0;
 #endif
@@ -213,7 +233,13 @@ static int32_t sendDuration(void)
     // Convert to network byte order
     uint32_t l_ulDurationNetwork = HOST_TO_NET_LONG((uint32_t)l_ulDuration);
 
-    return networkServerSendMessage(1, ID_INF_TIME, &l_ulDurationNetwork, sizeof(uint32_t));
+    ClientID androidClient = networkServerGetAndroidClient();
+    if (androidClient == INVALID_CLIENT_ID)
+    {
+        return SERVER_CLIENT_NOT_FOUND;
+    }
+    
+    return networkServerSendMessage(androidClient, ID_INF_TIME, &l_ulDurationNetwork, sizeof(uint32_t));
 #else
     return 0;
 #endif
@@ -225,7 +251,13 @@ static int32_t sendDuration(void)
 static int32_t sendBatteryLevel(void)
 {
     uint16_t l_iBatteryLevel = (uint16_t)s_tSupervisorCtx.t_iBatteryLevel;
-    return networkServerSendMessage(1, ID_INF_BATTERY, &l_iBatteryLevel, sizeof(uint16_t));
+    ClientID androidClient = networkServerGetAndroidClient();
+    if (androidClient == INVALID_CLIENT_ID)
+    {
+        return SERVER_CLIENT_NOT_FOUND;
+    }
+    
+    return networkServerSendMessage(androidClient, ID_INF_BATTERY, &l_iBatteryLevel, sizeof(uint16_t));
 }
 
 ////////////////////////////////////////////////////////////

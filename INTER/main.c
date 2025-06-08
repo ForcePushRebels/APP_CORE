@@ -111,7 +111,7 @@ int main()
 
     ServerConfig l_tServerConfig = networkServerCreateDefaultConfig();
     l_tServerConfig.t_usPort = 8080;
-    l_tServerConfig.t_pcBindAddress = "127.0.0.1";
+    l_tServerConfig.t_pcBindAddress = "0.0.0.0";
     l_tServerConfig.t_iMaxClients = 10;
     l_tServerConfig.t_iBacklog = 5;
     l_tServerConfig.t_bUseTimeout = false;

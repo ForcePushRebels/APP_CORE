@@ -40,7 +40,6 @@ NetworkSocket *networkCreateSocket(int p_iType)
     int l_iOption = 1;
     setsockopt(l_pSocket->t_iSocketFd, SOL_SOCKET, SO_REUSEADDR, &l_iOption, sizeof(l_iOption));
 
-    // TCP-specific optimizations
     if (p_iType == NETWORK_SOCK_TCP)
     {
         // Disable Nagle's algorithm for low latency

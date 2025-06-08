@@ -130,27 +130,27 @@ int main()
     idCardNetworkInit();
 
     // init sensor manager
-    //l_iReturn = sensorManagerInit();
-    //X_ASSERT(l_iReturn == SENSOR_MANAGER_OK);
+    l_iReturn = sensorManagerInit();
+    X_ASSERT(l_iReturn == SENSOR_MANAGER_OK);
 
     // start monitoring
-    // l_iReturn = startMonitoring();
-    // X_ASSERT(l_iReturn == SENSOR_MANAGER_OK);
+    l_iReturn = startMonitoring();
+    X_ASSERT(l_iReturn == SENSOR_MANAGER_OK);
 
     // Initialisation du contrôle des moteurs
-    // l_iReturn = motor_control_init();
-    // X_ASSERT(l_iReturn == 0);
-    // X_LOG_TRACE("Motor control initialized");
+    l_iReturn = motor_control_init();
+    X_ASSERT(l_iReturn == 0);
+    X_LOG_TRACE("Motor control initialized");
 
     // Initialisation du contrôle de position
-    // l_iReturn = position_control_init();
-    // X_ASSERT(l_iReturn == POSITION_OK);
-    // X_LOG_TRACE("Position control initialized");
+    l_iReturn = position_control_init();
+    X_ASSERT(l_iReturn == POSITION_OK);
+    X_LOG_TRACE("Position control initialized");
 
     // Initialisation du pilotage
-    // l_iReturn = pilot_init(); // Exemple: (max_speed, rayon_roue_m, entraxe_m)
-    // X_ASSERT(l_iReturn == PILOT_OK);
-    // X_LOG_TRACE("Pilot initialized");
+    l_iReturn = pilot_init(); // Exemple: (max_speed, rayon_roue_m, entraxe_m)
+    X_ASSERT(l_iReturn == PILOT_OK);
+    X_LOG_TRACE("Pilot initialized");
 
     // init server
     l_iReturn = networkServerInit();
@@ -165,19 +165,19 @@ int main()
     X_LOG_TRACE("Server started");
 
     // init map engine
-    //l_iReturn = map_engine_init();
-    //X_ASSERT(l_iReturn == MAP_ENGINE_OK);
+    l_iReturn = map_engine_init();
+    X_ASSERT(l_iReturn == MAP_ENGINE_OK);
 
     // init supervisor
-    //l_iReturn = supervisor_init();
-    //X_ASSERT(l_iReturn == SUPERVISOR_OK);
-    //X_LOG_TRACE("Supervisor initialized");
+    l_iReturn = supervisor_init();
+    X_ASSERT(l_iReturn == SUPERVISOR_OK);
+    X_LOG_TRACE("Supervisor initialized");
 
-    //safetyControllerInit();
-    //ihm_init();
+    safetyControllerInit();
+    ihm_init();
     // init exploration manager
-    //explorationManager_start();
-    //X_LOG_TRACE("Exploration manager initialized");
+    explorationManager_start();
+    X_LOG_TRACE("Exploration manager initialized");
 
     while (1)
     {

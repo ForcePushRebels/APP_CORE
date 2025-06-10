@@ -47,6 +47,7 @@ static void setMovementHandle(clientCtx *p_ptClient, const network_message_t *p_
     switch (l_eMovement)
     {
         case FORWARD_MOVEMENT:
+        {
             bool l_bMovePossible = checkForward();
 
             // check the sensors values
@@ -60,13 +61,14 @@ static void setMovementHandle(clientCtx *p_ptClient, const network_message_t *p_
             position_control_advance(10000, 2);
             //pilot_continuousAdvance(100);
             break;
+        }
         case LEFT_MOVEMENT:
             //pilot_turn(M_PI * 2, 100, true);
-            position_control_turn(M_PI * 10, 2);
+            position_control_turn((float)(M_PI * 10), 2);
             break;
         case RIGHT_MOVEMENT:
             //pilot_turn(-M_PI * 2, 100, true);
-            position_control_turn(-M_PI * 10, 2);
+            position_control_turn((float)(-M_PI * 10), 2);
             break;
         case STOP_MOVEMENT:
             //pilot_stop();

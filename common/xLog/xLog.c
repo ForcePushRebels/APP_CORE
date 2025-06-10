@@ -280,7 +280,10 @@ int xLogWrite(const char *p_ptkcFile, uint32_t p_ulLine, const char *p_ptkcForma
     // Format user message securely with fixed bounds
     va_list args;
     va_start(args, p_ptkcFormat);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
     int l_iVsnprintfRet = vsnprintf(l_cUserMsg, sizeof(l_cUserMsg), p_ptkcFormat, args);
+#pragma GCC diagnostic pop
     va_end(args);
 
     // Check for formatting errors

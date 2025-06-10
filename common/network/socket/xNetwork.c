@@ -311,16 +311,16 @@ int networkConnect(NetworkSocket *p_ptSocket, const NetworkAddress *p_pAddress)
 //////////////////////////////////
 int networkSend(NetworkSocket *p_ptSocket, const void *p_pBuffer, unsigned long p_ulSize)
 {
-    // Fast parameter validation - single check with early return
+    // Fast parameter validation with early returns
     if (!p_ptSocket || !p_pBuffer || p_ptSocket->t_iSocketFd < 0 || p_ulSize == 0)
     {
         return (p_ulSize == 0) ? 0 : NETWORK_INVALID_PARAM;
     }
 
-    int l_iReturn = send(p_ptSocket->t_iSocketFd, p_pBuffer, p_ulSize, MSG_NOSIGNAL);
+    ssize_t l_iReturn = send(p_ptSocket->t_iSocketFd, p_pBuffer, p_ulSize, MSG_NOSIGNAL);
     
     // Simplified error handling
-    return (l_iReturn < 0) ? NETWORK_ERROR : l_iReturn;
+    return (l_iReturn < 0) ? NETWORK_ERROR : (int)l_iReturn;
 }
 
 //////////////////////////////////
@@ -334,10 +334,10 @@ int networkReceive(NetworkSocket *p_ptSocket, void *p_pBuffer, unsigned long p_u
         return (p_ulSize == 0) ? 0 : NETWORK_INVALID_PARAM;
     }
 
-    int l_iReturn = recv(p_ptSocket->t_iSocketFd, p_pBuffer, p_ulSize, 0);
+    ssize_t l_iReturn = recv(p_ptSocket->t_iSocketFd, p_pBuffer, p_ulSize, 0);
     
     // Simplified error handling
-    return (l_iReturn < 0) ? NETWORK_ERROR : l_iReturn;
+    return (l_iReturn < 0) ? NETWORK_ERROR : (int)l_iReturn;
 }
 
 //////////////////////////////////
@@ -514,10 +514,10 @@ int networkSendTo(NetworkSocket *p_ptSocket, const void *p_pBuffer, unsigned lon
     }
 
     // Direct sendto without mutex - UDP operations are atomic at kernel level
-    int l_iReturn = sendto(p_ptSocket->t_iSocketFd, p_pBuffer, p_ulSize, MSG_NOSIGNAL, 
+    ssize_t l_iReturn = sendto(p_ptSocket->t_iSocketFd, p_pBuffer, p_ulSize, MSG_NOSIGNAL, 
                           (struct sockaddr *)&l_tAddr, sizeof(l_tAddr));
 
-    return (l_iReturn < 0) ? NETWORK_ERROR : l_iReturn;
+    return (l_iReturn < 0) ? NETWORK_ERROR : (int)l_iReturn;
 }
 
 //////////////////////////////////
@@ -541,7 +541,7 @@ int networkReceiveFrom(NetworkSocket *p_ptSocket, void *p_pBuffer, unsigned long
     socklen_t l_iAddrLen = sizeof(l_tSenderAddr);
 
     // Direct recvfrom without mutex - UDP operations are atomic at kernel level
-    int l_iReturn = recvfrom(p_ptSocket->t_iSocketFd, p_pBuffer, p_ulSize, 0, 
+    ssize_t l_iReturn = recvfrom(p_ptSocket->t_iSocketFd, p_pBuffer, p_ulSize, 0, 
                             (struct sockaddr *)&l_tSenderAddr, &l_iAddrLen);
     int l_iErrno = errno; // Capture errno immediately after syscall
 
@@ -549,7 +549,7 @@ int networkReceiveFrom(NetworkSocket *p_ptSocket, void *p_pBuffer, unsigned long
     if (l_iReturn < 0)
     {
         // Only treat real errors as NETWORK_ERROR, not EAGAIN/EWOULDBLOCK
-        return (l_iErrno != EAGAIN && l_iErrno != EWOULDBLOCK) ? NETWORK_ERROR : l_iReturn;
+        return (l_iErrno != EAGAIN && l_iErrno != EWOULDBLOCK) ? NETWORK_ERROR : (int)l_iReturn;
     }
 
     // Store sender address if requested and we received data
@@ -559,7 +559,7 @@ int networkReceiveFrom(NetworkSocket *p_ptSocket, void *p_pBuffer, unsigned long
         p_pAddress->t_usPort = NET_TO_HOST_SHORT(l_tSenderAddr.sin_port);
     }
 
-    return l_iReturn;
+    return (int)l_iReturn;
 }
 
 #ifdef NETWORK_HAS_EPOLL
@@ -594,7 +594,7 @@ int networkWaitForMultipleActivity(NetworkSocket **p_pptSockets, int p_iNumSocke
 
         struct epoll_event l_tEvent;
         l_tEvent.events = EPOLLIN | EPOLLET; // Edge-triggered for performance
-        l_tEvent.data.u32 = i; // Store socket index for quick lookup
+        l_tEvent.data.u32 = (uint32_t)i; // Store socket index for quick lookup
 
         if (epoll_ctl(l_iEpollFd, EPOLL_CTL_ADD, p_pptSockets[i]->t_iSocketFd, &l_tEvent) < 0)
         {
@@ -620,7 +620,7 @@ int networkWaitForMultipleActivity(NetworkSocket **p_pptSockets, int p_iNumSocke
     }
 
     // Return the first ready socket (in practice, this is usually sufficient)
-    *p_piReadySocket = l_atResults[0].data.u32;
+    *p_piReadySocket = (int)l_atResults[0].data.u32;
     return NETWORK_OK;
 }
 #endif

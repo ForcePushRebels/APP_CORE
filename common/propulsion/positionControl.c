@@ -610,7 +610,7 @@ int32_t position_control_init(void)
     }
 
     // Initialiser d'abord le contrôle moteur
-    int16_t motor_init_result = motor_control_init();
+    int motor_init_result = motor_control_init();
     if (motor_init_result != 0)
     {
         mutexDestroy(&g_position_mutex);

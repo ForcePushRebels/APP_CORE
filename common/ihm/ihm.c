@@ -96,7 +96,7 @@ static void ihm_process_command(const char *input)
     const char *space_pos = strchr(input, ' ');
     if (space_pos != NULL)
     {
-        size_t cmd_len = space_pos - input;
+        size_t cmd_len = (size_t)(space_pos - input);
         if (cmd_len >= IHM_MAX_CMD_NAME_LENGTH)
         {
             cmd_len = IHM_MAX_CMD_NAME_LENGTH - 1;
@@ -166,7 +166,7 @@ static int ihm_read_input(char *input)
         }
 
         // Handle case where input is too long
-        if (len == IHM_MAX_CMD_LENGTH - 1 && input[len - 1] != '\n')
+        if (len == (size_t)(IHM_MAX_CMD_LENGTH - 1) && input[len - 1] != '\n')
         {
             // Clear remaining characters in stdin buffer
             int c;
@@ -204,11 +204,11 @@ static void ihm_print_line(const char *char_type, int width)
 
 static int ihm_find_command(const char *cmd_name)
 {
-    for (int i = 0; i < command_count; i++)
+    for (size_t i = 0; i < (size_t)command_count; i++)
     {
         if (strcmp(commands[i].name, cmd_name) == 0)
         {
-            return i;
+            return (int)i;
         }
     }
     return -1;
@@ -305,7 +305,7 @@ void ihm_display_box(const char *title, const char *content, int width)
     if (title != NULL)
     {
         printf("%s %s ", BOX_HORIZONTAL, title);
-        ihm_print_line(BOX_HORIZONTAL, width - strlen(title) - 4);
+        ihm_print_line(BOX_HORIZONTAL, width - (int)strlen(title) - 4);
     }
     else
     {
@@ -317,7 +317,7 @@ void ihm_display_box(const char *title, const char *content, int width)
     if (content != NULL)
     {
         printf("%s %s", BOX_VERTICAL, content);
-        int content_len = strlen(content);
+        int content_len = (int)strlen(content);
         for (int i = content_len; i < width - 1; i++)
         {
             printf(" ");
@@ -383,7 +383,7 @@ void ihm_draw_frame(int lines_count, int width, int frame_type, const char *titl
     if (title != NULL)
     {
         printf("%s %s ", horizontal, title);
-        int remaining = width - strlen(title) - 5;
+        int remaining = width - (int)strlen(title) - 5;
         for (int i = 0; i < remaining; i++)
         {
             printf("%s", horizontal);
@@ -426,7 +426,7 @@ int ihm_cmd_aide(const char *args)
     printf("\n");
     printf(" %-9s │ %-48s \n", "Commande", "Description");
 
-    for (int i = 0; i < command_count; i++)
+    for (size_t i = 0; i < (size_t)command_count; i++)
     {
         printf(" %-9s │ %-48s \n", commands[i].name, commands[i].description);
     }

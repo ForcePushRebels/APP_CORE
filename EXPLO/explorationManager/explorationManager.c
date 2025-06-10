@@ -69,13 +69,13 @@ void pilot_callback_exploration(void *arg)
 
     static state_t s_eState = MOVING_FORWARD;
 
-    float speed = 40;
+    float speed = 40.0f;
     switch (s_eState)
     {
         case MOVING_FORWARD:
             s_eState = MOVING_TURN_1;
             X_LOG_TRACE("Turning right");
-            position_control_turn(-M_PI / 2, speed);
+            position_control_turn((float)(-M_PI / 2), speed);
             break;
         case MOVING_TURN_1:
             s_eState = MOVING_FORWARD_2;
@@ -85,7 +85,7 @@ void pilot_callback_exploration(void *arg)
         case MOVING_FORWARD_2:
             s_eState = MOVING_TURN_2;
             X_LOG_TRACE("Turning left");
-            position_control_turn(M_PI / 2, speed);
+            position_control_turn((float)(M_PI / 2), speed);
             break;
         case MOVING_TURN_2:
             s_eState = MOVING_FORWARD_3;
@@ -95,12 +95,12 @@ void pilot_callback_exploration(void *arg)
         case MOVING_FORWARD_3:
             s_eState = MOVING_TURN_3;
             X_LOG_TRACE("Turning right");
-            position_control_turn(-M_PI, speed);
+            position_control_turn((float)(-M_PI), speed);
             break;
         case MOVING_TURN_3:
             s_eState = MOVING_TURN_4;
             X_LOG_TRACE("Turning 4");
-            position_control_turn(3 * M_PI / 2, speed);
+            position_control_turn((float)(3 * M_PI / 2), speed);
             break;
         case MOVING_TURN_4:
             s_eState = MOVING_FORWARD_4;
@@ -110,7 +110,7 @@ void pilot_callback_exploration(void *arg)
         case MOVING_FORWARD_4:
             s_eState = MOVING_TURN_5;
             X_LOG_TRACE("Turning 5");
-            position_control_turn(-M_PI / 2, speed);
+            position_control_turn((float)(-M_PI / 2), speed);
             break;
         case MOVING_TURN_5:
             s_eState = MOVING_FORWARD_5;
@@ -120,7 +120,7 @@ void pilot_callback_exploration(void *arg)
         case MOVING_FORWARD_5:
             s_eState = MOVING_FORWARD_6;
             X_LOG_TRACE("Turning 6");
-            position_control_turn(-M_PI / 2, speed);
+            position_control_turn((float)(-M_PI / 2), speed);
             break;
         case MOVING_FORWARD_6:
             s_eState = MOVING_TURN_6;
@@ -130,12 +130,12 @@ void pilot_callback_exploration(void *arg)
         case MOVING_TURN_6:
             s_eState = MOVING_TURN_7;
             X_LOG_TRACE("Turning 6");
-            position_control_turn(M_PI, speed);
+            position_control_turn((float)(M_PI), speed);
             break;
         case MOVING_TURN_7:
             s_eState = MOVING_END;
             X_LOG_TRACE("Turning 7");
-            position_control_turn(M_PI, speed);
+            position_control_turn((float)(M_PI), speed);
             break;
         case MOVING_FORWARD_7:
             s_eState = MOVING_TURN_8;
@@ -145,7 +145,7 @@ void pilot_callback_exploration(void *arg)
         case MOVING_TURN_8:
             s_eState = MOVING_END;
             X_LOG_TRACE("Turning 8");
-            position_control_turn(-M_PI / 2, speed);
+            position_control_turn((float)(-M_PI / 2), speed);
             break;
         case MOVING_FORWARD_8:
             s_eState = MOVING_TURN_9;
@@ -155,7 +155,7 @@ void pilot_callback_exploration(void *arg)
         case MOVING_TURN_9:
             s_eState = MOVING_FORWARD_9;
             X_LOG_TRACE("Turning 9");
-            position_control_turn(M_PI / 2, speed);
+            position_control_turn((float)(M_PI / 2), speed);
             break;
         case MOVING_FORWARD_9:
             s_eState = MOVING_TURN_10;
@@ -165,7 +165,7 @@ void pilot_callback_exploration(void *arg)
         case MOVING_TURN_10:
             s_eState = MOVING_FORWARD_10;
             X_LOG_TRACE("Turning 10");
-            position_control_turn(M_PI, speed);
+            position_control_turn((float)(M_PI), speed);
             break;
         case MOVING_FORWARD_10:
             s_eState = MOVING_END;

@@ -48,9 +48,9 @@ int start = 0;
 void blinkLed(mrpiz_led_rgb_color_t t_eColor, int t_iDurationMs)
 {
     SetLedColor(t_eColor);
-    usleep(t_iDurationMs * 1000);
+    usleep((unsigned int)t_iDurationMs * 1000);
     SetLedColor(MRPIZ_LED_OFF);
-    usleep(PAUSE_SIGNAL * 1000);
+    usleep((unsigned int)PAUSE_SIGNAL * 1000);
 }
 
 // Fonction pour envoyer un SOS en morse avec différentes couleurs

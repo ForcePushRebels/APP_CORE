@@ -22,10 +22,13 @@ endif()
 message(STATUS "Detected architecture: ${TARGET_ARCH}")
 
 # Target options
-option(TARGET_MRPIZ "Build for MRPiZ target instead of PC" OFF)
+option(TARGET_RASPI_ZERO_W "Build for Raspberry Pi Zero W target (cross-compile)" OFF)
 option(USE_TLS "Enable TLS support" OFF)
 option(DEBUG "Enable debug build" OFF)
 option(USE_3D_SIMULATION "Use 3D simulation instead of 2D (changes Intox port from 12345 to 12348)" OFF)
+
+# Auto-detect and choose compiler: prefer Clang, fallback to GCC
+set(COMPILER_DETECTED "UNKNOWN")
 
 # Output directories
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
@@ -45,28 +48,75 @@ endif()
 
 set(INTOX_ADDRESS "127.0.0.1")
 
-# MRPiZ configuration (for cross-compilation)
-if(TARGET_MRPIZ)
-    # Uncomment and adjust these for your cross-compilation setup
-    # set(CROSS_TOOLS "/path/to/cross-tools")
-    # set(CROSS_GCC "${CROSS_TOOLS}/path/to/gcc")
-    # set(CROSS_SYSROOT "/path/to/rootfs")
+# Raspberry Pi Zero W configuration (for cross-compilation)
+if(TARGET_RASPI_ZERO_W)
+    # Cross-compilation toolchain setup
+    set(CMAKE_SYSTEM_NAME Linux)
+    set(CMAKE_SYSTEM_PROCESSOR arm)
     
-    # set(CMAKE_C_COMPILER "${CROSS_GCC}")
-    # add_compile_definitions(MRPIZ)
-    # set(CMAKE_SYSROOT "${CROSS_SYSROOT}")
+    # Toolchain paths (adjust these for your cross-compilation setup)
+    set(CROSS_TOOLS "/usr" CACHE PATH "Path to cross-compilation tools")
+    set(CROSS_GCC "${CROSS_TOOLS}/bin/arm-linux-gnueabihf-gcc" CACHE FILEPATH "Cross GCC compiler")
+    set(CROSS_CLANG "${CROSS_TOOLS}/bin/clang" CACHE FILEPATH "Cross Clang compiler")
+    set(CROSS_SYSROOT "/usr/arm-linux-gnueabihf" CACHE PATH "Cross-compilation sysroot")
+    
+    # Try to use Clang first, fallback to GCC
+    find_program(CLANG_FOUND ${CROSS_CLANG})
+    if(CLANG_FOUND)
+        set(CMAKE_C_COMPILER "${CROSS_CLANG}")
+        set(CMAKE_C_COMPILER_TARGET "arm-linux-gnueabihf")
+        set(COMPILER_DETECTED "CLANG")
+        message(STATUS "Using Clang for cross-compilation: ${CROSS_CLANG}")
+    else()
+        find_program(GCC_FOUND ${CROSS_GCC})
+        if(GCC_FOUND)
+            set(CMAKE_C_COMPILER "${CROSS_GCC}")
+            set(COMPILER_DETECTED "GCC")
+            message(STATUS "Clang not found, using GCC for cross-compilation: ${CROSS_GCC}")
+        else()
+            message(FATAL_ERROR "Neither Clang nor GCC cross-compiler found!")
+        endif()
+    endif()
+    
+    add_compile_definitions(RASPI_ZERO_W)
+    set(CMAKE_SYSROOT "${CROSS_SYSROOT}")
+    set(CMAKE_FIND_ROOT_PATH "${CROSS_SYSROOT}")
+    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
     
     # Output executable name
-    set(EXPLO_EXE_NAME "explo_mrpiz")
-    set(INTER_EXE_NAME "inter_mrpiz")
+    if(DEBUG)
+        set(EXPLO_EXE_NAME "explo_raspi_debug")
+        set(INTER_EXE_NAME "inter_raspi_debug")
+    else()
+        set(EXPLO_EXE_NAME "explo_raspi_release")
+        set(INTER_EXE_NAME "inter_raspi_release")
+    endif()
     
-    # Link with MRPiZ lib
+    # Use appropriate libraries for Raspberry Pi
     set(MRPIZ_LIB "mrpiz")
     set(LUMPIZ_LIB "lumpiz")
     set(EXTRA_LIBS "m") # math library
 else()
     # PC development build with Intox simulator
-    set(CMAKE_C_COMPILER "gcc")
+    # Try to use Clang first, fallback to GCC
+    find_program(CLANG_FOUND clang)
+    if(CLANG_FOUND)
+        set(CMAKE_C_COMPILER "clang")
+        set(COMPILER_DETECTED "CLANG")
+        message(STATUS "Using Clang compiler: ${CLANG_FOUND}")
+    else()
+        find_program(GCC_FOUND gcc)
+        if(GCC_FOUND)
+            set(CMAKE_C_COMPILER "gcc")
+            set(COMPILER_DETECTED "GCC")
+            message(STATUS "Clang not found, using GCC compiler: ${GCC_FOUND}")
+        else()
+            message(FATAL_ERROR "Neither Clang nor GCC compiler found!")
+        endif()
+    endif()
+    
     add_compile_definitions(
         INTOX
         # Define the required Intox variables with dynamic port
@@ -88,19 +138,98 @@ endif()
 # Set C standard and flags
 set(CMAKE_C_STANDARD 11)
 
-# Common flags from the Makefile
-add_compile_options(
-	-g
-	-O0
-	-fno-omit-frame-pointer
-    -Wall
-    -Wextra
-    -pedantic
-    -Wno-unused-variable
-    -Wno-unused-value
-    -MMD
-    -MP
-)
+# Compiler-specific flags based on detected compiler
+if(COMPILER_DETECTED STREQUAL "CLANG")
+    message(STATUS "Applying Clang-specific compiler flags")
+    add_compile_options(
+        -g
+        -O0
+        -fno-omit-frame-pointer
+        # Common warnings
+        -Wall
+        -Wextra
+        -Wformat=2
+        -Wformat-security
+        -Warray-bounds
+        -Wnull-dereference
+        -Wuninitialized
+        -Wdangling-else
+        -Wcast-align
+        -Wbad-function-cast
+        -Wpointer-arith
+        -Wwrite-strings
+        -Wconversion
+        -Wsign-conversion
+        # Clang-specific warnings
+        -Wlogical-op-parentheses
+        -Wshift-overflow
+        -Wshift-sign-overflow
+        -Winteger-overflow
+        -Wdivision-by-zero
+        -Wfloat-overflow-conversion
+        -Wfloat-zero-conversion
+        -Winfinite-recursion
+        -Wreturn-stack-address
+        -Wuse-after-free
+        -Wfloat-equal
+        # Clang-specific disables
+        -Wno-unused-variable
+        -Wno-unused-value
+        -Wno-padded
+        -Wno-packed
+        -Wno-disabled-macro-expansion
+        -Wno-reserved-id-macro
+        -Wno-c23-extensions
+        -MMD
+        -MP
+    )
+else()
+    message(STATUS "Applying GCC-specific compiler flags")
+    add_compile_options(
+        -g
+        -O0
+        -fno-omit-frame-pointer
+        # Common warnings
+        -Wall
+        -Wextra
+        -Wformat=2
+        -Wformat-security
+        -Warray-bounds=2
+        -Wnull-dereference
+        -Wuninitialized
+        -Wdangling-else
+        -Wcast-align=strict
+        -Wpointer-arith
+        -Wwrite-strings
+        -Wconversion
+        -Wsign-conversion
+        # GCC-specific warnings
+        -Wformat-overflow=2
+        -Wformat-truncation=2
+        -Wstringop-overflow=4
+        -Wstringop-truncation
+        -Wshift-overflow=2
+        -Wshift-count-overflow
+        -Wshift-count-negative
+        -Wduplicated-cond
+        -Wduplicated-branches
+        -Wlogical-op
+        -Wsequence-point
+        -Wmaybe-uninitialized
+        -Wuse-after-free=3
+        -Wfloat-equal
+        -Wvla-larger-than=1024
+        -Walloca-larger-than=1024
+        -Wcast-qual
+        -Wstrict-overflow=3
+        -Wstrict-aliasing=2
+        # GCC-specific disables
+        -Wno-unused-variable
+        -Wno-unused-value
+        -MMD
+        -MP
+    )
+endif()
 
 # AddressSanitizer support - conditional compilation
 option(USE_ASAN "Enable AddressSanitizer" OFF)
@@ -133,7 +262,7 @@ if(DEBUG)
     add_compile_options(-Og -g)
     add_compile_definitions(DEBUG)
 else()
-    add_compile_options(-O3)
+    add_compile_options(-O2)
     add_compile_definitions(NDEBUG)
 endif()
 
@@ -148,11 +277,19 @@ else()
     message(STATUS "TLS support disabled")
 endif()
 
-# Add libraries based on target architecture
-set(MRPIZ_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs/lib_mrpiz-${TARGET_ARCH}-v0.6.1/lib")
-set(MRPIZ_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs/lib_mrpiz-${TARGET_ARCH}-v0.6.1/include/mrpiz")
-set(LUMPIZ_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs/lib_lumpiz-${TARGET_ARCH}-v0.1.1/lib")
-set(LUMPIZ_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs/lib_lumpiz-${TARGET_ARCH}-v0.1.1/include/lumpiz")
+# Add libraries based on target architecture - use armhf for Raspberry Pi
+if(TARGET_RASPI_ZERO_W)
+    # For Raspberry Pi, we'll use the aarch64 libraries (adjust if you have armhf-specific libs)
+    set(MRPIZ_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs/lib_mrpiz-aarch64-v0.6.1/lib")
+    set(MRPIZ_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs/lib_mrpiz-aarch64-v0.6.1/include/mrpiz")
+    set(LUMPIZ_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs/lib_lumpiz-aarch64-v0.1.1/lib")
+    set(LUMPIZ_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs/lib_lumpiz-aarch64-v0.1.1/include/lumpiz")
+else()
+    set(MRPIZ_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs/lib_mrpiz-${TARGET_ARCH}-v0.6.1/lib")
+    set(MRPIZ_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs/lib_mrpiz-${TARGET_ARCH}-v0.6.1/include/mrpiz")
+    set(LUMPIZ_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs/lib_lumpiz-${TARGET_ARCH}-v0.1.1/lib")
+    set(LUMPIZ_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs/lib_lumpiz-${TARGET_ARCH}-v0.1.1/include/lumpiz")
+endif()
 
 include_directories(${MRPIZ_INCLUDE_DIR})
 include_directories(${LUMPIZ_INCLUDE_DIR})
@@ -302,13 +439,15 @@ message(STATUS "")
 message(STATUS "Build configuration summary:")
 message(STATUS "----------------------------------------")
 message(STATUS "  Architecture: ${TARGET_ARCH}")
-if(TARGET_MRPIZ)
-    message(STATUS "  Target: MRPiZ")
+if(TARGET_RASPI_ZERO_W)
+    message(STATUS "  Target: Raspberry Pi Zero W (cross-compile)")
+    message(STATUS "  Compiler: ${COMPILER_DETECTED}")
 else()
     message(STATUS "  Target: PC Development")
     message(STATUS "  Simulation: ${SIMULATION_TYPE}")
     message(STATUS "  Intox Address: ${INTOX_ADDRESS}")
     message(STATUS "  Intox Port: ${INTOX_PORT}")
+    message(STATUS "  Compiler: ${COMPILER_DETECTED}")
 endif()
 message(STATUS "  TLS Support: ${USE_TLS}")
 message(STATUS "  Debug Build: ${DEBUG}")
@@ -350,7 +489,7 @@ file(WRITE ${PRESETS_FILE} [=[
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "DEBUG": "ON",
-        "TARGET_MRPIZ": "OFF",
+        "TARGET_RASPI_ZERO_W": "OFF",
         "USE_TLS": "OFF",
         "USE_3D_SIMULATION": "OFF"
       }
@@ -364,7 +503,7 @@ file(WRITE ${PRESETS_FILE} [=[
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "DEBUG": "OFF",
-        "TARGET_MRPIZ": "OFF",
+        "TARGET_RASPI_ZERO_W": "OFF",
         "USE_TLS": "OFF",
         "USE_3D_SIMULATION": "OFF"
       }
@@ -378,7 +517,7 @@ file(WRITE ${PRESETS_FILE} [=[
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "DEBUG": "ON",
-        "TARGET_MRPIZ": "OFF",
+        "TARGET_RASPI_ZERO_W": "OFF",
         "USE_TLS": "OFF",
         "USE_3D_SIMULATION": "ON"
       }
@@ -392,91 +531,35 @@ file(WRITE ${PRESETS_FILE} [=[
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "DEBUG": "OFF",
-        "TARGET_MRPIZ": "OFF",
+        "TARGET_RASPI_ZERO_W": "OFF",
         "USE_TLS": "OFF",
         "USE_3D_SIMULATION": "ON"
       }
     },
     {
-      "name": "x86_64-mrpiz",
-      "displayName": "x86_64 MRPiZ",
-      "description": "MRPiZ build for x86_64 architecture",
+      "name": "raspi-debug",
+      "displayName": "Raspberry Pi Zero W Debug",
+      "description": "Debug build for Raspberry Pi Zero W",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/x86_64-mrpiz",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
-        "DEBUG": "OFF",
-        "TARGET_MRPIZ": "ON",
-        "USE_TLS": "OFF",
-        "USE_3D_SIMULATION": "OFF"
-      }
-    },
-    {
-      "name": "aarch64-debug",
-      "displayName": "ARM64 Debug",
-      "description": "Debug build for ARM64 architecture",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/aarch64-debug",
+      "binaryDir": "${sourceDir}/build/raspi-debug",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "DEBUG": "ON",
-        "TARGET_MRPIZ": "OFF",
+        "TARGET_RASPI_ZERO_W": "ON",
         "USE_TLS": "OFF",
         "USE_3D_SIMULATION": "OFF"
       }
     },
     {
-      "name": "aarch64-release",
-      "displayName": "ARM64 Release",
-      "description": "Release build for ARM64 architecture",
+      "name": "raspi-release",
+      "displayName": "Raspberry Pi Zero W Release",
+      "description": "Release build for Raspberry Pi Zero W",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/aarch64-release",
+      "binaryDir": "${sourceDir}/build/raspi-release",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "DEBUG": "OFF",
-        "TARGET_MRPIZ": "OFF",
-        "USE_TLS": "OFF",
-        "USE_3D_SIMULATION": "OFF"
-      }
-    },
-    {
-      "name": "aarch64-3d-debug",
-      "displayName": "ARM64 3D Debug",
-      "description": "3D Debug build for ARM64 architecture",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/aarch64-3d-debug",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
-        "DEBUG": "ON",
-        "TARGET_MRPIZ": "OFF",
-        "USE_TLS": "OFF",
-        "USE_3D_SIMULATION": "ON"
-      }
-    },
-    {
-      "name": "aarch64-3d-release",
-      "displayName": "ARM64 3D Release",
-      "description": "3D Release build for ARM64 architecture",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/aarch64-3d-release",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
-        "DEBUG": "OFF",
-        "TARGET_MRPIZ": "OFF",
-        "USE_TLS": "OFF",
-        "USE_3D_SIMULATION": "ON"
-      }
-    },
-    {
-      "name": "aarch64-mrpiz",
-      "displayName": "ARM64 MRPiZ",
-      "description": "MRPiZ build for ARM64 architecture",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/aarch64-mrpiz",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
-        "DEBUG": "OFF",
-        "TARGET_MRPIZ": "ON",
+        "TARGET_RASPI_ZERO_W": "ON",
         "USE_TLS": "OFF",
         "USE_3D_SIMULATION": "OFF"
       }
@@ -490,7 +573,7 @@ file(WRITE ${PRESETS_FILE} [=[
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "DEBUG": "OFF",
-        "TARGET_MRPIZ": "OFF",
+        "TARGET_RASPI_ZERO_W": "OFF",
         "USE_TLS": "ON",
         "USE_3D_SIMULATION": "OFF"
       }
@@ -514,28 +597,12 @@ file(WRITE ${PRESETS_FILE} [=[
       "configurePreset": "x86_64-3d-release"
     },
     {
-      "name": "x86_64-mrpiz",
-      "configurePreset": "x86_64-mrpiz"
+      "name": "raspi-debug",
+      "configurePreset": "raspi-debug"
     },
     {
-      "name": "aarch64-debug",
-      "configurePreset": "aarch64-debug"
-    },
-    {
-      "name": "aarch64-release",
-      "configurePreset": "aarch64-release"
-    },
-    {
-      "name": "aarch64-3d-debug",
-      "configurePreset": "aarch64-3d-debug"
-    },
-    {
-      "name": "aarch64-3d-release",
-      "configurePreset": "aarch64-3d-release"
-    },
-    {
-      "name": "aarch64-mrpiz",
-      "configurePreset": "aarch64-mrpiz"
+      "name": "raspi-release",
+      "configurePreset": "raspi-release"
     },
     {
       "name": "tls-enabled",

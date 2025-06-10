@@ -20,7 +20,7 @@ static bool t_bHardwareAbstractionInitialized = false;
 ////////////////////////////////////////////////////////////
 //  hardwareAbstractionInit
 ////////////////////////////////////////////////////////////
-int hardwareAbstractionInit()
+int hardwareAbstractionInit(void)
 {
     X_LOG_TRACE("Initialise hardware abstraction layer with MrPiz");
     int l_iReturn = 0;
@@ -58,7 +58,7 @@ int hardwareAbstractionInit()
             // This sensor is available, add it to our configuration
             if (l_iSensorCount < HARDWARE_ABSTRACTION_MAX_SENSORS)
             {
-                t_HardwareAbstraction.t_iSensors[l_iSensorCount] = l_tAvailableSensors[l_uIndex];
+                t_HardwareAbstraction.t_iSensors[l_iSensorCount] = (uint16_t)l_tAvailableSensors[l_uIndex];
                 l_iSensorCount++;
                 X_LOG_TRACE("Sensor %d available", l_tAvailableSensors[l_uIndex]);
             }

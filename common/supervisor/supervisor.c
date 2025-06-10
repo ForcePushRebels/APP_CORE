@@ -70,8 +70,8 @@ static int32_t send_map_fragments(void)
         //             cells[i].cell.type,
         //             cells[i].cell.wall.wall_intensity);
         map_cell_t *cell = &cells[i].cell;
-        cells[i].x_grid = HOST_TO_NET_SHORT(cells[i].x_grid);
-        cells[i].y_grid = HOST_TO_NET_SHORT(cells[i].y_grid);
+        cells[i].x_grid = (int16_t)HOST_TO_NET_SHORT((uint16_t)cells[i].x_grid);
+        cells[i].y_grid = (int16_t)HOST_TO_NET_SHORT((uint16_t)cells[i].y_grid);
         
         ClientID l_tClientId = networkServerGetAndroidClient();
         if (l_tClientId == INVALID_CLIENT_ID)
@@ -148,7 +148,7 @@ int32_t supervisor_send_full_map(ClientID client_id)
     memcpy(&map_buffer->map, temp_map, map_size);
     free(temp_map);
 
-    int ret = networkServerSendMessage(client_id, ID_MAP_FULL, map_buffer, map_buffer_size);
+    int ret = networkServerSendMessage(client_id, ID_MAP_FULL, map_buffer, (uint32_t)map_buffer_size);
     free(map_buffer);
     return ret;
 }
@@ -159,8 +159,8 @@ int32_t supervisor_send_full_map(ClientID client_id)
 static int32_t sendPosition(tPosition pNewPosition)
 {
     PositionPacked_t l_tPosition = {
-        HOST_TO_NET_SHORT(pNewPosition.t_iXPosition),
-        HOST_TO_NET_SHORT(pNewPosition.t_iYPosition),
+        (int16_t)HOST_TO_NET_SHORT((uint16_t)pNewPosition.t_iXPosition),
+        (int16_t)HOST_TO_NET_SHORT((uint16_t)pNewPosition.t_iYPosition),
         HOST_TO_NET_LONG(float_to_uint32(pNewPosition.t_fOrientation)),
     };
 
@@ -374,7 +374,7 @@ static void checkInfo(void *arg)
         .mode = "AUTO",
         .position_x = (float)s_tSupervisorCtx.t_tPosition.t_iXPosition,
         .position_y = (float)s_tSupervisorCtx.t_tPosition.t_iYPosition,
-        .orientation = (float)s_tSupervisorCtx.t_tPosition.t_fOrientation,
+        .orientation = s_tSupervisorCtx.t_tPosition.t_fOrientation,
         .version = "1.0",
     };
     ihm_set_robot_status(&l_tIhmStatus);
@@ -404,7 +404,7 @@ static void checkInfo(void *arg)
         tPosition l_tConvertedPosition;
         l_tConvertedPosition.t_iXPosition = (int32_t)l_tCurrentPosition.x_mm;
         l_tConvertedPosition.t_iYPosition = (int32_t)l_tCurrentPosition.y_mm;
-        l_tConvertedPosition.t_fOrientation = l_tCurrentPosition.angle_rad;
+        l_tConvertedPosition.t_fOrientation = (float)l_tCurrentPosition.angle_rad;
 
         // Update position if changed
         bool position_changed = memcmp(&s_tSupervisorCtx.t_tPosition, &l_tConvertedPosition, sizeof(tPosition)) != 0;
@@ -471,7 +471,7 @@ static void *supervisor_task(void *arg)
             .mode = "AUTO",
             .position_x = (float)s_tSupervisorCtx.t_tPosition.t_iXPosition,
             .position_y = (float)s_tSupervisorCtx.t_tPosition.t_iYPosition,
-            .orientation = (float)s_tSupervisorCtx.t_tPosition.t_fOrientation,
+            .orientation = s_tSupervisorCtx.t_tPosition.t_fOrientation,
             .version = "1.0",
         };
         ihm_set_robot_status(&l_tIhmStatus);

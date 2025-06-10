@@ -15,7 +15,6 @@
 #include "handleNetworkMessage.h"
 #include "hardwareAbstraction.h"
 #include "idCard.h"
-#include "intervention_manager.h"
 #include "networkServer.h"
 #include "sensorManager.h"
 #include "watchdog.h"
@@ -36,9 +35,9 @@ static const uint8_t s_aCLogPath[] = "inter.log";
 void blinkLed(mrpiz_led_rgb_color_t t_eColor, int t_iDurationMs)
 {
     SetLedColor(t_eColor);
-    usleep(t_iDurationMs * 1000);
+    usleep((unsigned int)t_iDurationMs * 1000);
     SetLedColor(MRPIZ_LED_OFF);
-    usleep(PAUSE_SIGNAL * 1000);
+    usleep((unsigned int)PAUSE_SIGNAL * 1000);
 }
 
 // Fonction pour envoyer un SOS en morse avec différentes couleurs

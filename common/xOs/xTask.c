@@ -24,7 +24,7 @@ int osTaskInit(xOsTaskCtx *p_pttOSTask)
     }
 
     memset(p_pttOSTask, 0, sizeof(xOsTaskCtx));
-    p_pttOSTask->t_ulStackSize = OS_TASK_DEFAULT_STACK_SIZE;
+    p_pttOSTask->t_ulStackSize = (size_t)OS_TASK_DEFAULT_STACK_SIZE;
 #ifdef OS_USE_RT_SCHEDULING
     p_pttOSTask->policy = OS_DEFAULT_SCHED_POLICY;
 #endif
@@ -80,7 +80,7 @@ int osTaskCreate(xOsTaskCtx *p_pttOSTask)
     if ((long int)p_pttOSTask->t_ulStackSize < PTHREAD_STACK_MIN)
     {
         X_LOG_TRACE("pthread_attr_setstacksize: Stack size is less than the default stack size");
-        p_pttOSTask->t_ulStackSize = PTHREAD_STACK_MIN;
+        p_pttOSTask->t_ulStackSize = (size_t)PTHREAD_STACK_MIN;
     }
 
     if (pthread_attr_setstacksize(&l_tAttr, p_pttOSTask->t_ulStackSize) != 0)

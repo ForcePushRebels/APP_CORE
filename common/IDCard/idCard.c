@@ -32,23 +32,37 @@ static xOsTaskCtx s_xTaskHandle = {0};
 ///////////////////////////////////////////
 /// findIpAddress
 ///////////////////////////////////////////
+static inline struct sockaddr_in* safe_sockaddr_cast(struct sockaddr* addr) 
+{
+    // This function ensures proper alignment for sockaddr_in cast
+    if (addr && addr->sa_family == AF_INET) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-align"
+        return (struct sockaddr_in*)addr;
+#pragma GCC diagnostic pop
+    }
+    return NULL;
+}
+
 static void findIpAddress(void)
 {
     struct ifaddrs *ifaddr, *ifa;
-    int family;
-    char host[16];
     bool found = false;
+    int family;
+    char host[NI_MAXHOST];
 
     if (getifaddrs(&ifaddr) == -1)
     {
-        perror("getifaddrs");
+        X_LOG_TRACE("Error: Unable to retrieve network interfaces\n");
+        // use localhost as default
+        strcpy(s_pcIpAddr, "127.0.0.1");
         return;
     }
 
-    // if loopback is used, search first the loopback interface
+    // if loopback is used, search specifically for it
     if (s_bUseLoopback)
     {
-        for (ifa = ifaddr; ifa != NULL && !found; ifa = ifa->ifa_next)
+        for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next)
         {
             if (ifa->ifa_addr == NULL)
                 continue;
@@ -60,13 +74,16 @@ static void findIpAddress(void)
                 // search specifically the loopback interface
                 if (strcmp(ifa->ifa_name, "lo") == 0)
                 {
-                    void *addr_ptr = &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;
-                    inet_ntop(AF_INET, addr_ptr, host, 16);
-                    // copy the IP address to the static variable
-                    strncpy(s_pcIpAddr, host, sizeof(s_pcIpAddr) - 1);
-                    s_pcIpAddr[sizeof(s_pcIpAddr) - 1] = '\0';
-                    found = true;
-                    break;
+                    struct sockaddr_in* sin = safe_sockaddr_cast(ifa->ifa_addr);
+                    if (sin) {
+                        void *addr_ptr = &sin->sin_addr;
+                        inet_ntop(AF_INET, addr_ptr, host, 16);
+                        // copy the IP address to the static variable
+                        strncpy(s_pcIpAddr, host, sizeof(s_pcIpAddr) - 1);
+                        s_pcIpAddr[sizeof(s_pcIpAddr) - 1] = '\0';
+                        found = true;
+                        break;
+                    }
                 }
             }
         }
@@ -87,13 +104,16 @@ static void findIpAddress(void)
                 // ignore the loopback interface
                 if (strcmp(ifa->ifa_name, "lo") != 0)
                 {
-                    void *addr_ptr = &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;
-                    inet_ntop(AF_INET, addr_ptr, host, 16);
-                    // copy the IP address to the static variable
-                    strncpy(s_pcIpAddr, host, sizeof(s_pcIpAddr) - 1);
-                    s_pcIpAddr[sizeof(s_pcIpAddr) - 1] = '\0';
-                    found = true;
-                    break; // take the first IPv4 non loopback address
+                    struct sockaddr_in* sin = safe_sockaddr_cast(ifa->ifa_addr);
+                    if (sin) {
+                        void *addr_ptr = &sin->sin_addr;
+                        inet_ntop(AF_INET, addr_ptr, host, 16);
+                        // copy the IP address to the static variable
+                        strncpy(s_pcIpAddr, host, sizeof(s_pcIpAddr) - 1);
+                        s_pcIpAddr[sizeof(s_pcIpAddr) - 1] = '\0';
+                        found = true;
+                        break; // take the first IPv4 non loopback address
+                    }
                 }
             }
         }

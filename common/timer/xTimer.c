@@ -204,15 +204,15 @@ int xTimerExpired(xOsTimerCtx *p_ptTimer)
     }
 
     // Convert times to nanoseconds for comparison with overflow protection
-    uint64_t l_ulNowNs = (uint64_t)l_tNow.tv_sec * 1000000000ULL + l_tNow.tv_nsec;
-    uint64_t l_ulNextNs = (uint64_t)p_ptTimer->t_tNext.tv_sec * 1000000000ULL + p_ptTimer->t_tNext.tv_nsec;
+    uint64_t l_ulNowNs = (uint64_t)l_tNow.tv_sec * 1000000000ULL + (uint64_t)l_tNow.tv_nsec;
+    uint64_t l_ulNextNs = (uint64_t)p_ptTimer->t_tNext.tv_sec * 1000000000ULL + (uint64_t)p_ptTimer->t_tNext.tv_nsec;
 
     if (l_ulNowNs >= l_ulNextNs)
     {
         if (p_ptTimer->t_ucMode == XOS_TIMER_MODE_PERIODIC)
         {
             // Calculate number of elapsed periods with division by zero protection
-            uint64_t l_ulStartNs = (uint64_t)p_ptTimer->t_tStart.tv_sec * 1000000000ULL + p_ptTimer->t_tStart.tv_nsec;
+            uint64_t l_ulStartNs = (uint64_t)p_ptTimer->t_tStart.tv_sec * 1000000000ULL + (uint64_t)p_ptTimer->t_tStart.tv_nsec;
             uint64_t l_ulElapsedNs = l_ulNowNs - l_ulStartNs;
 
             // Check for period overflow and division by zero
@@ -242,8 +242,8 @@ int xTimerExpired(xOsTimerCtx *p_ptTimer)
             }
 
             uint64_t l_ulNextTime = l_ulStartNs + (l_ulPeriods * l_ulPeriodNs);
-            p_ptTimer->t_tNext.tv_sec = l_ulNextTime / 1000000000ULL;
-            p_ptTimer->t_tNext.tv_nsec = l_ulNextTime % 1000000000ULL;
+            p_ptTimer->t_tNext.tv_sec = (time_t)(l_ulNextTime / 1000000000ULL);
+            p_ptTimer->t_tNext.tv_nsec = (long)(l_ulNextTime % 1000000000ULL);
         }
         else
         {
@@ -278,7 +278,8 @@ inline uint64_t xTimerGetCurrentMs(void)
         X_LOG_TRACE("xTimerGetCurrentMs: clock_gettime failed with errno %d", errno);
         return 0;
     }
-    return (uint64_t)((l_tNow.tv_sec * 1000ULL) + (l_tNow.tv_nsec / 1000000ULL));
+    return (uint64_t)((uint64_t)l_tNow.tv_sec * 1000ULL +
+                     (uint64_t)l_tNow.tv_nsec / 1000000ULL);
 }
 
 ////////////////////////////////////////////////////////////
@@ -350,9 +351,9 @@ int xTimerProcessElapsedPeriods(xOsTimerCtx *p_ptTimer, void (*p_pfCallback)(voi
     }
 
     // Convert times to nanoseconds for calculation with overflow protection
-    uint64_t l_ulNowNs = (uint64_t)l_tNow.tv_sec * 1000000000ULL + l_tNow.tv_nsec;
-    uint64_t l_ulStartNs = (uint64_t)p_ptTimer->t_tStart.tv_sec * 1000000000ULL + p_ptTimer->t_tStart.tv_nsec;
-    uint64_t l_ulNextNs = (uint64_t)p_ptTimer->t_tNext.tv_sec * 1000000000ULL + p_ptTimer->t_tNext.tv_nsec;
+    uint64_t l_ulNowNs = (uint64_t)l_tNow.tv_sec * 1000000000ULL + (uint64_t)l_tNow.tv_nsec;
+    uint64_t l_ulStartNs = (uint64_t)p_ptTimer->t_tStart.tv_sec * 1000000000ULL + (uint64_t)p_ptTimer->t_tStart.tv_nsec;
+    uint64_t l_ulNextNs = (uint64_t)p_ptTimer->t_tNext.tv_sec * 1000000000ULL + (uint64_t)p_ptTimer->t_tNext.tv_nsec;
 
     // Validate period for division
     if (p_ptTimer->t_ulPeriod == 0 || p_ptTimer->t_ulPeriod > XOS_TIMER_MAX_PERIOD_MS)
@@ -435,8 +436,8 @@ int xTimerProcessElapsedPeriods(xOsTimerCtx *p_ptTimer, void (*p_pfCallback)(voi
             }
 
             uint64_t l_ulNextTime = l_ulStartNs + (l_ulPeriodsTotal * l_ulPeriodNs);
-            p_ptTimer->t_tNext.tv_sec = l_ulNextTime / 1000000000ULL;
-            p_ptTimer->t_tNext.tv_nsec = l_ulNextTime % 1000000000ULL;
+            p_ptTimer->t_tNext.tv_sec = (time_t)(l_ulNextTime / 1000000000ULL);
+            p_ptTimer->t_tNext.tv_nsec = (long)(l_ulNextTime % 1000000000ULL);
         }
         else
         {

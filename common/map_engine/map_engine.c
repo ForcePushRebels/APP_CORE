@@ -56,9 +56,9 @@ int map_engine_update_discovery_percent();
 map_engine_t map_engine;
 
 float sensor_angles_rad[3] = {
-    [0] = -0.84,
-    [1] = 0,
-    [2] = 0.84,
+    [0] = -0.84f,
+    [1] = 0.0f,
+    [2] = 0.84f,
 };
 
 /* ********************************************** Private functions definitions ****************************************** */
@@ -71,8 +71,8 @@ static void print_map()
     // Récupération de la position du robot
     Position_t robot_pos;
     position_control_get_position(&robot_pos);
-    int16_t robot_grid_x = robot_pos.x_mm / MAP_CELL_SIZE_MM;
-    int16_t robot_grid_y = robot_pos.y_mm / MAP_CELL_SIZE_MM;
+    int16_t robot_grid_x = (int16_t)(robot_pos.x_mm / MAP_CELL_SIZE_MM);
+    int16_t robot_grid_y = (int16_t)(robot_pos.y_mm / MAP_CELL_SIZE_MM);
     // Affichage de l'en-tête avec les numéros de colonnes
     printf("   ");
     for (int x = 0; x < MAP_WIDTH; x++)
@@ -212,9 +212,11 @@ int map_engine_update_vision(uint16_t *sensor_data, uint8_t sensor_count)
 
     Position_t robot_pos;
     position_control_get_position(&robot_pos);
-    float angle = robot_pos.angle_rad;               // + lidar angle relative
-    int16_t offset_x = robot_pos.x_mm + cosf(angle); // * lidar->dist_to_center;
-    int16_t offset_y = robot_pos.y_mm + sinf(angle); // * lidar->dist_to_center;
+    float angle = (float)robot_pos.angle_rad;               // + lidar angle relative
+    float cos_angle = cosf(angle);
+    float sin_angle = sinf(angle);
+    int16_t offset_x = (int16_t)robot_pos.x_mm + (int16_t)cos_angle; // * lidar->dist_to_center;
+    int16_t offset_y = (int16_t)robot_pos.y_mm + (int16_t)sin_angle; // * lidar->dist_to_center;
 
     for (uint8_t i = 0; i < SENSOR_MANAGER_SENSORS_COUNT; i++)
     {
@@ -225,10 +227,12 @@ int map_engine_update_vision(uint16_t *sensor_data, uint8_t sensor_count)
             continue;
         }
 
-        angle = robot_pos.angle_rad + sensor_angles_rad[i];
+        angle = (float)robot_pos.angle_rad + sensor_angles_rad[i];
         // On ajoute le point
-        points[points_count].x_mm = (int16_t)(cosf(angle) * distance) + offset_x;
-        points[points_count].y_mm = (int16_t)(sinf(angle) * distance) + offset_y;
+        float cos_sensor_angle = cosf(angle);
+        float sin_sensor_angle = sinf(angle);
+        points[points_count].x_mm = (int16_t)(cos_sensor_angle * (float)distance) + offset_x;
+        points[points_count].y_mm = (int16_t)(sin_sensor_angle * (float)distance) + offset_y;
         points_count++;
         // X_LOG_TRACE("sensor %d: %d [%d, %d]", i, distance, points[i].x_mm, points[i].y_mm);
     }
@@ -237,8 +241,10 @@ int map_engine_update_vision(uint16_t *sensor_data, uint8_t sensor_count)
     for (uint8_t i = 0; i < points_count; i++)
     {
         // X_LOG_TRACE("Point %d: %d, %d", i, points[i].x_mm, points[i].y_mm);
-        int16_t grid_x = points[i].x_mm / MAP_CELL_SIZE_MM;
-        int16_t grid_y = points[i].y_mm / MAP_CELL_SIZE_MM;
+        float grid_x_f = (float)points[i].x_mm / (float)MAP_CELL_SIZE_MM;
+        float grid_y_f = (float)points[i].y_mm / (float)MAP_CELL_SIZE_MM;
+        int16_t grid_x = (int16_t)grid_x_f;
+        int16_t grid_y = (int16_t)grid_y_f;
         if (grid_x < 0 || grid_x >= MAP_WIDTH || grid_y < 0 || grid_y >= MAP_HEIGHT)
         {
             X_LOG_TRACE("Point %d: %d, %d is out of bounds", i, points[i].x_mm, points[i].y_mm);
@@ -296,7 +302,7 @@ int map_engine_update_floor_sensor(uint16_t floor_sensor)
     bool is_interest_area = false;
     for (uint8_t i = 0; i < sizeof(colors) / sizeof(colors[0]); i++)
     {
-        if (!is_floor_sensor_in_margin(floor_sensor, colors[i], FLOOR_SENSOR_MARGIN))
+        if (!is_floor_sensor_in_margin(floor_sensor, (uint16_t)colors[i], FLOOR_SENSOR_MARGIN))
         {
             continue;
         }
@@ -310,8 +316,8 @@ int map_engine_update_floor_sensor(uint16_t floor_sensor)
 
     Position_t robot_pos;
     position_control_get_position(&robot_pos);
-    int16_t grid_x = robot_pos.x_mm / MAP_CELL_SIZE_MM;
-    int16_t grid_y = robot_pos.y_mm / MAP_CELL_SIZE_MM;
+    int16_t grid_x = (int16_t)(robot_pos.x_mm / MAP_CELL_SIZE_MM);
+    int16_t grid_y = (int16_t)(robot_pos.y_mm / MAP_CELL_SIZE_MM);
     if (grid_x < 0 || grid_x >= MAP_WIDTH || grid_y < 0 || grid_y >= MAP_HEIGHT)
     {
         X_LOG_TRACE("Invalid grid position: %d, %d", grid_x, grid_y);
@@ -350,10 +356,10 @@ uint32_t map_engine_get_hash()
     }
 
     // Include discovery percent and interest area count in hash
-    hash ^= map_engine.discovery_percent;
+    hash ^= (uint32_t)map_engine.discovery_percent;
     hash *= fnv_prime;
 
-    hash ^= map_engine.interest_area_count;
+    hash ^= (uint32_t)map_engine.interest_area_count;
     hash *= fnv_prime;
     mutexUnlock(&map_engine.map_mutex);
     return hash;
@@ -387,13 +393,13 @@ uint32_t map_engine_get_updated_cells(map_fragment_t *cells, size_t cell_count)
         {
             if (map_engine.updated_cells[x][y])
             {
-                if (count >= cell_count)
+                if (count >= (uint32_t)cell_count)
                 {
                     mutexUnlock(&map_engine.map_mutex);
                     return count;
                 }
-                cells[count].x_grid = x;
-                cells[count].y_grid = y;
+                cells[count].x_grid = (int16_t)x;
+                cells[count].y_grid = (int16_t)y;
                 cells[count].cell = map_engine.map[x][y];
                 count++;
             }
@@ -421,8 +427,8 @@ map_fragment_t map_engine_get_robot_fragment()
 {
     Position_t robot_pos;
     position_control_get_position(&robot_pos);
-    int16_t grid_x = robot_pos.x_mm / MAP_CELL_SIZE_MM;
-    int16_t grid_y = robot_pos.y_mm / MAP_CELL_SIZE_MM;
+    int16_t grid_x = (int16_t)(robot_pos.x_mm / MAP_CELL_SIZE_MM);
+    int16_t grid_y = (int16_t)(robot_pos.y_mm / MAP_CELL_SIZE_MM);
 
     map_fragment_t cell = {
         .x_grid = grid_x,
@@ -440,8 +446,8 @@ map_fragment_t map_engine_get_robot_fragment()
 
 map_fragment_t map_engine_get_fragment(int16_t x_mm, int16_t y_mm)
 {
-    int16_t grid_x = x_mm / MAP_CELL_SIZE_MM;
-    int16_t grid_y = y_mm / MAP_CELL_SIZE_MM;
+    int16_t grid_x = (int16_t)(x_mm / MAP_CELL_SIZE_MM);
+    int16_t grid_y = (int16_t)(y_mm / MAP_CELL_SIZE_MM);
 
     map_fragment_t cell = {
         .x_grid = grid_x,

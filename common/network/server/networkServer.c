@@ -488,7 +488,7 @@ bool networkServerGetClientAddress(ClientID p_tClientId, char *p_ptcBuffer, int 
     }
 
     // copy the address to the buffer while holding server rwlock
-    strncpy(p_ptcBuffer, l_ptClient->t_tAddress.t_cAddress, p_iSize - 1);
+    strncpy(p_ptcBuffer, l_ptClient->t_tAddress.t_cAddress, (size_t)(p_iSize - 1));
     p_ptcBuffer[p_iSize - 1] = '\0';
 
     rwlockUnlock(&s_ptServerInstance->t_tRwLock);
@@ -640,7 +640,7 @@ int networkServerSendToClient(ClientID p_tClientId, const void *p_pvData, int p_
         return SERVER_CLIENT_DISCONNECTED;
     }
 
-    int l_iResult = networkSend(l_ptClient->t_ptSocket, p_pvData, p_iSize);
+    int l_iResult = networkSend(l_ptClient->t_ptSocket, p_pvData, (unsigned long)p_iSize);
     rwlockUnlock(&s_ptServerInstance->t_tRwLock);
 
     return l_iResult;
@@ -708,7 +708,7 @@ int networkServerSendMessage(ClientID p_tClientId, uint8_t p_ucMsgType, const vo
     }
 
     // ATOMIC SEND: Single network operation for entire message
-    int l_iSentBytes = networkSend(l_ptClient->t_ptSocket, l_aucFrameBuffer, l_ulFrameSize);
+    int l_iSentBytes = networkSend(l_ptClient->t_ptSocket, l_aucFrameBuffer, (unsigned long)l_ulFrameSize);
 
     pthread_rwlock_unlock(&l_ptClient->t_tRwLock);
     rwlockUnlock(&s_ptServerInstance->t_tRwLock);
@@ -748,7 +748,7 @@ static int networkReceiveComplete(NetworkSocket *p_ptSocket, uint8_t *p_pucBuffe
 
     while (l_iTotalReceived < p_iSize)
     {
-        l_iReceived = networkReceive(p_ptSocket, p_pucBuffer + l_iTotalReceived, p_iSize - l_iTotalReceived);
+        l_iReceived = networkReceive(p_ptSocket, p_pucBuffer + l_iTotalReceived, (unsigned long)(p_iSize - l_iTotalReceived));
 
         if (l_iReceived <= 0)
         {
@@ -1099,7 +1099,7 @@ static void *clientThreadFunc(void *p_pvArg)
             {
                 p_iReceived = networkReceiveComplete(p_ptClient->t_ptSocket, 
                                                    l_pucCompleteFrameBuffer + PROTOCOL_HEADER_SIZE, 
-                                                   l_ulActualPayloadSize);
+                                                   (int)l_ulActualPayloadSize);
 
                 if (p_iReceived != (int)l_ulActualPayloadSize)
                 {

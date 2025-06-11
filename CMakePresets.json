@@ -16,7 +16,6 @@
         "CMAKE_BUILD_TYPE": "Debug",
         "DEBUG": "ON",
         "TARGET_RASPI_ZERO_W": "OFF",
-        "USE_TLS": "OFF",
         "USE_3D_SIMULATION": "OFF"
       }
     },
@@ -30,7 +29,6 @@
         "CMAKE_BUILD_TYPE": "Release",
         "DEBUG": "OFF",
         "TARGET_RASPI_ZERO_W": "OFF",
-        "USE_TLS": "OFF",
         "USE_3D_SIMULATION": "OFF"
       }
     },
@@ -44,7 +42,6 @@
         "CMAKE_BUILD_TYPE": "Debug",
         "DEBUG": "ON",
         "TARGET_RASPI_ZERO_W": "OFF",
-        "USE_TLS": "OFF",
         "USE_3D_SIMULATION": "ON"
       }
     },
@@ -58,7 +55,6 @@
         "CMAKE_BUILD_TYPE": "Release",
         "DEBUG": "OFF",
         "TARGET_RASPI_ZERO_W": "OFF",
-        "USE_TLS": "OFF",
         "USE_3D_SIMULATION": "ON"
       }
     },
@@ -72,7 +68,6 @@
         "CMAKE_BUILD_TYPE": "Debug",
         "DEBUG": "ON",
         "TARGET_RASPI_ZERO_W": "ON",
-        "USE_TLS": "OFF",
         "USE_3D_SIMULATION": "OFF"
       }
     },
@@ -86,21 +81,19 @@
         "CMAKE_BUILD_TYPE": "Release",
         "DEBUG": "OFF",
         "TARGET_RASPI_ZERO_W": "ON",
-        "USE_TLS": "OFF",
         "USE_3D_SIMULATION": "OFF"
       }
     },
     {
-      "name": "tls-enabled",
-      "displayName": "TLS Enabled",
-      "description": "Build with TLS support enabled",
+      "name": "production",
+      "displayName": "Production Build",
+      "description": "Optimized production build with TLS",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/tls-enabled",
+      "binaryDir": "${sourceDir}/build/production",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "DEBUG": "OFF",
         "TARGET_RASPI_ZERO_W": "OFF",
-        "USE_TLS": "ON",
         "USE_3D_SIMULATION": "OFF"
       }
     }
@@ -131,8 +124,8 @@
       "configurePreset": "raspi-release"
     },
     {
-      "name": "tls-enabled",
-      "configurePreset": "tls-enabled"
+      "name": "production",
+      "configurePreset": "production"
     }
   ]
 }

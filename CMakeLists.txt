@@ -23,7 +23,6 @@ message(STATUS "Detected architecture: ${TARGET_ARCH}")
 
 # Target options
 option(TARGET_RASPI_ZERO_W "Build for Raspberry Pi Zero W target (cross-compile)" OFF)
-option(USE_TLS "Enable TLS support" OFF)
 option(DEBUG "Enable debug build" OFF)
 option(USE_3D_SIMULATION "Use 3D simulation instead of 2D (changes Intox port from 12345 to 12348)" OFF)
 
@@ -266,16 +265,12 @@ else()
     add_compile_definitions(NDEBUG)
 endif()
 
-# TLS support
-if(USE_TLS)
-    add_compile_definitions(_USE_TLS)
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(WOLFSSL REQUIRED wolfssl)
-    include_directories(${WOLFSSL_INCLUDE_DIRS})
-    message(STATUS "TLS support enabled - Will use wolfSSL")
-else()
-    message(STATUS "TLS support disabled")
-endif()
+# TLS support (always enabled)
+add_compile_definitions(_USE_TLS)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(WOLFSSL REQUIRED wolfssl)
+include_directories(${WOLFSSL_INCLUDE_DIRS})
+message(STATUS "TLS support enabled - Will use wolfSSL")
 
 # Add libraries based on target architecture - use armhf for Raspberry Pi
 if(TARGET_RASPI_ZERO_W)
@@ -309,25 +304,15 @@ endforeach()
 list(REMOVE_DUPLICATES INCLUDE_DIRS)
 include_directories(${INCLUDE_DIRS})
 
-# Common source files - conditionally exclude TLS if not enabled
-file(GLOB_RECURSE ALL_COMMON_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/common/*.c")
+# Common source files (TLS always included)
+file(GLOB_RECURSE COMMON_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/common/*.c")
 
 message(STATUS "Common source files:")
-set(EXCLUDED_FILES "")
-set(COMMON_SOURCES "")
 set(COMMON_SOURCES_COUNT 0)
-set(EXCLUDED_FILES_COUNT 0)
 
-foreach(SOURCE ${ALL_COMMON_SOURCES})
-    if(NOT USE_TLS AND ${SOURCE} MATCHES "tls")
-        list(APPEND EXCLUDED_FILES ${SOURCE})
-        message(STATUS "  EXCLUDED (TLS disabled): ${SOURCE}")
-        math(EXPR EXCLUDED_FILES_COUNT "${EXCLUDED_FILES_COUNT} + 1")
-    else()
-        list(APPEND COMMON_SOURCES ${SOURCE})
-        message(STATUS "  INCLUDED: ${SOURCE}")
-        math(EXPR COMMON_SOURCES_COUNT "${COMMON_SOURCES_COUNT} + 1")
-    endif()
+foreach(SOURCE ${COMMON_SOURCES})
+    message(STATUS "  INCLUDED: ${SOURCE}")
+    math(EXPR COMMON_SOURCES_COUNT "${COMMON_SOURCES_COUNT} + 1")
 endforeach()
 
 # Create build directory if it doesn't exist
@@ -423,12 +408,10 @@ if(EXTRA_LIBS)
     target_link_libraries(inter ${EXTRA_LIBS})
 endif()
 
-# Add TLS libraries if enabled
-if(USE_TLS)
-    target_link_libraries(explo ${WOLFSSL_LIBRARIES})
-    target_link_libraries(inter ${WOLFSSL_LIBRARIES})
-    message(STATUS "Linking with wolfSSL libraries: ${WOLFSSL_LIBRARIES}")
-endif()
+# Add TLS libraries (always enabled)
+target_link_libraries(explo ${WOLFSSL_LIBRARIES})
+target_link_libraries(inter ${WOLFSSL_LIBRARIES})
+message(STATUS "Linking with wolfSSL libraries: ${WOLFSSL_LIBRARIES}")
 
 # Add build type definitions
 target_compile_definitions(explo PRIVATE EXPLO_BUILD)
@@ -449,7 +432,7 @@ else()
     message(STATUS "  Intox Port: ${INTOX_PORT}")
     message(STATUS "  Compiler: ${COMPILER_DETECTED}")
 endif()
-message(STATUS "  TLS Support: ${USE_TLS}")
+message(STATUS "  TLS Support: Always Enabled")
 message(STATUS "  Debug Build: ${DEBUG}")
 message(STATUS "  ZLIB: ${ZLIB_LIBRARIES}")
 message(STATUS "----------------------------------------")
@@ -458,9 +441,6 @@ message(STATUS "  EXPLO files included: ${EXPLO_SOURCES_COUNT}")
 message(STATUS "  INTER files included: ${INTER_SOURCES_COUNT}")
 message(STATUS "----------------------------------------")
 message(STATUS "  Total files included: ${COMMON_SOURCES_COUNT} + ${EXPLO_SOURCES_COUNT} + ${INTER_SOURCES_COUNT}")
-if(EXCLUDED_FILES_COUNT GREATER 0)
-    message(STATUS "  Files excluded (TLS disabled): ${EXCLUDED_FILES_COUNT}")
-endif()
 message(STATUS "----------------------------------------")
 message(STATUS "  EXPLO executable: ${EXPLO_EXE_NAME}")
 message(STATUS "  INTER executable: ${INTER_EXE_NAME}")
@@ -490,7 +470,6 @@ file(WRITE ${PRESETS_FILE} [=[
         "CMAKE_BUILD_TYPE": "Debug",
         "DEBUG": "ON",
         "TARGET_RASPI_ZERO_W": "OFF",
-        "USE_TLS": "OFF",
         "USE_3D_SIMULATION": "OFF"
       }
     },
@@ -504,7 +483,6 @@ file(WRITE ${PRESETS_FILE} [=[
         "CMAKE_BUILD_TYPE": "Release",
         "DEBUG": "OFF",
         "TARGET_RASPI_ZERO_W": "OFF",
-        "USE_TLS": "OFF",
         "USE_3D_SIMULATION": "OFF"
       }
     },
@@ -518,7 +496,6 @@ file(WRITE ${PRESETS_FILE} [=[
         "CMAKE_BUILD_TYPE": "Debug",
         "DEBUG": "ON",
         "TARGET_RASPI_ZERO_W": "OFF",
-        "USE_TLS": "OFF",
         "USE_3D_SIMULATION": "ON"
       }
     },
@@ -532,7 +509,6 @@ file(WRITE ${PRESETS_FILE} [=[
         "CMAKE_BUILD_TYPE": "Release",
         "DEBUG": "OFF",
         "TARGET_RASPI_ZERO_W": "OFF",
-        "USE_TLS": "OFF",
         "USE_3D_SIMULATION": "ON"
       }
     },
@@ -546,7 +522,6 @@ file(WRITE ${PRESETS_FILE} [=[
         "CMAKE_BUILD_TYPE": "Debug",
         "DEBUG": "ON",
         "TARGET_RASPI_ZERO_W": "ON",
-        "USE_TLS": "OFF",
         "USE_3D_SIMULATION": "OFF"
       }
     },
@@ -560,21 +535,19 @@ file(WRITE ${PRESETS_FILE} [=[
         "CMAKE_BUILD_TYPE": "Release",
         "DEBUG": "OFF",
         "TARGET_RASPI_ZERO_W": "ON",
-        "USE_TLS": "OFF",
         "USE_3D_SIMULATION": "OFF"
       }
     },
     {
-      "name": "tls-enabled",
-      "displayName": "TLS Enabled",
-      "description": "Build with TLS support enabled",
+      "name": "production",
+      "displayName": "Production Build",
+      "description": "Optimized production build with TLS",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/tls-enabled",
+      "binaryDir": "${sourceDir}/build/production",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "DEBUG": "OFF",
         "TARGET_RASPI_ZERO_W": "OFF",
-        "USE_TLS": "ON",
         "USE_3D_SIMULATION": "OFF"
       }
     }
@@ -605,8 +578,8 @@ file(WRITE ${PRESETS_FILE} [=[
       "configurePreset": "raspi-release"
     },
     {
-      "name": "tls-enabled",
-      "configurePreset": "tls-enabled"
+      "name": "production",
+      "configurePreset": "production"
     }
   ]
 }

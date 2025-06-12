@@ -3,7 +3,7 @@
 //  implements the Certificate management with CA hierarchy
 //
 // general disclosure: copy or share the file is forbidden
-// Written : 04/06/2025
+// Written : 12/06/2025
 ////////////////////////////////////////////////////////////
 
 // Define _GNU_SOURCE for timegm if not already defined
@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <time.h>
 #include <errno.h>
 #include <dirent.h>

@@ -6,8 +6,8 @@
 // Written : 04/06/2025
 ////////////////////////////////////////////////////////////
 
-#ifndef X_CERTIFICATE_H
-#define X_CERTIFICATE_H
+#ifndef X_CERTIFICATE_MANAGEMENT_H
+#define X_CERTIFICATE_MANAGEMENT_H
 
 #include <wolfssl/options.h>
 #include <wolfssl/ssl.h>
@@ -70,8 +70,10 @@ typedef struct xCertificate {
     xCertificateStatus_t t_eStatus;             // Validation status
     char t_acSubject[CERT_MAX_SUBJECT_SIZE];    // Subject name
     char t_acIssuer[CERT_MAX_ISSUER_SIZE];      // Issuer name
-    uint8_t *p_pucCertData;                     // Raw certificate data
+    uint8_t *p_pucCertData;                     // Raw certificate data (original format)
     uint32_t t_ulCertSize;                      // Certificate data size
+    uint8_t *p_pucDerData;                      // DER format data (for WolfSSL)
+    uint32_t t_ulDerSize;                       // DER data size
     bool t_bIsCA;                               // Is Certificate Authority
     time_t t_tNotBefore;                        // Valid from
     time_t t_tNotAfter;                         // Valid until
@@ -118,6 +120,17 @@ int xCertificateLoad(const uint8_t *p_pucCertData,
 int xCertificateLoadFromFile(const char *p_pcFilePath,
                              bool p_bIsPEM,
                              xCertificate_t **p_pptCertificate);
+
+//////////////////////////////////
+/// @brief Load the root CA certificate (highest in hierarchy)
+/// @param p_pcCADirectoryPath Path to directory containing CA certificates
+/// @param p_bIsPEM True if certificates are in PEM format, false for DER
+/// @param p_pptRootCA Output: loaded root CA certificate
+/// @return int Error code
+//////////////////////////////////
+int xCertificateLoadRootCA(const char *p_pcCADirectoryPath,
+                           bool p_bIsPEM,
+                           xCertificate_t **p_pptRootCA);
 
 //////////////////////////////////
 /// @brief Free certificate resources
@@ -179,4 +192,26 @@ int xCertificateIsCA(xCertificate_t *p_ptCertificate,
 //////////////////////////////////
 const char *xCertificateGetErrorString(int p_iError);
 
-#endif // X_CERTIFICATE_H
+//////////////////////////////////
+/// @brief Load root CA certificate into TLS context
+/// @param p_ptSSLContext WolfSSL context to load CA into
+/// @param p_pcCADirectoryPath Path to directory containing CA certificates
+/// @param p_bIsPEM True if certificates are in PEM format, false for DER
+/// @return int Error code
+//////////////////////////////////
+int xCertificateLoadRootCAIntoContext(WOLFSSL_CTX *p_ptSSLContext,
+                                      const char *p_pcCADirectoryPath,
+                                      bool p_bIsPEM);
+
+//////////////////////////////////
+/// @brief Extract real validity dates from certificate
+/// @param p_ptDecodedCert WolfSSL decoded certificate
+/// @param p_ptNotBefore Output: certificate valid from date
+/// @param p_ptNotAfter Output: certificate valid until date
+/// @return int Error code
+//////////////////////////////////
+int xCertificateExtractValidityDates(DecodedCert *p_ptDecodedCert,
+                                     time_t *p_ptNotBefore,
+                                     time_t *p_ptNotAfter);
+
+#endif // X_CERTIFICATE_MANAGEMENT_H

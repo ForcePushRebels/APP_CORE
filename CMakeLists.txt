@@ -144,7 +144,7 @@ if(COMPILER_DETECTED STREQUAL "CLANG")
         -g
         -O0
         -fno-omit-frame-pointer
-        # Common warnings
+        # Common warnings supported by Clang
         -Wall
         -Wextra
         -Wformat=2
@@ -159,6 +159,7 @@ if(COMPILER_DETECTED STREQUAL "CLANG")
         -Wwrite-strings
         -Wconversion
         -Wsign-conversion
+        -Wfloat-equal
         # Clang-specific warnings
         -Wlogical-op-parentheses
         -Wshift-overflow
@@ -169,8 +170,14 @@ if(COMPILER_DETECTED STREQUAL "CLANG")
         -Wfloat-zero-conversion
         -Winfinite-recursion
         -Wreturn-stack-address
-        -Wuse-after-free
-        -Wfloat-equal
+        -Wvla
+        -Walloca
+        -Wcomma
+        -Wconditional-uninitialized
+        -Wloop-analysis
+        -Wswitch-enum
+        -Wtautological-compare
+        -Wunreachable-code
         # Clang-specific disables
         -Wno-unused-variable
         -Wno-unused-value
@@ -188,7 +195,7 @@ else()
         -g
         -O0
         -fno-omit-frame-pointer
-        # Common warnings
+        # Common warnings supported by GCC
         -Wall
         -Wextra
         -Wformat=2
@@ -202,6 +209,7 @@ else()
         -Wwrite-strings
         -Wconversion
         -Wsign-conversion
+        -Wfloat-equal
         # GCC-specific warnings
         -Wformat-overflow=2
         -Wformat-truncation=2
@@ -216,12 +224,16 @@ else()
         -Wsequence-point
         -Wmaybe-uninitialized
         -Wuse-after-free=3
-        -Wfloat-equal
         -Wvla-larger-than=1024
         -Walloca-larger-than=1024
-        -Wcast-qual
         -Wstrict-overflow=3
         -Wstrict-aliasing=2
+        -Wtrampolines
+        -Wjump-misses-init
+        -Wunsafe-loop-optimizations
+        -Wsuggest-attribute=pure
+        -Wsuggest-attribute=const
+        -Wsuggest-attribute=noreturn
         # GCC-specific disables
         -Wno-unused-variable
         -Wno-unused-value

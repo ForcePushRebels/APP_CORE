@@ -6,6 +6,12 @@
 // Written : 04/06/2025
 ////////////////////////////////////////////////////////////
 
+// Define _GNU_SOURCE for timegm if not already defined
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+
+
 #include "certificateManagement.h"
 #include "xLog.h"
 #include "xOsMemory.h"
@@ -14,6 +20,8 @@
 #include <string.h>
 #include <time.h>
 #include <errno.h>
+#include <dirent.h>
+#include <sys/stat.h>
 
 ////////////////////////////////////////////////////////////
 // Static variables and helpers
@@ -170,6 +178,10 @@ int xCertificateLoad(const uint8_t *p_pucCertData,
                            p_pucCertData, p_ulDataSize);
     l_ptCertificate->t_ulCertSize = p_ulDataSize;
 
+    // Store DER data in certificate structure (don't free it yet!)
+    l_ptCertificate->p_pucDerData = l_pucDerData;
+    l_ptCertificate->t_ulDerSize = l_ulDerSize;
+
     // Initialize and parse certificate with WolfSSL
     wc_InitDecodedCert(&l_ptCertificate->t_tDecodedCert, l_pucDerData, l_ulDerSize, NULL);
     
@@ -202,9 +214,7 @@ int xCertificateLoad(const uint8_t *p_pucCertData,
         return l_iExtractResult;
     }
 
-    // Clean up DER data (no longer needed)
-    XOS_MEMORY_SANITIZE(l_pucDerData, l_ulDerSize);
-    free(l_pucDerData);
+    // Don't free DER data here - it's needed by WolfSSL DecodedCert structure
 
     // Set default status
     l_ptCertificate->t_eStatus = CERT_STATUS_UNKNOWN;
@@ -280,6 +290,144 @@ int xCertificateLoadFromFile(const char *p_pcFilePath,
 }
 
 //////////////////////////////////
+/// xCertificateLoadRootCA
+//////////////////////////////////
+int xCertificateLoadRootCA(const char *p_pcCADirectoryPath,
+                           bool p_bIsPEM,
+                           xCertificate_t **p_pptRootCA)
+{
+    if (!p_pcCADirectoryPath || !p_pptRootCA)
+    {
+        X_LOG_TRACE("Invalid parameters for root CA loading");
+        return CERT_ERROR_INVALID_PARAM;
+    }
+
+    if (!s_bCertificateSystemInitialized)
+    {
+        X_LOG_TRACE("Certificate system not initialized");
+        return CERT_ERROR_WOLFSSL_ERROR;
+    }
+
+    DIR *l_ptDirectory = opendir(p_pcCADirectoryPath);
+    if (!l_ptDirectory)
+    {
+        X_LOG_TRACE("Failed to open CA directory: %s", p_pcCADirectoryPath);
+        return CERT_ERROR_INVALID_CERT;
+    }
+
+    struct dirent *l_ptEntry;
+    xCertificate_t *l_ptBestRootCA = NULL;
+    char l_acFilePath[512];
+    const char *l_pcExtension = p_bIsPEM ? ".pem" : ".der";
+    const char *l_pcAltExtension = p_bIsPEM ? ".crt" : ".cer";
+
+    // Parcourir tous les fichiers du répertoire
+    while ((l_ptEntry = readdir(l_ptDirectory)) != NULL)
+    {
+        // Vérifier l'extension du fichier
+        size_t l_ulNameLen = strlen(l_ptEntry->d_name);
+        size_t l_ulExtLen = strlen(l_pcExtension);
+        size_t l_ulAltExtLen = strlen(l_pcAltExtension);
+        
+        bool l_bValidExtension = false;
+        if (l_ulNameLen > l_ulExtLen && 
+            strcasecmp(l_ptEntry->d_name + l_ulNameLen - l_ulExtLen, l_pcExtension) == 0)
+        {
+            l_bValidExtension = true;
+        }
+        else if (l_ulNameLen > l_ulAltExtLen && 
+                 strcasecmp(l_ptEntry->d_name + l_ulNameLen - l_ulAltExtLen, l_pcAltExtension) == 0)
+        {
+            l_bValidExtension = true;
+        }
+
+        if (!l_bValidExtension)
+        {
+            continue;
+        }
+
+        // Construire le chemin complet du fichier
+        snprintf(l_acFilePath, sizeof(l_acFilePath), "%s/%s", 
+                 p_pcCADirectoryPath, l_ptEntry->d_name);
+
+        // Vérifier que c'est un fichier régulier
+        struct stat l_tFileStat;
+        if (stat(l_acFilePath, &l_tFileStat) != 0 || !S_ISREG(l_tFileStat.st_mode))
+        {
+            continue;
+        }
+
+        // Charger le certificat
+        xCertificate_t *l_ptCertificate = NULL;
+        int l_iResult = xCertificateLoadFromFile(l_acFilePath, p_bIsPEM, &l_ptCertificate);
+        if (l_iResult != CERT_OK)
+        {
+            X_LOG_TRACE("Failed to load certificate from %s: %d", l_acFilePath, l_iResult);
+            continue;
+        }
+
+        // Vérifier si c'est un certificat CA
+        if (!l_ptCertificate->t_bIsCA)
+        {
+            X_LOG_TRACE("Certificate %s is not a CA certificate", l_ptEntry->d_name);
+            xCertificateFree(l_ptCertificate);
+            continue;
+        }
+
+        // Vérifier si c'est un certificat racine (auto-signé)
+        if (strcmp(l_ptCertificate->t_acSubject, l_ptCertificate->t_acIssuer) == 0)
+        {
+            X_LOG_TRACE("Found root CA certificate: %s", l_ptEntry->d_name);
+            
+            // Si on n'a pas encore de certificat racine, ou si celui-ci est plus récent
+            if (!l_ptBestRootCA || 
+                l_ptCertificate->t_tNotAfter > l_ptBestRootCA->t_tNotAfter)
+            {
+                // Libérer l'ancien certificat racine s'il existe
+                if (l_ptBestRootCA)
+                {
+                    xCertificateFree(l_ptBestRootCA);
+                }
+                l_ptBestRootCA = l_ptCertificate;
+            }
+            else
+            {
+                // Garder l'ancien, libérer le nouveau
+                xCertificateFree(l_ptCertificate);
+            }
+        }
+        else
+        {
+            // Ce n'est pas un certificat racine
+            xCertificateFree(l_ptCertificate);
+        }
+    }
+
+    closedir(l_ptDirectory);
+
+    if (!l_ptBestRootCA)
+    {
+        X_LOG_TRACE("No root CA certificate found in directory: %s", p_pcCADirectoryPath);
+        return CERT_ERROR_INVALID_CERT;
+    }
+
+    // Vérifier la validité du certificat racine trouvé
+    int l_iValidityResult = xCertificateCheckValidity(l_ptBestRootCA);
+    if (l_iValidityResult != CERT_OK)
+    {
+        X_LOG_TRACE("Root CA certificate is not valid: %d", l_iValidityResult);
+        xCertificateFree(l_ptBestRootCA);
+        return l_iValidityResult;
+    }
+
+    *p_pptRootCA = l_ptBestRootCA;
+    X_LOG_TRACE("Root CA certificate loaded successfully: Subject=%s", 
+                l_ptBestRootCA->t_acSubject);
+    
+    return CERT_OK;
+}
+
+//////////////////////////////////
 /// xCertificateFree
 //////////////////////////////////
 int xCertificateFree(xCertificate_t *p_ptCertificate)
@@ -297,6 +445,13 @@ int xCertificateFree(xCertificate_t *p_ptCertificate)
     {
         XOS_MEMORY_SANITIZE(p_ptCertificate->p_pucCertData, p_ptCertificate->t_ulCertSize);
         free(p_ptCertificate->p_pucCertData);
+    }
+
+    // Securely clear and free DER data
+    if (p_ptCertificate->p_pucDerData)
+    {
+        XOS_MEMORY_SANITIZE(p_ptCertificate->p_pucDerData, p_ptCertificate->t_ulDerSize);
+        free(p_ptCertificate->p_pucDerData);
     }
 
     // Securely clear certificate structure
@@ -488,13 +643,18 @@ static int extractCertificateInfo(xCertificate_t *p_ptCertificate)
         p_ptCertificate->t_acIssuer[CERT_MAX_ISSUER_SIZE - 1] = '\0';
     }
 
-    // Extract validity period from decoded certificate
-    // Note: WolfSSL stores these as ASN.1 time structures
-    // For simplicity, we'll set them to current time ± reasonable periods
-    // In a real implementation, you'd parse the ASN.1 time properly
-    time_t l_tCurrentTime = time(NULL);
-    p_ptCertificate->t_tNotBefore = l_tCurrentTime - (365 * 24 * 60 * 60); // 1 year ago
-    p_ptCertificate->t_tNotAfter = l_tCurrentTime + (365 * 24 * 60 * 60);  // 1 year from now
+    // Extract real validity period from decoded certificate
+    int l_iDateResult = xCertificateExtractValidityDates(l_ptDecodedCert,
+                                                          &p_ptCertificate->t_tNotBefore,
+                                                          &p_ptCertificate->t_tNotAfter);
+    if (l_iDateResult != CERT_OK)
+    {
+        X_LOG_TRACE("Failed to extract validity dates, using fallback values");
+        // Fallback to current time ± reasonable periods if extraction fails
+        time_t l_tCurrentTime = time(NULL);
+        p_ptCertificate->t_tNotBefore = l_tCurrentTime - (365 * 24 * 60 * 60); // 1 year ago
+        p_ptCertificate->t_tNotAfter = l_tCurrentTime + (365 * 24 * 60 * 60);  // 1 year from now
+    }
 
     // Check if certificate is a CA using WolfSSL's decoded information
     p_ptCertificate->t_bIsCA = (l_ptDecodedCert->isCA == 1);
@@ -530,4 +690,151 @@ static void secureClearCertificate(xCertificate_t *p_ptCertificate)
     XOS_MEMORY_SANITIZE(p_ptCertificate->t_acSubject, CERT_MAX_SUBJECT_SIZE);
     XOS_MEMORY_SANITIZE(p_ptCertificate->t_acIssuer, CERT_MAX_ISSUER_SIZE);
     XOS_MEMORY_SANITIZE(p_ptCertificate, sizeof(xCertificate_t));
+}
+
+//////////////////////////////////
+/// xCertificateExtractValidityDates
+//////////////////////////////////
+int xCertificateExtractValidityDates(DecodedCert *p_ptDecodedCert,
+                                     time_t *p_ptNotBefore,
+                                     time_t *p_ptNotAfter)
+{
+    if (!p_ptDecodedCert || !p_ptNotBefore || !p_ptNotAfter)
+    {
+        return CERT_ERROR_INVALID_PARAM;
+    }
+
+    // Extract validity dates from WolfSSL decoded certificate
+    // WolfSSL stores dates in beforeDate and afterDate arrays
+    struct tm l_tTmBefore = {0};
+    struct tm l_tTmAfter = {0};
+
+    // Parse beforeDate (format: YYMMDDHHMMSSZ or YYYYMMDDHHMMSSZ)
+    if (p_ptDecodedCert->beforeDateLen >= 13) // At least YYMMDDHHMMSSZ
+    {
+        const char *l_pcBeforeDate = (const char *)p_ptDecodedCert->beforeDate;
+        int l_iYear, l_iMonth, l_iDay, l_iHour, l_iMin, l_iSec;
+        
+        if (p_ptDecodedCert->beforeDateLen == 13) // YYMMDDHHMMSSZ
+        {
+            if (sscanf(l_pcBeforeDate, "%2d%2d%2d%2d%2d%2d", 
+                      &l_iYear, &l_iMonth, &l_iDay, &l_iHour, &l_iMin, &l_iSec) == 6)
+            {
+                l_tTmBefore.tm_year = (l_iYear < 50) ? l_iYear + 100 : l_iYear; // Y2K handling
+                l_tTmBefore.tm_mon = l_iMonth - 1;
+                l_tTmBefore.tm_mday = l_iDay;
+                l_tTmBefore.tm_hour = l_iHour;
+                l_tTmBefore.tm_min = l_iMin;
+                l_tTmBefore.tm_sec = l_iSec;
+            }
+        }
+        else if (p_ptDecodedCert->beforeDateLen == 15) // YYYYMMDDHHMMSSZ
+        {
+            if (sscanf(l_pcBeforeDate, "%4d%2d%2d%2d%2d%2d", 
+                      &l_iYear, &l_iMonth, &l_iDay, &l_iHour, &l_iMin, &l_iSec) == 6)
+            {
+                l_tTmBefore.tm_year = l_iYear - 1900;
+                l_tTmBefore.tm_mon = l_iMonth - 1;
+                l_tTmBefore.tm_mday = l_iDay;
+                l_tTmBefore.tm_hour = l_iHour;
+                l_tTmBefore.tm_min = l_iMin;
+                l_tTmBefore.tm_sec = l_iSec;
+            }
+        }
+    }
+
+    // Parse afterDate (same format as beforeDate)
+    if (p_ptDecodedCert->afterDateLen >= 13)
+    {
+        const char *l_pcAfterDate = (const char *)p_ptDecodedCert->afterDate;
+        int l_iYear, l_iMonth, l_iDay, l_iHour, l_iMin, l_iSec;
+        
+        if (p_ptDecodedCert->afterDateLen == 13) // YYMMDDHHMMSSZ
+        {
+            if (sscanf(l_pcAfterDate, "%2d%2d%2d%2d%2d%2d", 
+                      &l_iYear, &l_iMonth, &l_iDay, &l_iHour, &l_iMin, &l_iSec) == 6)
+            {
+                l_tTmAfter.tm_year = (l_iYear < 50) ? l_iYear + 100 : l_iYear; // Y2K handling
+                l_tTmAfter.tm_mon = l_iMonth - 1;
+                l_tTmAfter.tm_mday = l_iDay;
+                l_tTmAfter.tm_hour = l_iHour;
+                l_tTmAfter.tm_min = l_iMin;
+                l_tTmAfter.tm_sec = l_iSec;
+            }
+        }
+        else if (p_ptDecodedCert->afterDateLen == 15) // YYYYMMDDHHMMSSZ
+        {
+            if (sscanf(l_pcAfterDate, "%4d%2d%2d%2d%2d%2d", 
+                      &l_iYear, &l_iMonth, &l_iDay, &l_iHour, &l_iMin, &l_iSec) == 6)
+            {
+                l_tTmAfter.tm_year = l_iYear - 1900;
+                l_tTmAfter.tm_mon = l_iMonth - 1;
+                l_tTmAfter.tm_mday = l_iDay;
+                l_tTmAfter.tm_hour = l_iHour;
+                l_tTmAfter.tm_min = l_iMin;
+                l_tTmAfter.tm_sec = l_iSec;
+            }
+        }
+    }
+
+    // Convert to time_t (UTC)
+    *p_ptNotBefore = timegm(&l_tTmBefore);
+    *p_ptNotAfter = timegm(&l_tTmAfter);
+
+    return CERT_OK;
+}
+
+//////////////////////////////////
+/// xCertificateLoadRootCAIntoContext
+//////////////////////////////////
+int xCertificateLoadRootCAIntoContext(WOLFSSL_CTX *p_ptSSLContext,
+                                      const char *p_pcCADirectoryPath,
+                                      bool p_bIsPEM)
+{
+    if (!p_ptSSLContext || !p_pcCADirectoryPath)
+    {
+        X_LOG_TRACE("Invalid parameters for loading root CA into context");
+        return CERT_ERROR_INVALID_PARAM;
+    }
+
+    // First, load the root CA certificate
+    xCertificate_t *l_ptRootCA = NULL;
+    int l_iResult = xCertificateLoadRootCA(p_pcCADirectoryPath, p_bIsPEM, &l_ptRootCA);
+    if (l_iResult != CERT_OK)
+    {
+        X_LOG_TRACE("Failed to load root CA certificate: %d", l_iResult);
+        return l_iResult;
+    }
+
+    // Load the root CA into the WolfSSL context
+    int l_iWolfResult;
+    if (p_bIsPEM)
+    {
+        l_iWolfResult = wolfSSL_CTX_load_verify_buffer(p_ptSSLContext,
+                                                       l_ptRootCA->p_pucCertData,
+                                                       (long)l_ptRootCA->t_ulCertSize,
+                                                       WOLFSSL_FILETYPE_PEM);
+    }
+    else
+    {
+        l_iWolfResult = wolfSSL_CTX_load_verify_buffer(p_ptSSLContext,
+                                                       l_ptRootCA->p_pucDerData,
+                                                       (long)l_ptRootCA->t_ulDerSize,
+                                                       WOLFSSL_FILETYPE_ASN1);
+    }
+
+    if (l_iWolfResult != WOLFSSL_SUCCESS)
+    {
+        X_LOG_TRACE("Failed to load root CA into WolfSSL context: %d", l_iWolfResult);
+        xCertificateFree(l_ptRootCA);
+        return CERT_ERROR_WOLFSSL_ERROR;
+    }
+
+    X_LOG_TRACE("Root CA certificate loaded into TLS context successfully: %s", 
+                l_ptRootCA->t_acSubject);
+
+    // Clean up the certificate structure (context has its own copy)
+    xCertificateFree(l_ptRootCA);
+    
+    return CERT_OK;
 }

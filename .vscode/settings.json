@@ -6,7 +6,7 @@
     "files.associations": {
         "assert.h": "c",
         "intervention_manager.h": "c",
-        "certificatemanagement.h": "c"
+        "dirent.h": "c"
     },
     "files.associations": {
         "assert.h": "c",

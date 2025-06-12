@@ -17,8 +17,12 @@ CURVE_ROOT=secp384r1       # P-384  ↔ criticité forte[1]
 CURVE_ICA=prime256v1       # P-256  ↔ criticité moyenne[1]
 CURVE_EE=prime256v1        # P-256  ↔ feuilles[5]
 
+# ----------------------- Clean up -----------------------
+rm -rf "$DIR"
+
 mkdir -p "$DIR"/{root,ica,server,client}
 
+# ----------------------- Generate PKI -----------------------
 # ----------------------- 1. Racine auto-signée -----------------------
 openssl ecparam -name "$CURVE_ROOT" -genkey -noout -out "$DIR/root/ca.key"
 openssl req -new -x509 -days "$ROOT_DAYS" \

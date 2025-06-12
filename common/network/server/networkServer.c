@@ -29,9 +29,9 @@
 #define CLIENT_HASH_MASK (CLIENT_HASH_TABLE_SIZE - 1)
 
 // Default TLS file paths (adjust as needed)
-#define SERVER_TLS_CERT_FILE "server_cert.pem"
-#define SERVER_TLS_KEY_FILE  "server_key.pem"
-#define SERVER_TLS_CA_DIR    "./ca"
+#define SERVER_TLS_CERT_FILE "pki/server/server.full.pem"
+#define SERVER_TLS_KEY_FILE  "pki/server/server.key"
+#define SERVER_TLS_CA_DIR    "pki/root"
 
 //-----------------------------------------------------------------------------
 // Client Structure
@@ -175,7 +175,7 @@ int networkServerInit(void)
     else
     {
         s_ptServerInstance->t_bTlsEnabled = false;
-        X_LOG_TRACE("TLS disabled: failed to create engine (%d)", l_iTlsResult);
+        X_LOG_TRACE("TLS disabled: failed to create engine (%x)", l_iTlsResult);
     }
 
     X_LOG_TRACE("Server initialized");

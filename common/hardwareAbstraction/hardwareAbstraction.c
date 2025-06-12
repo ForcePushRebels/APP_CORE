@@ -43,9 +43,9 @@ int hardwareAbstractionInit(void)
     mrpiz_proxy_sensor_id l_tAvailableSensors[] = 
     {
         MRPIZ_PROXY_SENSOR_FRONT_LEFT,
-        MRPIZ_PROXY_SENSOR_FRONT_CENTER_LEFT,
+        //MRPIZ_PROXY_SENSOR_FRONT_CENTER_LEFT, //not available on the robot
         MRPIZ_PROXY_SENSOR_FRONT_CENTER,
-        MRPIZ_PROXY_SENSOR_FRONT_CENTER_RIGHT,
+        //MRPIZ_PROXY_SENSOR_FRONT_CENTER_RIGHT, //not available on the robot
         MRPIZ_PROXY_SENSOR_FRONT_RIGHT
     };
 

@@ -9,8 +9,10 @@
 #include "networkServer.h"
 #include "handleNetworkMessage.h"
 #include "xLog.h"
+#include "tlsEngine.h"
 #include <stdlib.h>
 #include <string.h>
+#include <wolfssl/ssl.h>
 
 //-----------------------------------------------------------------------------
 // Constants & Defines
@@ -25,6 +27,11 @@
 // Hash table for O(1) client lookup
 #define CLIENT_HASH_TABLE_SIZE 16 // Must be power of 2 for fast modulo
 #define CLIENT_HASH_MASK (CLIENT_HASH_TABLE_SIZE - 1)
+
+// Default TLS file paths (adjust as needed)
+#define SERVER_TLS_CERT_FILE "server_cert.pem"
+#define SERVER_TLS_KEY_FILE  "server_key.pem"
+#define SERVER_TLS_CA_DIR    "./ca"
 
 //-----------------------------------------------------------------------------
 // Client Structure
@@ -41,6 +48,8 @@ struct client_ctx_t
     void *t_ptUserData;            // user data
     serverCtx *t_ptServer;         // reference to the server
     bool t_bCleanupInProgress;     // prevent double cleanup
+    WOLFSSL *t_ptSsl;              // TLS session pointer (per client)
+    bool t_bUseTls;                // true if TLS is active for this client
     struct client_ctx_t *t_ptNext; // next client in hash bucket for collision handling
 };
 
@@ -61,6 +70,9 @@ struct server_ctx_t
     int t_iNumClients;                                      // number of connected clients
 
     ProtocolFrameBuffer *t_ptBroadcastBuffer;               // reusable buffer for broadcast optimization
+
+    xTlsEngine_t *t_ptTlsEngine;                            // shared TLS engine
+    bool t_bTlsEnabled;                                     // true if TLS is enabled
 };
 
 ///////////////////////////////////////////
@@ -95,6 +107,13 @@ static inline int rwlockReadLock(pthread_rwlock_t *p_ptRwLock);
 static inline int rwlockWriteLock(pthread_rwlock_t *p_ptRwLock);
 static inline int rwlockUnlock(pthread_rwlock_t *p_ptRwLock);
 static inline uint32_t hashClientId(ClientID p_tClientId);
+
+///////////////////////////////////////////
+/// networkServer helper functions implementation
+///////////////////////////////////////////
+static int clientSendData(clientCtx *p_ptClient, const void *p_data, unsigned long p_size);
+static int clientReceiveData(clientCtx *p_ptClient, void *p_buf, unsigned long p_size);
+static int clientReceiveComplete(clientCtx *p_ptClient, uint8_t *p_pucBuffer, int p_iSize);
 
 ///////////////////////////////////////////
 /// networkServerInit
@@ -140,8 +159,24 @@ int networkServerInit(void)
     s_ptServerInstance->t_sConfig = networkServerCreateDefaultConfig();
     s_ptServerInstance->t_tNextClientId = 1; // start at 1, 0 is INVALID_CLIENT_ID
 
-    // Initialize the dedicated message handler system
-    initMessageHandlerSystem();
+    // Create TLS engine (server mode)
+    int l_iTlsResult = tlsEngineCreate(&s_ptServerInstance->t_ptTlsEngine,
+                                       TLS_MODE_SERVER,
+                                       SERVER_TLS_CERT_FILE,
+                                       SERVER_TLS_KEY_FILE,
+                                       SERVER_TLS_CA_DIR,
+                                       true);
+
+    if (l_iTlsResult == CERT_OK)
+    {
+        s_ptServerInstance->t_bTlsEnabled = true;
+        X_LOG_TRACE("TLS engine created successfully");
+    }
+    else
+    {
+        s_ptServerInstance->t_bTlsEnabled = false;
+        X_LOG_TRACE("TLS disabled: failed to create engine (%d)", l_iTlsResult);
+    }
 
     X_LOG_TRACE("Server initialized");
     return SERVER_OK;
@@ -304,25 +339,15 @@ int networkServerStop(void)
     }
     rwlockUnlock(&s_ptServerInstance->t_tRwLock);
 
-    X_LOG_TRACE("Server stopped");
-    return SERVER_OK;
-}
-
-void networkServerCleanup(void)
-{
-    if (s_ptServerInstance == NULL)
-    {
-        return;
-    }
-
-    // stop the server if it is running
-    if (s_ptServerInstance->t_bRunning)
-    {
-        networkServerStop();
-    }
-
     // cleanup the message handler system
     cleanupMessageHandlerSystem();
+
+    // Destroy TLS engine if created
+    if (s_ptServerInstance->t_ptTlsEngine)
+    {
+        tlsEngineDestroy(s_ptServerInstance->t_ptTlsEngine);
+        s_ptServerInstance->t_ptTlsEngine = NULL;
+    }
 
     // destroy the rwlock and broadcast buffer
     pthread_rwlock_destroy(&s_ptServerInstance->t_tRwLock);
@@ -337,6 +362,43 @@ void networkServerCleanup(void)
     s_ptServerInstance = NULL;
 
     X_LOG_TRACE("Server resources cleaned up");
+    return SERVER_OK;
+}
+
+///////////////////////////////////////////
+/// networkServerCleanup
+///////////////////////////////////////////
+void networkServerCleanup(void)
+{
+    if (!s_ptServerInstance)
+    {
+        return;
+    }
+
+    // Ensure server stopped and resources freed
+    if (s_ptServerInstance->t_bRunning)
+    {
+        networkServerStop();
+        return; // Stop already freed resources and reset pointer
+    }
+
+    // If not running but instance still exists, free remaining resources
+    if (s_ptServerInstance->t_ptTlsEngine)
+    {
+        tlsEngineDestroy(s_ptServerInstance->t_ptTlsEngine);
+        s_ptServerInstance->t_ptTlsEngine = NULL;
+    }
+
+    if (s_ptServerInstance->t_ptBroadcastBuffer)
+    {
+        protocolFreeFrameBuffer(s_ptServerInstance->t_ptBroadcastBuffer);
+    }
+
+    pthread_rwlock_destroy(&s_ptServerInstance->t_tRwLock);
+    free(s_ptServerInstance);
+    s_ptServerInstance = NULL;
+
+    X_LOG_TRACE("Server cleanup (non-running) completed");
 }
 
 ///////////////////////////////////////////
@@ -640,7 +702,7 @@ int networkServerSendToClient(ClientID p_tClientId, const void *p_pvData, int p_
         return SERVER_CLIENT_DISCONNECTED;
     }
 
-    int l_iResult = networkSend(l_ptClient->t_ptSocket, p_pvData, (unsigned long)p_iSize);
+    int l_iResult = clientSendData(l_ptClient, p_pvData, (unsigned long)p_iSize);
     rwlockUnlock(&s_ptServerInstance->t_tRwLock);
 
     return l_iResult;
@@ -708,7 +770,7 @@ int networkServerSendMessage(ClientID p_tClientId, uint8_t p_ucMsgType, const vo
     }
 
     // ATOMIC SEND: Single network operation for entire message
-    int l_iSentBytes = networkSend(l_ptClient->t_ptSocket, l_aucFrameBuffer, (unsigned long)l_ulFrameSize);
+    int l_iSentBytes = clientSendData(l_ptClient, l_aucFrameBuffer, (unsigned long)l_ulFrameSize);
 
     pthread_rwlock_unlock(&l_ptClient->t_tRwLock);
     rwlockUnlock(&s_ptServerInstance->t_tRwLock);
@@ -726,40 +788,6 @@ int networkServerSendMessage(ClientID p_tClientId, uint8_t p_ucMsgType, const vo
     }
 
     return SERVER_OK;
-}
-
-///////////////////////////////////////////
-/// Helper function for complete TCP read
-///
-/// CRITICAL: This function is absolutely necessary for the message protocol!
-/// TCP recv() can return fewer bytes than requested, even when all data is available.
-/// For example: requesting 1000 bytes might return only 300 bytes on first call.
-///
-/// This is especially critical for our protocol that reads:
-/// 1. Size header (2 bytes) - must be read completely to avoid desync
-/// 2. Message data (variable size) - must match exactly the announced size
-///
-/// Without this function, partial reads would break the entire protocol.
-///////////////////////////////////////////
-static int networkReceiveComplete(NetworkSocket *p_ptSocket, uint8_t *p_pucBuffer, int p_iSize)
-{
-    int l_iTotalReceived = 0;
-    int l_iReceived;
-
-    while (l_iTotalReceived < p_iSize)
-    {
-        l_iReceived = networkReceive(p_ptSocket, p_pucBuffer + l_iTotalReceived, (unsigned long)(p_iSize - l_iTotalReceived));
-
-        if (l_iReceived <= 0)
-        {
-            // Error or connection closed
-            return l_iReceived;
-        }
-
-        l_iTotalReceived += l_iReceived;
-    }
-
-    return l_iTotalReceived;
 }
 
 ///////////////////////////////////////////
@@ -979,6 +1007,25 @@ static void *serverThreadFunc(void *p_ptArg)
             networkSetTimeout(l_ptClientSocket, p_ptServer->t_sConfig.t_iReceiveTimeout, false);
         }
 
+        // Perform TLS handshake if enabled
+        if (p_ptServer->t_bTlsEnabled && p_ptServer->t_ptTlsEngine)
+        {
+            WOLFSSL *l_ptSslSession = NULL;
+            int l_iTlsRes = tlsEngineAttachSocket(p_ptServer->t_ptTlsEngine,
+                                                 l_ptClientSocket->t_iSocketFd,
+                                                 &l_ptSslSession);
+            if (l_iTlsRes != CERT_OK)
+            {
+                X_LOG_TRACE("TLS handshake failed for new client");
+                pthread_rwlock_destroy(&l_ptClient->t_tRwLock);
+                networkCloseSocket(l_ptClientSocket);
+                free(l_ptClient);
+                continue;
+            }
+            l_ptClient->t_ptSsl = l_ptSslSession;
+            l_ptClient->t_bUseTls = true;
+        }
+
         // configure the client task BEFORE adding to table
         l_ptClient->t_tTask.t_ptTask = clientThreadFunc;
         l_ptClient->t_tTask.t_ptTaskArg = l_ptClient;
@@ -1053,7 +1100,7 @@ static void *clientThreadFunc(void *p_pvArg)
 
         // STEP 1: Receive complete frame header (size + message type)
         uint8_t l_aucHeaderBuffer[PROTOCOL_HEADER_SIZE];
-        p_iReceived = networkReceiveComplete(p_ptClient->t_ptSocket, l_aucHeaderBuffer, PROTOCOL_HEADER_SIZE);
+        p_iReceived = clientReceiveComplete(p_ptClient, l_aucHeaderBuffer, PROTOCOL_HEADER_SIZE);
 
         X_LOG_TRACE("Header data received: %d bytes", p_iReceived);
 
@@ -1097,8 +1144,8 @@ static void *clientThreadFunc(void *p_pvArg)
             // STEP 3: Receive the payload (if any)
             if (l_ulActualPayloadSize > 0)
             {
-                p_iReceived = networkReceiveComplete(p_ptClient->t_ptSocket, 
-                                                   l_pucCompleteFrameBuffer + PROTOCOL_HEADER_SIZE, 
+                p_iReceived = clientReceiveComplete(p_ptClient, 
+                                                   l_pucCompleteFrameBuffer + PROTOCOL_HEADER_SIZE,
                                                    (int)l_ulActualPayloadSize);
 
                 if (p_iReceived != (int)l_ulActualPayloadSize)
@@ -1186,7 +1233,15 @@ static void cleanupAndFreeClient(clientCtx *p_ptClient)
     // Mark client as disconnected
     p_ptClient->t_bConnected = false;
 
-    // Close socket to unblock client thread if it's still running
+    // Shutdown TLS session first if active
+    if (p_ptClient->t_bUseTls && p_ptClient->t_ptSsl)
+    {
+        tlsEngineShutdown(p_ptClient->t_ptSsl);
+        p_ptClient->t_ptSsl = NULL;
+        p_ptClient->t_bUseTls = false;
+    }
+
+    // Close socket
     if (p_ptClient->t_ptSocket != NULL)
     {
         networkCloseSocket(p_ptClient->t_ptSocket);
@@ -1243,6 +1298,14 @@ static void clientThreadCleanup(clientCtx *p_ptClient)
     // Mark as disconnected
     p_ptClient->t_bConnected = false;
 
+    // Shutdown TLS session first if active
+    if (p_ptClient->t_bUseTls && p_ptClient->t_ptSsl)
+    {
+        tlsEngineShutdown(p_ptClient->t_ptSsl);
+        p_ptClient->t_ptSsl = NULL;
+        p_ptClient->t_bUseTls = false;
+    }
+
     // Close socket
     if (p_ptClient->t_ptSocket != NULL)
     {
@@ -1261,8 +1324,6 @@ static void clientThreadCleanup(clientCtx *p_ptClient)
 
     X_LOG_TRACE("Client thread terminated");
 }
-
-
 
 ///////////////////////////////////////////
 /// networkServerSendMessageToAllClients - Optimisé avec rwlock, hash table et buffer réutilisé
@@ -1330,7 +1391,7 @@ int networkServerSendMessageToAllClients(uint8_t p_ucMsgType, const void *p_pvPa
         if (l_ptClient != NULL && l_ptClient->t_bConnected && !l_ptClient->t_bCleanupInProgress)
         {
             // Send pre-built frame directly
-            int l_iSentBytes = networkSend(l_ptClient->t_ptSocket,
+            int l_iSentBytes = clientSendData(l_ptClient,
                                            s_ptServerInstance->t_ptBroadcastBuffer->t_pucBuffer,
                                            s_ptServerInstance->t_ptBroadcastBuffer->t_ulFrameSize);
 
@@ -1445,4 +1506,42 @@ static inline int rwlockUnlock(pthread_rwlock_t *p_ptRwLock)
 static inline uint32_t hashClientId(ClientID p_tClientId)
 {
     return p_tClientId & CLIENT_HASH_MASK;
+}
+
+///////////////////////////////////////////
+/// networkServer helper functions implementation
+///////////////////////////////////////////
+static int clientSendData(clientCtx *p_ptClient, const void *p_data, unsigned long p_size)
+{
+    if (p_ptClient->t_bUseTls && p_ptClient->t_ptSsl)
+    {
+        return wolfSSL_write(p_ptClient->t_ptSsl, p_data, (int)p_size);
+    }
+    return networkSend(p_ptClient->t_ptSocket, p_data, p_size);
+}
+
+static int clientReceiveData(clientCtx *p_ptClient, void *p_buf, unsigned long p_size)
+{
+    if (p_ptClient->t_bUseTls && p_ptClient->t_ptSsl)
+    {
+        return wolfSSL_read(p_ptClient->t_ptSsl, p_buf, (int)p_size);
+    }
+    return networkReceive(p_ptClient->t_ptSocket, p_buf, p_size);
+}
+
+static int clientReceiveComplete(clientCtx *p_ptClient, uint8_t *p_pucBuffer, int p_iSize)
+{
+    int l_iTotalReceived = 0;
+    int l_iReceived;
+
+    while (l_iTotalReceived < p_iSize)
+    {
+        l_iReceived = clientReceiveData(p_ptClient, p_pucBuffer + l_iTotalReceived, (unsigned long)(p_iSize - l_iTotalReceived));
+        if (l_iReceived <= 0)
+        {
+            return l_iReceived; // error or disconnect
+        }
+        l_iTotalReceived += l_iReceived;
+    }
+    return l_iTotalReceived;
 }

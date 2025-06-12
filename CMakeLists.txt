@@ -460,6 +460,25 @@ message(STATUS "  MRPIZ library directory: ${MRPIZ_LIB_DIR}")
 message(STATUS "  LUMPIZ library directory: ${LUMPIZ_LIB_DIR}")
 message(STATUS "----------------------------------------")
 
+
+add_custom_command(
+    TARGET explo                                             # cible concernée
+    POST_BUILD                                               # après un build réussi[5]
+    COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/gen_pki.sh"
+            "$<TARGET_FILE:explo>"                           # chemin de l’exécutable
+    WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"          # (facultatif)
+    COMMENT "Post-traitement de explo"
+    VERBATIM)
+
+add_custom_command(
+    TARGET inter
+    POST_BUILD
+    COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/gen_pki.sh"
+            "$<TARGET_FILE:inter>"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+    COMMENT "Post-traitement de inter"
+    VERBATIM)
+
 # CMake presets for different configurations
 # Create a CMakePresets.json file
 set(PRESETS_FILE "${CMAKE_CURRENT_SOURCE_DIR}/CMakePresets.json")

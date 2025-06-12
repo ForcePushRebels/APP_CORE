@@ -23,6 +23,9 @@
 // Static helpers
 ////////////////////////////////////////////////////////////
 
+//////////////////////////////////
+/// loadCertAndKey
+//////////////////////////////////
 static int loadCertAndKey(WOLFSSL_CTX *p_ctx,
                           xTlsMode_t p_mode,
                           const char *p_certFile,
@@ -76,6 +79,9 @@ static int loadCertAndKey(WOLFSSL_CTX *p_ctx,
 // Public API
 ////////////////////////////////////////////////////////////
 
+//////////////////////////////////
+/// tlsEngineCreate
+//////////////////////////////////
 int tlsEngineCreate(xTlsEngine_t **p_ppEngine,
                     xTlsMode_t p_eMode,
                     const char *p_pcCertFile,
@@ -149,6 +155,9 @@ int tlsEngineCreate(xTlsEngine_t **p_ppEngine,
     return CERT_OK;
 }
 
+//////////////////////////////////
+/// tlsEngineAttachSocket
+//////////////////////////////////
 int tlsEngineAttachSocket(xTlsEngine_t *p_ptEngine,
                           int p_iSocketFd,
                           WOLFSSL **p_ppSsl)
@@ -188,6 +197,9 @@ int tlsEngineAttachSocket(xTlsEngine_t *p_ptEngine,
     return CERT_OK;
 }
 
+//////////////////////////////////
+/// tlsEngineShutdown
+//////////////////////////////////
 int tlsEngineShutdown(WOLFSSL *p_ptSsl)
 {
     if (!p_ptSsl)
@@ -208,6 +220,9 @@ int tlsEngineShutdown(WOLFSSL *p_ptSsl)
     return CERT_OK;
 }
 
+//////////////////////////////////
+/// tlsEngineDestroy
+//////////////////////////////////
 int tlsEngineDestroy(xTlsEngine_t *p_ptEngine)
 {
     if (!p_ptEngine)

@@ -1,74 +1,47 @@
 #!/usr/bin/env python3
-# --------------------------------------------------------------------
-# tls_test_client.py – client de test TLS-1.3 pour le serveur WolfSSL
-#
-# Usage :
-#   python3 tls_test_client.py --host 127.0.0.1 --port 4433           \
-#       --cafile pki/root/ca.pem                                      \
-#       [--cert  pki/client/client.full.pem --key pki/client/client.key]
-# --------------------------------------------------------------------
-import argparse
+# client_tls_test.py
+# ----------------------------------------------------------
+# Vérifie qu'un serveur expose correctement le certificat
+# « server/fullchain.pem » signé par votre CA racine.
+# ----------------------------------------------------------
+
 import socket
+import ssl
 import sys
-import wolfssl                            # pip install wolfssl 3.14+ [3]
+from pprint import pprint
 
-# --------------------------------------------------------------------
-# Analyse des arguments
-# --------------------------------------------------------------------
-parser = argparse.ArgumentParser(description="Client de test TLS 1.3 WolfSSL")
-parser.add_argument("--host",   required=True, help="Adresse du serveur")
-parser.add_argument("--port",   type=int, default=4433, help="Port TCP")
-parser.add_argument("--cafile", required=True, help="CA racine à faire confiance")
-parser.add_argument("--cert",   help="Certificat client (PEM) pour mTLS")
-parser.add_argument("--key",    help="Clé privée client (PEM)")
-args = parser.parse_args()
+HOST = "server.demo.local"   # Utiliser le nom du certificat
+PORT = 8080                  # port où tourne votre serveur TLS
 
-# --------------------------------------------------------------------
-# Création du socket TCP
-# --------------------------------------------------------------------
-sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+# --- 1. Contexte TLS côté client ----------------------------------------
+ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)          # contexte « client »[4]
+ctx.load_verify_locations("pki/root/ca.pem")           # CA racine pour valider
+ctx.minimum_version = ssl.TLSVersion.TLSv1_3           # (ou TLSv1_3 si supporté)
+ctx.set_ciphers("ECDHE+AESGCM:ECDHE+CHACHA20")         # ciphers modernes, optionnel
 
-# --------------------------------------------------------------------
-# Contexte TLS 1.3
-# --------------------------------------------------------------------
+# --- Mutual TLS (facultatif) --------------------------------------------
+# Décommentez si le serveur exige un certificat client :
+ctx.load_cert_chain(certfile="pki/client/fullchain.pem",
+                     keyfile="pki/client/client.key")
+
+# --- 2. Connexion socket + handshake ------------------------------------
 try:
-    ctx = wolfssl.SSLContext(wolfssl.PROTOCOL_TLSv1_3)               # méthode TLS 1.3 [3]
-except AttributeError:
-    print("Votre binding wolfssl n’a pas été compilé avec TLS 1.3")
+    # Résoudre server.demo.local vers 127.0.0.1
+    with socket.create_connection(("127.0.0.1", PORT), timeout=5) as raw_sock:  # création socket[4]
+        with ctx.wrap_socket(raw_sock, server_hostname="server.demo.local") as tls_sock: # handshake + SNI[4]
+            print("Version TLS négociée :", tls_sock.version())           # ex. TLSv1.3
+            print("Suite chiffrée     :", tls_sock.cipher())
+            print("Certificat serveur :")
+            pprint(tls_sock.getpeercert())                                # dict x509
+
+            # Petit test d'écho facultatif
+            tls_sock.sendall(b"PING\n")
+            data = tls_sock.recv(1024)
+            print("Réponse du serveur :", data.decode(errors="ignore"))
+
+except ssl.SSLError as e:
+    print("Échec TLS :", e)
     sys.exit(1)
-
-ctx.verify_mode = wolfssl.CERT_REQUIRED
-ctx.load_verify_locations(args.cafile)                               # CA racine pin-née
-
-# Authentification mutuelle (facultatif)
-if args.cert and args.key:
-    ctx.load_cert_chain(args.cert, args.key)
-
-# Restreindre les suites aux mêmes qu’au serveur
-ctx.set_ciphers(
-    "TLS13-AES256-GCM-SHA384:TLS13-CHACHA20-POLY1305-SHA256:"
-    "TLS13-AES128-GCM-SHA256"
-)
-
-# --------------------------------------------------------------------
-# Connection + handshake
-# --------------------------------------------------------------------
-print(f"Connexion à {args.host}:{args.port} …")
-tls_sock = ctx.wrap_socket(sock, server_hostname=args.host)          # SNI
-tls_sock.connect((args.host, args.port))                             # handshake auto [5]
-
-print("Handshake TLS 1.3 réussi.")
-print("Suite négociée : ", tls_sock.cipher())
-
-# --------------------------------------------------------------------
-# Échange simple
-# --------------------------------------------------------------------
-MESSAGE = b"Hello from Python / TLS 1.3 !\n"
-tls_sock.write(MESSAGE)
-print(">>  envoyé :", MESSAGE.decode().strip())
-
-data = tls_sock.read(4096)
-print("<<  reçu   :", data.decode(errors="replace").strip())
-
-tls_sock.close()
+except Exception as e:
+    print("Erreur réseau :", e)
+    sys.exit(2)

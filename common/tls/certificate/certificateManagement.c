@@ -179,7 +179,7 @@ int xCertificateLoad(const uint8_t *p_pucCertData,
                            p_pucCertData, p_ulDataSize);
     l_ptCertificate->t_ulCertSize = p_ulDataSize;
 
-    // Store DER data in certificate structure (don't free it yet!)
+    // Store DER data in certificate structure 
     l_ptCertificate->p_pucDerData = l_pucDerData;
     l_ptCertificate->t_ulDerSize = l_ulDerSize;
 
@@ -319,6 +319,7 @@ int xCertificateLoadRootCA(const char *p_pcCADirectoryPath,
     struct dirent *l_ptEntry;
     xCertificate_t *l_ptBestRootCA = NULL;
     char l_acFilePath[512];
+    memset(l_acFilePath, 0, sizeof(l_acFilePath));
     const char *l_pcExtension = p_bIsPEM ? ".pem" : ".der";
     const char *l_pcAltExtension = p_bIsPEM ? ".crt" : ".cer";
 
@@ -416,7 +417,7 @@ int xCertificateLoadRootCA(const char *p_pcCADirectoryPath,
     int l_iValidityResult = xCertificateCheckValidity(l_ptBestRootCA);
     if (l_iValidityResult != CERT_OK)
     {
-        X_LOG_TRACE("Root CA certificate is not valid: %d", l_iValidityResult);
+        X_LOG_TRACE("Root CA certificate is not valid: %x", l_iValidityResult);
         xCertificateFree(l_ptBestRootCA);
         return l_iValidityResult;
     }
@@ -484,14 +485,14 @@ int xCertificateCheckValidity(xCertificate_t *p_ptCertificate)
     
     if (l_tCurrentTime < p_ptCertificate->t_tNotBefore)
     {
-        X_LOG_TRACE("Certificate not yet valid");
+        X_LOG_TRACE("Certificate not yet valid : %s", p_ptCertificate->t_acSubject);
         p_ptCertificate->t_eStatus = CERT_STATUS_NOT_YET_VALID;
         return CERT_ERROR_NOT_YET_VALID;
     }
     
     if (l_tCurrentTime > p_ptCertificate->t_tNotAfter)
     {
-        X_LOG_TRACE("Certificate expired");
+        X_LOG_TRACE("Certificate expired : %s", p_ptCertificate->t_acSubject);
         p_ptCertificate->t_eStatus = CERT_STATUS_EXPIRED;
         return CERT_ERROR_CERT_EXPIRED;
     }
@@ -611,9 +612,24 @@ static int extractCertificateInfo(xCertificate_t *p_ptCertificate)
 
     DecodedCert *l_ptDecodedCert = &p_ptCertificate->t_tDecodedCert;
 
-    // Extract subject name (simplified - just copy the available data)
-    if (l_ptDecodedCert->subjectCNLen > 0 && l_ptDecodedCert->subjectCNLen < CERT_MAX_SUBJECT_SIZE)
+    // Extract subject name (use full subject DN for consistency)
+    if (l_ptDecodedCert->subject[0] != '\0')
     {
+        size_t l_ulSubjectLen = strlen(l_ptDecodedCert->subject);
+        if (l_ulSubjectLen < CERT_MAX_SUBJECT_SIZE)
+        {
+            memcpy(p_ptCertificate->t_acSubject, l_ptDecodedCert->subject, l_ulSubjectLen);
+            p_ptCertificate->t_acSubject[l_ulSubjectLen] = '\0';
+        }
+        else
+        {
+            strncpy(p_ptCertificate->t_acSubject, l_ptDecodedCert->subject, CERT_MAX_SUBJECT_SIZE - 1);
+            p_ptCertificate->t_acSubject[CERT_MAX_SUBJECT_SIZE - 1] = '\0';
+        }
+    }
+    else if (l_ptDecodedCert->subjectCNLen > 0 && l_ptDecodedCert->subjectCNLen < CERT_MAX_SUBJECT_SIZE)
+    {
+        // Fallback to CN only if full subject not available
         memcpy(p_ptCertificate->t_acSubject, l_ptDecodedCert->subjectCN, (size_t)l_ptDecodedCert->subjectCNLen);
         p_ptCertificate->t_acSubject[l_ptDecodedCert->subjectCNLen] = '\0';
     }
@@ -661,17 +677,23 @@ static int extractCertificateInfo(xCertificate_t *p_ptCertificate)
     p_ptCertificate->t_bIsCA = (l_ptDecodedCert->isCA == 1);
 
     // Determine certificate type based on issuer/subject relationship and CA status
+    X_LOG_TRACE("Certificate comparison - Subject: '%s', Issuer: '%s'", 
+                p_ptCertificate->t_acSubject, p_ptCertificate->t_acIssuer);
+    
     if (strcmp(p_ptCertificate->t_acSubject, p_ptCertificate->t_acIssuer) == 0)
     {
         p_ptCertificate->t_eType = CERT_TYPE_ROOT_CA;
+        X_LOG_TRACE("Certificate identified as ROOT CA (self-signed)");
     }
     else if (p_ptCertificate->t_bIsCA)
     {
         p_ptCertificate->t_eType = CERT_TYPE_INTERMEDIATE_CA;
+        X_LOG_TRACE("Certificate identified as INTERMEDIATE CA");
     }
     else
     {
         p_ptCertificate->t_eType = CERT_TYPE_END_ENTITY;
+        X_LOG_TRACE("Certificate identified as END ENTITY");
     }
 
     return CERT_OK;
@@ -714,6 +736,8 @@ int xCertificateExtractValidityDates(DecodedCert *p_ptDecodedCert,
     if (p_ptDecodedCert->beforeDateLen >= 13) // At least YYMMDDHHMMSSZ
     {
         const char *l_pcBeforeDate = (const char *)p_ptDecodedCert->beforeDate;
+        X_LOG_TRACE("Raw beforeDate: '%.*s' (len=%d)", 
+                    p_ptDecodedCert->beforeDateLen, l_pcBeforeDate, p_ptDecodedCert->beforeDateLen);
         int l_iYear, l_iMonth, l_iDay, l_iHour, l_iMin, l_iSec;
         
         if (p_ptDecodedCert->beforeDateLen == 13) // YYMMDDHHMMSSZ
@@ -748,6 +772,8 @@ int xCertificateExtractValidityDates(DecodedCert *p_ptDecodedCert,
     if (p_ptDecodedCert->afterDateLen >= 13)
     {
         const char *l_pcAfterDate = (const char *)p_ptDecodedCert->afterDate;
+        X_LOG_TRACE("Raw afterDate: '%.*s' (len=%d)", 
+                    p_ptDecodedCert->afterDateLen, l_pcAfterDate, p_ptDecodedCert->afterDateLen);
         int l_iYear, l_iMonth, l_iDay, l_iHour, l_iMin, l_iSec;
         
         if (p_ptDecodedCert->afterDateLen == 13) // YYMMDDHHMMSSZ
@@ -782,6 +808,17 @@ int xCertificateExtractValidityDates(DecodedCert *p_ptDecodedCert,
     *p_ptNotBefore = timegm(&l_tTmBefore);
     *p_ptNotAfter = timegm(&l_tTmAfter);
 
+    // Debug: Log extracted dates
+    X_LOG_TRACE("Certificate validity dates extracted - NotBefore: %ld, NotAfter: %ld", 
+                (long)*p_ptNotBefore, (long)*p_ptNotAfter);
+    
+    // Debug: Log current time for comparison
+    time_t l_tCurrentTime = time(NULL);
+    X_LOG_TRACE("Current time: %ld (NotBefore valid: %s, NotAfter valid: %s)",
+                (long)l_tCurrentTime,
+                (l_tCurrentTime >= *p_ptNotBefore) ? "YES" : "NO",
+                (l_tCurrentTime <= *p_ptNotAfter) ? "YES" : "NO");
+
     return CERT_OK;
 }
 
@@ -798,44 +835,25 @@ int xCertificateLoadRootCAIntoContext(WOLFSSL_CTX *p_ptSSLContext,
         return CERT_ERROR_INVALID_PARAM;
     }
 
-    // First, load the root CA certificate
-    xCertificate_t *l_ptRootCA = NULL;
-    int l_iResult = xCertificateLoadRootCA(p_pcCADirectoryPath, p_bIsPEM, &l_ptRootCA);
-    if (l_iResult != CERT_OK)
-    {
-        X_LOG_TRACE("Failed to load root CA certificate: %d", l_iResult);
-        return l_iResult;
-    }
+    char l_acCAFilePath[512];
+    memset(l_acCAFilePath, 0, sizeof(l_acCAFilePath));
 
-    // Load the root CA into the WolfSSL context
-    int l_iWolfResult;
     if (p_bIsPEM)
     {
-        l_iWolfResult = wolfSSL_CTX_load_verify_buffer(p_ptSSLContext,
-                                                       l_ptRootCA->p_pucCertData,
-                                                       (long)l_ptRootCA->t_ulCertSize,
-                                                       WOLFSSL_FILETYPE_PEM);
+        snprintf(l_acCAFilePath, sizeof(l_acCAFilePath), "%s/ca.pem", p_pcCADirectoryPath);
     }
     else
     {
-        l_iWolfResult = wolfSSL_CTX_load_verify_buffer(p_ptSSLContext,
-                                                       l_ptRootCA->p_pucDerData,
-                                                       (long)l_ptRootCA->t_ulDerSize,
-                                                       WOLFSSL_FILETYPE_ASN1);
+        snprintf(l_acCAFilePath, sizeof(l_acCAFilePath), "%s/ca.der", p_pcCADirectoryPath);
     }
-
+    
+    int l_iWolfResult = wolfSSL_CTX_load_verify_locations(p_ptSSLContext, l_acCAFilePath, NULL);
     if (l_iWolfResult != WOLFSSL_SUCCESS)
     {
-        X_LOG_TRACE("Failed to load root CA into WolfSSL context: %d", l_iWolfResult);
-        xCertificateFree(l_ptRootCA);
+        X_LOG_TRACE("Failed to load CA file directly into WolfSSL context: %s", l_acCAFilePath);
         return CERT_ERROR_WOLFSSL_ERROR;
     }
 
-    X_LOG_TRACE("Root CA certificate loaded into TLS context successfully: %s", 
-                l_ptRootCA->t_acSubject);
-
-    // Clean up the certificate structure (context has its own copy)
-    xCertificateFree(l_ptRootCA);
-    
+    X_LOG_TRACE("Root CA certificate loaded directly into TLS context: %s", l_acCAFilePath);
     return CERT_OK;
 }

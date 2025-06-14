@@ -29,9 +29,10 @@
 #define CLIENT_HASH_MASK (CLIENT_HASH_TABLE_SIZE - 1)
 
 // Default TLS file paths (adjust as needed)
-#define SERVER_TLS_CERT_FILE "pki/server/server.full.pem"
-#define SERVER_TLS_KEY_FILE  "pki/server/server.key"
-#define SERVER_TLS_CA_DIR    "pki/root"
+#define SERVER_TLS_CERT_FILE "/home/christophe/pato/APP_CORE/pki/server/fullchain.pem"
+#define SERVER_TLS_KEY_FILE  "/home/christophe/pato/APP_CORE/pki/server/server.key"
+#define SERVER_TLS_CA_FILE   "/home/christophe/pato/APP_CORE/pki/root/ca.pem"
+#define SERVER_TLS_CA_DIR    "/home/christophe/pato/APP_CORE/pki/root"
 
 //-----------------------------------------------------------------------------
 // Client Structure

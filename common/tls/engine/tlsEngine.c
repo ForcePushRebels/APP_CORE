@@ -207,16 +207,95 @@ int tlsEngineShutdown(WOLFSSL *p_ptSsl)
         return CERT_OK;
     }
 
-    wolfSSL_shutdown(p_ptSsl);
+    // Shutdown TLS proprement avec retry
+    int l_iShutdownResult;
+    int l_iRetryCount = 0;
+    const int MAX_SHUTDOWN_RETRIES = 5;
+    
+    do {
+        l_iShutdownResult = wolfSSL_shutdown(p_ptSsl);
+        
+        if (l_iShutdownResult == WOLFSSL_SUCCESS)
+        {
+            // Shutdown complet (close_notify envoyé et reçu)
+            break;
+        }
+        else if (l_iShutdownResult == WOLFSSL_SHUTDOWN_NOT_DONE)
+        {
+            // Premier appel OK, attendre la réponse du peer
+            l_iRetryCount++;
+            if (l_iRetryCount >= MAX_SHUTDOWN_RETRIES)
+            {
+                X_LOG_TRACE("TLS shutdown timeout after %d retries", MAX_SHUTDOWN_RETRIES);
+                break;
+            }
+            
+            // Petit délai pour laisser le peer répondre
+            struct timespec delay = {0, 10000000}; // 10ms
+            nanosleep(&delay, NULL);
+        }
+        else
+        {
+            // Erreur ou peer déjà fermé
+            int l_iError = wolfSSL_get_error(p_ptSsl, l_iShutdownResult);
+            if (l_iError == WOLFSSL_ERROR_WANT_READ || l_iError == WOLFSSL_ERROR_WANT_WRITE)
+            {
+                // Retry nécessaire
+                l_iRetryCount++;
+                if (l_iRetryCount >= MAX_SHUTDOWN_RETRIES)
+                {
+                    X_LOG_TRACE("TLS shutdown WANT_READ/WRITE timeout");
+                    break;
+                }
+                struct timespec delay = {0, 5000000}; // 5ms
+                nanosleep(&delay, NULL);
+            }
+            else
+            {
+                // Erreur définitive ou connexion déjà fermée
+                X_LOG_TRACE("TLS shutdown error: %d", l_iError);
+                break;
+            }
+        }
+    } while (l_iRetryCount < MAX_SHUTDOWN_RETRIES);
 
+    // Fermer le socket TCP après le shutdown TLS
     int l_iFd = wolfSSL_get_fd(p_ptSsl);
     if (l_iFd >= 0)
     {
-        shutdown(l_iFd, SHUT_RDWR);
+        // Fermeture gracieuse TCP
+        shutdown(l_iFd, SHUT_WR);  // Fermer l'écriture d'abord
+        
+        // Optionnel : lire les données restantes pour vider le buffer
+        char l_buffer[256];
+        int l_iTimeout = 0;
+        while (l_iTimeout < 10) // Max 10ms d'attente
+        {
+            fd_set readfds;
+            struct timeval tv = {0, 1000}; // 1ms timeout
+            
+            FD_ZERO(&readfds);
+            FD_SET(l_iFd, &readfds);
+            
+            int l_iSelect = select(l_iFd + 1, &readfds, NULL, NULL, &tv);
+            if (l_iSelect > 0 && FD_ISSET(l_iFd, &readfds))
+            {
+                if (recv(l_iFd, l_buffer, sizeof(l_buffer), MSG_DONTWAIT) <= 0)
+                    break;
+            }
+            else
+            {
+                break;
+            }
+            l_iTimeout++;
+        }
+        
+        shutdown(l_iFd, SHUT_RDWR); // Fermeture complète
     }
 
     wolfSSL_free(p_ptSsl);
-
+    X_LOG_TRACE("TLS session shutdown completed");
+    
     return CERT_OK;
 }
 

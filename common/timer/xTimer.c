@@ -13,6 +13,7 @@
 #include "xLog.h"
 #include "xOsMemory.h"
 #include <errno.h>
+#include <time.h>
 
 ////////////////////////////////////////////////////////////
 /// xTimerCreate
@@ -203,15 +204,20 @@ int xTimerExpired(xOsTimerCtx *p_ptTimer)
         return XOS_TIMER_ERROR;
     }
 
-    // Convert times to nanoseconds for comparison with overflow protection
-    uint64_t l_ulNowNs = (uint64_t)l_tNow.tv_sec * 1000000000ULL + (uint64_t)l_tNow.tv_nsec;
-    uint64_t l_ulNextNs = (uint64_t)p_ptTimer->t_tNext.tv_sec * 1000000000ULL + (uint64_t)p_ptTimer->t_tNext.tv_nsec;
-
-    if (l_ulNowNs >= l_ulNextNs)
+    // Fast comparison first - avoid expensive calculations if not expired
+    if (l_tNow.tv_sec < p_ptTimer->t_tNext.tv_sec || 
+        (l_tNow.tv_sec == p_ptTimer->t_tNext.tv_sec && l_tNow.tv_nsec < p_ptTimer->t_tNext.tv_nsec))
     {
+        // Timer not expired, early exit
+        l_iReturn = XOS_TIMER_TIMEOUT;
+    }
+    else
+    {
+        // Timer expired - handle periodic or one-shot mode
         if (p_ptTimer->t_ucMode == XOS_TIMER_MODE_PERIODIC)
         {
-            // Calculate number of elapsed periods with division by zero protection
+            // Convert times to nanoseconds for calculation with overflow protection
+            uint64_t l_ulNowNs = (uint64_t)l_tNow.tv_sec * 1000000000ULL + (uint64_t)l_tNow.tv_nsec;
             uint64_t l_ulStartNs = (uint64_t)p_ptTimer->t_tStart.tv_sec * 1000000000ULL + (uint64_t)p_ptTimer->t_tStart.tv_nsec;
             uint64_t l_ulElapsedNs = l_ulNowNs - l_ulStartNs;
 
@@ -250,10 +256,6 @@ int xTimerExpired(xOsTimerCtx *p_ptTimer)
             p_ptTimer->t_ucActive = 0;
         }
         l_iReturn = XOS_TIMER_OK;
-    }
-    else
-    {
-        l_iReturn = XOS_TIMER_TIMEOUT;
     }
 
     // Unlock mutex
@@ -468,7 +470,7 @@ int xTimerProcessPeriodicCallback(xOsTimerCtx *p_ptTimer, void (*p_pfCallback)(v
     int l_iTotalCallbacks = 0;
     int l_iCallbacksThisRound = 0;
 
-    // Vérifier que c'est bien un timer périodique
+    // Check if it's a periodic timer
     l_iResult = mutexLock(&p_ptTimer->t_tMutex);
     if (l_iResult != MUTEX_OK)
     {
@@ -483,21 +485,12 @@ int xTimerProcessPeriodicCallback(xOsTimerCtx *p_ptTimer, void (*p_pfCallback)(v
 
     mutexUnlock(&p_ptTimer->t_tMutex);
 
-    // Boucle tant que le flag périodique est actif
+    // Optimized loop with blocking absolute wait
     while (atomic_load(&p_ptTimer->t_bPeriodicLockFlag))
     {
-        // Appeler la fonction standard pour traiter les périodes écoulées
-        l_iCallbacksThisRound = xTimerProcessElapsedPeriods(p_ptTimer, p_pfCallback, p_pvData);
-
-        if (l_iCallbacksThisRound < 0)
-        {
-            // Erreur dans le traitement
-            return l_iCallbacksThisRound;
-        }
-
-        l_iTotalCallbacks += l_iCallbacksThisRound;
-
-        // Vérifier si le timer est toujours actif
+        struct timespec l_tNext;
+        
+        // Get the absolute time of the next trigger
         l_iResult = mutexLock(&p_ptTimer->t_tMutex);
         if (l_iResult != MUTEX_OK)
         {
@@ -510,15 +503,33 @@ int xTimerProcessPeriodicCallback(xOsTimerCtx *p_ptTimer, void (*p_pfCallback)(v
             break;
         }
 
+        l_tNext = p_ptTimer->t_tNext;
         mutexUnlock(&p_ptTimer->t_tMutex);
 
-        // Petite pause pour éviter une boucle trop agressive
-        if (l_iCallbacksThisRound == 0)
+        int l_iSleepResult = clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &l_tNext, NULL);
+        
+        if (l_iSleepResult != 0 && l_iSleepResult != EINTR)
         {
-            // Aucune période écoulée, attendre un peu
-            struct timespec l_tSleep = {0, 1000000}; // 1ms
-            nanosleep(&l_tSleep, NULL);
+            X_LOG_TRACE("xTimerProcessPeriodicCallback: clock_nanosleep failed with errno %d", l_iSleepResult);
+            return XOS_TIMER_ERROR;
         }
+
+        // Check if the timer is still active
+        if (!atomic_load(&p_ptTimer->t_bPeriodicLockFlag))
+        {
+            break;
+        }
+
+        // Process the elapsed periods
+        l_iCallbacksThisRound = xTimerProcessElapsedPeriods(p_ptTimer, p_pfCallback, p_pvData);
+
+        if (l_iCallbacksThisRound < 0)
+        {
+            // Error in the treatment
+            return l_iCallbacksThisRound;
+        }
+
+        l_iTotalCallbacks += l_iCallbacksThisRound;
     }
 
     return l_iTotalCallbacks;

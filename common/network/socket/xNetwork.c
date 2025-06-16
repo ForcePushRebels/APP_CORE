@@ -319,8 +319,18 @@ int networkSend(NetworkSocket *p_ptSocket, const void *p_pBuffer, unsigned long 
 
     ssize_t l_iReturn = send(p_ptSocket->t_iSocketFd, p_pBuffer, p_ulSize, MSG_NOSIGNAL);
     
-    // Simplified error handling
-    return (l_iReturn < 0) ? NETWORK_ERROR : (int)l_iReturn;
+    // Enhanced error handling with explicit EPIPE detection
+    if (l_iReturn < 0)
+    {
+        if (errno == EPIPE)
+        {
+            X_LOG_TRACE("networkSend: Broken pipe detected (EPIPE) on socket %d", p_ptSocket->t_iSocketFd);
+            return NETWORK_BROKEN_PIPE;
+        }
+        return NETWORK_ERROR;
+    }
+    
+    return (int)l_iReturn;
 }
 
 //////////////////////////////////
@@ -461,6 +471,8 @@ const char *networkGetErrorString(int p_iError)
             return "Invalid parameter";
         case NETWORK_ZERO_SIZE:
             return "Zero size";
+        case NETWORK_BROKEN_PIPE:
+            return "Broken pipe (client disconnected)";
         default:
             return "Unknown error";
     }

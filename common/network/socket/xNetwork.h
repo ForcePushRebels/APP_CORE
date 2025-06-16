@@ -54,6 +54,7 @@
 #define NETWORK_TIMEOUT 0x17A2B42
 #define NETWORK_INVALID_PARAM 0x17A2B43
 #define NETWORK_ZERO_SIZE 0x17A2B44
+#define NETWORK_BROKEN_PIPE 0x17A2B45
 
 // Byte order conversion macros
 #define HOST_TO_NET_LONG(p_uiValue) htonl(p_uiValue)

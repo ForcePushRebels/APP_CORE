@@ -10,8 +10,11 @@
 #include "handleNetworkMessage.h"
 #include "xLog.h"
 #include "tlsEngine.h"
+#include "xOsMutex.h"
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <time.h>
 #include <wolfssl/ssl.h>
 
 //-----------------------------------------------------------------------------
@@ -51,6 +54,7 @@ struct client_ctx_t
     bool t_bCleanupInProgress;     // prevent double cleanup
     WOLFSSL *t_ptSsl;              // TLS session pointer (per client)
     bool t_bUseTls;                // true if TLS is active for this client
+    xOsMutexCtx t_tTlsMutex;       // mutex to protect TLS operations
     struct client_ctx_t *t_ptNext; // next client in hash bucket for collision handling
 };
 
@@ -706,6 +710,15 @@ int networkServerSendToClient(ClientID p_tClientId, const void *p_pvData, int p_
     int l_iResult = clientSendData(l_ptClient, p_pvData, (unsigned long)p_iSize);
     rwlockUnlock(&s_ptServerInstance->t_tRwLock);
 
+    // Handle EPIPE specifically - client disconnected
+    if (l_iResult == NETWORK_BROKEN_PIPE)
+    {
+        X_LOG_TRACE("Client %u disconnected during send (EPIPE), triggering cleanup", p_tClientId);
+        // Trigger asynchronous client cleanup
+        networkServerDisconnectClient(p_tClientId);
+        return SERVER_CLIENT_DISCONNECTED;
+    }
+
     return l_iResult;
 }
 
@@ -775,6 +788,15 @@ int networkServerSendMessage(ClientID p_tClientId, uint8_t p_ucMsgType, const vo
 
     pthread_rwlock_unlock(&l_ptClient->t_tRwLock);
     rwlockUnlock(&s_ptServerInstance->t_tRwLock);
+
+    // Handle EPIPE specifically - client disconnected
+    if (l_iSentBytes == NETWORK_BROKEN_PIPE)
+    {
+        X_LOG_TRACE("Client %u disconnected during send (EPIPE), triggering cleanup", p_tClientId);
+        // Trigger asynchronous client cleanup
+        networkServerDisconnectClient(p_tClientId);
+        return SERVER_CLIENT_DISCONNECTED;
+    }
 
     if (l_iSentBytes < 0)
     {
@@ -1002,6 +1024,16 @@ static void *serverThreadFunc(void *p_ptArg)
             continue;
         }
 
+        // Initialize TLS mutex
+        if (mutexCreate(&l_ptClient->t_tTlsMutex) != MUTEX_OK)
+        {
+            X_LOG_TRACE("Failed to create client TLS mutex");
+            pthread_rwlock_destroy(&l_ptClient->t_tRwLock);
+            networkCloseSocket(l_ptClientSocket);
+            free(l_ptClient);
+            continue;
+        }
+
         // configure the socket timeout if necessary
         if (p_ptServer->t_sConfig.t_bUseTimeout && p_ptServer->t_sConfig.t_iReceiveTimeout > 0)
         {
@@ -1038,6 +1070,7 @@ static void *serverThreadFunc(void *p_ptArg)
         if (l_iTaskResult != OS_TASK_SUCCESS)
         {
             X_LOG_TRACE("Failed to create client thread: %s", osTaskGetErrorString(l_iTaskResult));
+            mutexDestroy(&l_ptClient->t_tTlsMutex);
             pthread_rwlock_destroy(&l_ptClient->t_tRwLock);
             networkCloseSocket(l_ptClientSocket);
             free(l_ptClient);
@@ -1054,6 +1087,7 @@ static void *serverThreadFunc(void *p_ptArg)
             // Error cleanup: stop thread, destroy rwlock, close socket, free memory
             osTaskStop(&l_ptClient->t_tTask, OS_TASK_STOP_TIMEOUT);
             osTaskWait(&l_ptClient->t_tTask, NULL);
+            mutexDestroy(&l_ptClient->t_tTlsMutex);
             pthread_rwlock_destroy(&l_ptClient->t_tRwLock);
             networkCloseSocket(l_ptClientSocket);
             free(l_ptClient);
@@ -1101,7 +1135,21 @@ static void *clientThreadFunc(void *p_pvArg)
 
         // STEP 1: Receive complete frame header (size + message type)
         uint8_t l_aucHeaderBuffer[PROTOCOL_HEADER_SIZE];
+        
+        // Initialize buffer to detect corruption
+        memset(l_aucHeaderBuffer, 0xCC, PROTOCOL_HEADER_SIZE);
+        
         p_iReceived = clientReceiveComplete(p_ptClient, l_aucHeaderBuffer, PROTOCOL_HEADER_SIZE);
+
+        // Validate returned value is sane for header reception
+        if (p_iReceived > PROTOCOL_HEADER_SIZE || p_iReceived < 0)
+        {
+            X_LOG_TRACE("Invalid header reception result: %d bytes (expected max %d)", p_iReceived, PROTOCOL_HEADER_SIZE);
+            X_LOG_TRACE("Corruption check - Buffer state: [0x%02X 0x%02X 0x%02X]", 
+                       l_aucHeaderBuffer[0], l_aucHeaderBuffer[1], l_aucHeaderBuffer[2]);
+            clientThreadCleanup(p_ptClient);
+            return NULL;
+        }
 
         X_LOG_TRACE("Header data received: %d bytes", p_iReceived);
 
@@ -1123,10 +1171,17 @@ static void *clientThreadFunc(void *p_pvArg)
 
             X_LOG_TRACE("Received message type: 0x%02X, payload size: %u bytes", l_ucMsgType, l_ulActualPayloadSize);
 
-            // Validate payload size before allocation
+            // Validate payload size against protocol limit first
+            if (l_ulActualPayloadSize > PROTOCOL_MAX_PAYLOAD_SIZE)
+            {
+                X_LOG_TRACE("Payload size exceeds protocol limit: %u bytes (max: %u)", l_ulActualPayloadSize, PROTOCOL_MAX_PAYLOAD_SIZE);
+                continue;
+            }
+
+            // Validate payload size against server buffer limit
             if (l_ulActualPayloadSize > SERVER_MAX_BUFFER_SIZE)
             {
-                X_LOG_TRACE("Payload size too large: %u bytes (max: %d)", l_ulActualPayloadSize, SERVER_MAX_BUFFER_SIZE);
+                X_LOG_TRACE("Payload size too large for server buffer: %u bytes (max: %d)", l_ulActualPayloadSize, SERVER_MAX_BUFFER_SIZE);
                 continue;
             }
 
@@ -1235,12 +1290,28 @@ static void cleanupAndFreeClient(clientCtx *p_ptClient)
     p_ptClient->t_bConnected = false;
 
     // Shutdown TLS session first if active
+    // APRÈS (correct)
     if (p_ptClient->t_bUseTls && p_ptClient->t_ptSsl)
     {
-        tlsEngineShutdown(p_ptClient->t_ptSsl);
-        p_ptClient->t_ptSsl = NULL;
-        p_ptClient->t_bUseTls = false;
+        if (mutexLock(&p_ptClient->t_tTlsMutex) == MUTEX_OK)
+        {
+            // TLS shutdown gère maintenant la fermeture du socket
+            tlsEngineShutdown(p_ptClient->t_ptSsl);
+            p_ptClient->t_ptSsl = NULL;
+            p_ptClient->t_bUseTls = false;
+            mutexUnlock(&p_ptClient->t_tTlsMutex);
+            
+            // Socket déjà fermé par tlsEngineShutdown, juste nettoyer la référence
+            p_ptClient->t_ptSocket = NULL;
+        }
     }
+    else if (p_ptClient->t_ptSocket != NULL)
+    {
+        // Pas de TLS, fermeture socket normale
+        networkCloseSocket(p_ptClient->t_ptSocket);
+        p_ptClient->t_ptSocket = NULL;
+    }
+
 
     // Close socket
     if (p_ptClient->t_ptSocket != NULL)
@@ -1268,6 +1339,9 @@ static void cleanupAndFreeClient(clientCtx *p_ptClient)
 
     // Destroy client rwlock
     pthread_rwlock_destroy(&p_ptClient->t_tRwLock);
+
+    // Destroy TLS mutex
+    mutexDestroy(&p_ptClient->t_tTlsMutex);
 
     // Free the client structure
     free(p_ptClient);
@@ -1302,9 +1376,22 @@ static void clientThreadCleanup(clientCtx *p_ptClient)
     // Shutdown TLS session first if active
     if (p_ptClient->t_bUseTls && p_ptClient->t_ptSsl)
     {
-        tlsEngineShutdown(p_ptClient->t_ptSsl);
-        p_ptClient->t_ptSsl = NULL;
-        p_ptClient->t_bUseTls = false;
+        // Lock TLS mutex to ensure no concurrent operations
+        if (mutexLock(&p_ptClient->t_tTlsMutex) == MUTEX_OK)
+        {
+            tlsEngineShutdown(p_ptClient->t_ptSsl);
+            p_ptClient->t_ptSsl = NULL;
+            p_ptClient->t_bUseTls = false;
+            mutexUnlock(&p_ptClient->t_tTlsMutex);
+        }
+        else
+        {
+            // Force cleanup even if mutex lock fails
+            X_LOG_TRACE("Failed to lock TLS mutex during thread cleanup, forcing shutdown");
+            tlsEngineShutdown(p_ptClient->t_ptSsl);
+            p_ptClient->t_ptSsl = NULL;
+            p_ptClient->t_bUseTls = false;
+        }
     }
 
     // Close socket
@@ -1319,6 +1406,9 @@ static void clientThreadCleanup(clientCtx *p_ptClient)
 
     // Destroy client rwlock
     pthread_rwlock_destroy(&p_ptClient->t_tRwLock);
+
+    // Destroy TLS mutex
+    mutexDestroy(&p_ptClient->t_tTlsMutex);
 
     // Free the client context (safe to do in thread termination)
     free(p_ptClient);
@@ -1400,10 +1490,22 @@ int networkServerSendMessageToAllClients(uint8_t p_ucMsgType, const void *p_pvPa
             {
                 l_iSuccessCount++;
             }
+            else if (l_iSentBytes == NETWORK_BROKEN_PIPE)
+            {
+                // Client disconnected during broadcast - trigger cleanup
+                X_LOG_TRACE("Client %u disconnected during broadcast (EPIPE), will cleanup", l_atClientIds[i]);
+                l_iFailureCount++;
+                
+                // Release lock before cleanup to avoid deadlock
+                rwlockUnlock(&s_ptServerInstance->t_tRwLock);
+                networkServerDisconnectClient(l_atClientIds[i]);
+                // Continue with next client (lock will be reacquired in loop)
+                continue;
+            }
             else
             {
                 l_iFailureCount++;
-                X_LOG_TRACE("Failed to send broadcast to client %u", l_atClientIds[i]);
+                X_LOG_TRACE("Failed to send broadcast to client %u: %s", l_atClientIds[i], networkGetErrorString(l_iSentBytes));
             }
         }
         else
@@ -1510,39 +1612,275 @@ static inline uint32_t hashClientId(ClientID p_tClientId)
 }
 
 ///////////////////////////////////////////
+/// Production-grade blocking delay utility
+///////////////////////////////////////////
+static inline void blockingDelayNs(uint64_t p_ulDelayNs)
+{
+    struct timespec l_tNow, l_tTarget;
+    if (clock_gettime(CLOCK_MONOTONIC, &l_tNow) == 0)
+    {
+        l_tTarget.tv_sec = l_tNow.tv_sec;
+        l_tTarget.tv_nsec = l_tNow.tv_nsec + (long)p_ulDelayNs;
+        
+        // Handle nanosecond overflow
+        if (l_tTarget.tv_nsec >= 1000000000L)
+        {
+            l_tTarget.tv_sec++;
+            l_tTarget.tv_nsec -= 1000000000L;
+        }
+        
+        // Blocking absolute wait - kernel managed precision
+        clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &l_tTarget, NULL);
+    }
+}
+
+///////////////////////////////////////////
 /// networkServer helper functions implementation
 ///////////////////////////////////////////
 static int clientSendData(clientCtx *p_ptClient, const void *p_data, unsigned long p_size)
 {
+    if (!p_ptClient->t_bConnected || p_ptClient->t_bCleanupInProgress)
+    {
+        X_LOG_TRACE("Client %u not connected or cleanup in progress", p_ptClient->t_tId);
+        return NETWORK_ERROR;
+    }
+
     if (p_ptClient->t_bUseTls && p_ptClient->t_ptSsl)
     {
-        return wolfSSL_write(p_ptClient->t_ptSsl, p_data, (int)p_size);
+        // Lock TLS mutex to prevent concurrent access during cleanup
+        if (mutexLock(&p_ptClient->t_tTlsMutex) != MUTEX_OK)
+        {
+            X_LOG_TRACE("Failed to lock TLS mutex for send");
+            return NETWORK_ERROR;
+        }
+
+        // Double-check TLS state after acquiring mutex
+        if (!p_ptClient->t_bUseTls || !p_ptClient->t_ptSsl || p_ptClient->t_bCleanupInProgress)
+        {
+            mutexUnlock(&p_ptClient->t_tTlsMutex);
+            return NETWORK_ERROR;
+        }
+
+        int l_iTotalSent = 0;
+        int l_iRetryCount = 0;
+        const int MAX_TLS_SEND_RETRIES = 5;
+        const uint64_t RETRY_DELAY_NS = 1000000ULL; // 1ms in nanoseconds
+        
+        while (l_iTotalSent < (int)p_size)
+        {
+            int l_iResult = wolfSSL_write(p_ptClient->t_ptSsl, 
+                                         (const char*)p_data + l_iTotalSent, 
+                                         (int)p_size - l_iTotalSent);
+            
+            if (l_iResult > 0)
+            {
+                l_iTotalSent += l_iResult;
+                l_iRetryCount = 0; // Reset retry counter on successful write
+            }
+            else
+            {
+                int l_iError = wolfSSL_get_error(p_ptClient->t_ptSsl, l_iResult);
+                if (l_iError == WOLFSSL_ERROR_WANT_READ || l_iError == WOLFSSL_ERROR_WANT_WRITE)
+                {
+                    // TLS needs more data or buffer space - retry with limit
+                    l_iRetryCount++;
+                    if (l_iRetryCount >= MAX_TLS_SEND_RETRIES)
+                    {
+                        X_LOG_TRACE("Too many TLS send retries, aborting");
+                        mutexUnlock(&p_ptClient->t_tTlsMutex);
+                        return NETWORK_ERROR;
+                    }
+                    
+                    // Production-grade blocking delay - kernel managed precision
+                    blockingDelayNs(RETRY_DELAY_NS);
+                    continue;
+                }
+                // Real error or disconnection
+                mutexUnlock(&p_ptClient->t_tTlsMutex);
+                return NETWORK_ERROR;
+            }
+        }
+        
+        mutexUnlock(&p_ptClient->t_tTlsMutex);
+        return l_iTotalSent;
     }
-    return networkSend(p_ptClient->t_ptSocket, p_data, p_size);
+    
+    // Non-TLS send with explicit EPIPE handling
+    int l_iResult = networkSend(p_ptClient->t_ptSocket, p_data, p_size);
+    
+    // Handle EPIPE specifically - client disconnected unexpectedly
+    if (l_iResult == NETWORK_BROKEN_PIPE)
+    {
+        X_LOG_TRACE("Client %u disconnected (EPIPE): %s:%d", 
+                   p_ptClient->t_tId,
+                   p_ptClient->t_tAddress.t_cAddress, 
+                   p_ptClient->t_tAddress.t_usPort);
+        
+        // Mark client for cleanup - this will trigger proper cleanup in the calling context
+        p_ptClient->t_bConnected = false;
+        
+        // Return the specific error so calling code can handle appropriately
+        return NETWORK_BROKEN_PIPE;
+    }
+    
+    return l_iResult;
 }
 
 static int clientReceiveData(clientCtx *p_ptClient, void *p_buf, unsigned long p_size)
 {
+    // Input validation
+    if (p_ptClient == NULL || p_buf == NULL || p_size == 0 || p_size > INT_MAX)
+    {
+        X_LOG_TRACE("Invalid parameters for clientReceiveData: size=%lu", p_size);
+        return NETWORK_ERROR;
+    }
+
     if (p_ptClient->t_bUseTls && p_ptClient->t_ptSsl)
     {
-        return wolfSSL_read(p_ptClient->t_ptSsl, p_buf, (int)p_size);
+        // Lock TLS mutex to prevent concurrent access during cleanup
+        if (mutexLock(&p_ptClient->t_tTlsMutex) != MUTEX_OK)
+        {
+            X_LOG_TRACE("Failed to lock TLS mutex for receive");
+            return NETWORK_ERROR;
+        }
+
+        // Double-check TLS state after acquiring mutex
+        if (!p_ptClient->t_bUseTls || !p_ptClient->t_ptSsl || p_ptClient->t_bCleanupInProgress)
+        {
+            mutexUnlock(&p_ptClient->t_tTlsMutex);
+            return NETWORK_ERROR;
+        }
+
+        int l_iResult = wolfSSL_read(p_ptClient->t_ptSsl, p_buf, (int)p_size);
+        
+        if (l_iResult > (int)p_size)
+        {
+            // Force return a safe error value
+            mutexUnlock(&p_ptClient->t_tTlsMutex);
+            return NETWORK_ERROR;
+        }
+        
+        if (l_iResult <= 0)
+        {
+            int l_iError = wolfSSL_get_error(p_ptClient->t_ptSsl, l_iResult);
+            if (l_iError == WOLFSSL_ERROR_WANT_READ || l_iError == WOLFSSL_ERROR_WANT_WRITE)
+            {
+                // TLS needs more data - this is not a disconnection
+                mutexUnlock(&p_ptClient->t_tTlsMutex);
+                return NETWORK_TIMEOUT; // Return timeout to indicate retry needed
+            }
+            // Real error or disconnection
+            mutexUnlock(&p_ptClient->t_tTlsMutex);
+            return NETWORK_ERROR;
+        }
+        
+        // Final safety clamp - should never be needed but prevents any corruption
+        if (l_iResult > (int)p_size)
+        {
+            X_LOG_TRACE("DOUBLE PROTECTION: Clamping result from %d to %lu", l_iResult, p_size);
+            mutexUnlock(&p_ptClient->t_tTlsMutex);
+            return (int)p_size;
+        }
+        
+        mutexUnlock(&p_ptClient->t_tTlsMutex);
+        return l_iResult;
     }
-    return networkReceive(p_ptClient->t_ptSocket, p_buf, p_size);
+    
+    int l_iResult = networkReceive(p_ptClient->t_ptSocket, p_buf, p_size);
+    
+    // Detailed validation for networkReceive
+    if (l_iResult > (int)p_size)
+    {
+        X_LOG_TRACE("CRITICAL: networkReceive corruption detected!");
+        X_LOG_TRACE("  - Requested: %lu bytes", p_size);
+        X_LOG_TRACE("  - Returned: %d bytes", l_iResult);
+        X_LOG_TRACE("  - Client ID: %u", p_ptClient->t_tId);
+        X_LOG_TRACE("  - Socket fd: %d", p_ptClient->t_ptSocket ? p_ptClient->t_ptSocket->t_iSocketFd : -1);
+        
+        // Force return a safe error value
+        return NETWORK_ERROR;
+    }
+    
+    return l_iResult;
 }
 
 static int clientReceiveComplete(clientCtx *p_ptClient, uint8_t *p_pucBuffer, int p_iSize)
 {
+    // Input validation
+    if (p_ptClient == NULL || p_pucBuffer == NULL || p_iSize <= 0)
+    {
+        X_LOG_TRACE("Invalid parameters for clientReceiveComplete");
+        return NETWORK_ERROR;
+    }
+
+    // Sanity check on requested size
+    if (p_iSize > PROTOCOL_MAX_FRAME_SIZE)
+    {
+        X_LOG_TRACE("Requested size %d exceeds maximum frame size %d", p_iSize, PROTOCOL_MAX_FRAME_SIZE);
+        return NETWORK_ERROR;
+    }
+
     int l_iTotalReceived = 0;
     int l_iReceived;
+    int l_iRetryCount = 0;
+    const int MAX_TLS_RETRIES = 10; // Avoid infinite retry loops
+    const uint64_t RETRY_DELAY_NS = 1000000ULL; // 1ms in nanoseconds
 
     while (l_iTotalReceived < p_iSize)
     {
-        l_iReceived = clientReceiveData(p_ptClient, p_pucBuffer + l_iTotalReceived, (unsigned long)(p_iSize - l_iTotalReceived));
-        if (l_iReceived <= 0)
+        int l_iRequestedBytes = p_iSize - l_iTotalReceived;
+        l_iReceived = clientReceiveData(p_ptClient, p_pucBuffer + l_iTotalReceived, (unsigned long)l_iRequestedBytes);
+        
+        if (l_iReceived > 0)
         {
-            return l_iReceived; // error or disconnect
+            // Critical validation: ensure we don't receive more than requested
+            if (l_iReceived > l_iRequestedBytes)
+            {
+                X_LOG_TRACE("PROTOCOL VIOLATION: Received %d bytes but only requested %d", l_iReceived, l_iRequestedBytes);
+                return NETWORK_ERROR;
+            }
+            
+            l_iTotalReceived += l_iReceived;
+            l_iRetryCount = 0; // Reset retry counter on successful read
+            
+            // Additional sanity check
+            if (l_iTotalReceived > p_iSize)
+            {
+                X_LOG_TRACE("CRITICAL: Total received %d exceeds requested %d", l_iTotalReceived, p_iSize);
+                return NETWORK_ERROR;
+            }
         }
-        l_iTotalReceived += l_iReceived;
+        else if (l_iReceived == NETWORK_TIMEOUT)
+        {
+            // TLS WANT_READ/WANT_WRITE - retry with limit
+            l_iRetryCount++;
+            if (l_iRetryCount >= MAX_TLS_RETRIES)
+            {
+                X_LOG_TRACE("Too many TLS retries, aborting receive");
+                return NETWORK_ERROR;
+            }
+            
+            // Production-grade blocking delay - kernel managed precision
+            blockingDelayNs(RETRY_DELAY_NS);
+            continue;
+        }
+        else
+        {
+            // Error or disconnect
+            if (l_iReceived != NETWORK_ERROR)
+            {
+                X_LOG_TRACE("Receive error: %s", networkGetErrorString(l_iReceived));
+            }
+            return l_iReceived;
+        }
     }
+    
+    // Final validation
+    if (l_iTotalReceived != p_iSize)
+    {
+        X_LOG_TRACE("MISMATCH: Expected %d bytes, got %d bytes", p_iSize, l_iTotalReceived);
+        return NETWORK_ERROR;
+    }
+    
     return l_iTotalReceived;
 }

@@ -11,6 +11,62 @@
 #include "xNetwork.h"
 
 //////////////////////////////////
+/// Helper Functions
+//////////////////////////////////
+
+//////////////////////////////////
+/// applyTcpOptimizations
+//////////////////////////////////
+static void applyTcpOptimizations(int p_iSocketFd)
+{
+    // Disable Nagle's algorithm for low latency
+    int l_iNodelay = 1;
+    if (setsockopt(p_iSocketFd, IPPROTO_TCP, TCP_NODELAY, &l_iNodelay, sizeof(l_iNodelay)) < 0)
+    {
+        X_LOG_TRACE("Failed to set TCP_NODELAY with errno %d", errno);
+    }
+
+    // Set send buffer size
+    int l_iSendBufSize = NETWORK_OPT_TCP_SEND_BUFFER_SIZE;
+    if (setsockopt(p_iSocketFd, SOL_SOCKET, SO_SNDBUF, &l_iSendBufSize, sizeof(l_iSendBufSize)) < 0)
+    {
+        X_LOG_TRACE("Failed to set send buffer size with errno %d", errno);
+    }
+
+    // Set receive buffer size
+    int l_iRecvBufSize = NETWORK_OPT_TCP_RECV_BUFFER_SIZE;
+    if (setsockopt(p_iSocketFd, SOL_SOCKET, SO_RCVBUF, &l_iRecvBufSize, sizeof(l_iRecvBufSize)) < 0)
+    {
+        X_LOG_TRACE("Failed to set receive buffer size with errno %d", errno);
+    }
+}
+
+//////////////////////////////////
+/// setupSocketAddress
+//////////////////////////////////
+static int setupSocketAddress(const NetworkAddress *p_pAddress, struct sockaddr_in *p_pAddr)
+{
+    if (!p_pAddress || !p_pAddr)
+        return NETWORK_INVALID_PARAM;
+
+    memset(p_pAddr, 0, sizeof(*p_pAddr));
+    p_pAddr->sin_family = AF_INET;
+    p_pAddr->sin_port = HOST_TO_NET_SHORT(p_pAddress->t_usPort);
+
+    if (strlen(p_pAddress->t_cAddress) > 0)
+    {
+        if (inet_pton(AF_INET, p_pAddress->t_cAddress, &p_pAddr->sin_addr) <= 0)
+            return NETWORK_INVALID_PARAM;
+    }
+    else
+    {
+        p_pAddr->sin_addr.s_addr = INADDR_ANY;
+    }
+
+    return NETWORK_OK;
+}
+
+//////////////////////////////////
 /// Core API Implementation
 //////////////////////////////////
 
@@ -19,7 +75,7 @@
 //////////////////////////////////
 NetworkSocket *networkCreateSocket(int p_iType)
 {
-    // Allocate a new socket structure
+    // Allocate socket structure
     NetworkSocket *l_pSocket = (NetworkSocket *)malloc(sizeof(NetworkSocket));
     if (!l_pSocket)
     {
@@ -27,7 +83,7 @@ NetworkSocket *networkCreateSocket(int p_iType)
         return NULL;
     }
 
-    // Create the actual socket
+    // Create socket
     l_pSocket->t_iSocketFd = socket(AF_INET, p_iType, 0);
     if (l_pSocket->t_iSocketFd < 0)
     {
@@ -36,65 +92,25 @@ NetworkSocket *networkCreateSocket(int p_iType)
         return NULL;
     }
 
-    // Enable address reuse
+    // Set socket reuse option
     int l_iOption = 1;
     setsockopt(l_pSocket->t_iSocketFd, SOL_SOCKET, SO_REUSEADDR, &l_iOption, sizeof(l_iOption));
 
+    // Apply type-specific optimizations
     if (p_iType == NETWORK_SOCK_TCP)
     {
-        // Disable Nagle's algorithm for low latency
-        int l_iNodelay = 1;
-        if (setsockopt(l_pSocket->t_iSocketFd, IPPROTO_TCP, TCP_NODELAY, &l_iNodelay, sizeof(l_iNodelay)) < 0)
-        {
-            X_LOG_TRACE("networkCreateSocket: Failed to set TCP_NODELAY with errno %d", errno);
-            // Continue anyway, this is not fatal
-        }
-        else
-        {
-            X_LOG_TRACE("networkCreateSocket: TCP_NODELAY enabled for TCP socket");
-        }
-
-        // Increase send buffer size for better throughput
-        int l_iSendBufSize = NETWORK_OPT_TCP_SEND_BUFFER_SIZE;
-        if (setsockopt(l_pSocket->t_iSocketFd, SOL_SOCKET, SO_SNDBUF, &l_iSendBufSize, sizeof(l_iSendBufSize)) < 0)
-        {
-            X_LOG_TRACE("networkCreateSocket: Failed to set send buffer size with errno %d", errno);
-            // Continue anyway, this is not fatal
-        }
-        else
-        {
-            X_LOG_TRACE("networkCreateSocket: Send buffer size set to %d bytes", l_iSendBufSize);
-        }
-
-        // Increase receive buffer size for better throughput
-        int l_iRecvBufSize = NETWORK_OPT_TCP_RECV_BUFFER_SIZE;
-        if (setsockopt(l_pSocket->t_iSocketFd, SOL_SOCKET, SO_RCVBUF, &l_iRecvBufSize, sizeof(l_iRecvBufSize)) < 0)
-        {
-            X_LOG_TRACE("networkCreateSocket: Failed to set receive buffer size with errno %d", errno);
-            // Continue anyway, this is not fatal
-        }
-        else
-        {
-            X_LOG_TRACE("networkCreateSocket: Receive buffer size set to %d bytes", l_iRecvBufSize);
-        }
+        applyTcpOptimizations(l_pSocket->t_iSocketFd);
     }
-
-    // Enable broadcast for UDP sockets
-    if (p_iType == NETWORK_SOCK_UDP)
+    else if (p_iType == NETWORK_SOCK_UDP)
     {
-        int l_iBroadcastOpt = 1;
-        if (setsockopt(l_pSocket->t_iSocketFd, SOL_SOCKET, SO_BROADCAST, &l_iBroadcastOpt, sizeof(l_iBroadcastOpt)) < 0)
+        // Enable broadcast for UDP
+        if (setsockopt(l_pSocket->t_iSocketFd, SOL_SOCKET, SO_BROADCAST, &l_iOption, sizeof(l_iOption)) < 0)
         {
             X_LOG_TRACE("networkCreateSocket: Failed to set broadcast option with errno %d", errno);
-            // Continue anyway, this is not fatal
-        }
-        else
-        {
-            X_LOG_TRACE("networkCreateSocket: Broadcast option enabled for UDP socket");
         }
     }
 
-    // Set socket properties
+    // Initialize socket properties
     l_pSocket->t_iType = p_iType;
     l_pSocket->t_bConnected = false;
 
@@ -109,26 +125,22 @@ NetworkAddress networkMakeAddress(const char *p_ptcAddress, unsigned short p_usP
     NetworkAddress l_tAddress;
     memset(&l_tAddress, 0, sizeof(NetworkAddress));
 
-    // Check pointer parameters with assertions
     X_ASSERT(p_ptcAddress != NULL);
 
-    // Replace non-pointer assertions with condition checks
     if (p_usPort <= 0 || strlen(p_ptcAddress) == 0)
     {
-        // Return empty address on invalid parameters
-        return l_tAddress;
+        return l_tAddress; // Return empty address on invalid parameters
     }
 
-    l_tAddress.t_usPort = p_usPort; // Set port
+    l_tAddress.t_usPort = p_usPort;
 
-    // Validate IPv4 address format
+    // Validate and copy IPv4 address
     struct in_addr l_tAddr;
     if (inet_pton(AF_INET, p_ptcAddress, &l_tAddr) == 1)
     {
-        // Direct memory copy instead of strncpy for fixed-size fields
-        memcpy(l_tAddress.t_cAddress,
-               p_ptcAddress,
-               (strlen(p_ptcAddress) < INET_ADDRSTRLEN) ? strlen(p_ptcAddress) : INET_ADDRSTRLEN - 1);
+        size_t l_iLen = strlen(p_ptcAddress);
+        size_t l_iCopyLen = (l_iLen < INET_ADDRSTRLEN) ? l_iLen : INET_ADDRSTRLEN - 1;
+        memcpy(l_tAddress.t_cAddress, p_ptcAddress, l_iCopyLen);
     }
 
     return l_tAddress;
@@ -139,8 +151,7 @@ NetworkAddress networkMakeAddress(const char *p_ptcAddress, unsigned short p_usP
 //////////////////////////////////
 int networkBind(NetworkSocket *p_ptSocket, const NetworkAddress *p_pAddress)
 {
-    // Check pointers
-    if (!p_ptSocket || p_ptSocket->t_iSocketFd < 0)
+    if (!networkIsValidSocket(p_ptSocket))
     {
         X_LOG_TRACE("networkBind: Invalid socket");
         return NETWORK_INVALID_PARAM;
@@ -153,19 +164,9 @@ int networkBind(NetworkSocket *p_ptSocket, const NetworkAddress *p_pAddress)
     }
 
     struct sockaddr_in l_tAddr;
-    memset(&l_tAddr, 0, sizeof(l_tAddr));
-    l_tAddr.sin_family = AF_INET;
-    l_tAddr.sin_port = HOST_TO_NET_SHORT(p_pAddress->t_usPort);
-
-    if (strlen(p_pAddress->t_cAddress) > 0)
-    {
-        if (inet_pton(AF_INET, p_pAddress->t_cAddress, &l_tAddr.sin_addr) <= 0)
-            return NETWORK_INVALID_PARAM;
-    }
-    else
-    {
-        l_tAddr.sin_addr.s_addr = INADDR_ANY;
-    }
+    int l_iResult = setupSocketAddress(p_pAddress, &l_tAddr);
+    if (l_iResult != NETWORK_OK)
+        return l_iResult;
 
     if (bind(p_ptSocket->t_iSocketFd, (struct sockaddr *)&l_tAddr, sizeof(l_tAddr)) < 0)
     {
@@ -181,9 +182,9 @@ int networkBind(NetworkSocket *p_ptSocket, const NetworkAddress *p_pAddress)
 //////////////////////////////////
 int networkListen(NetworkSocket *p_ptSocket, int p_iBacklog)
 {
-    if (!p_ptSocket || p_ptSocket->t_iSocketFd < 0)
+    if (!networkIsValidSocket(p_ptSocket))
     {
-        X_LOG_TRACE("networkBind: Invalid socket");
+        X_LOG_TRACE("networkListen: Invalid socket");
         return NETWORK_INVALID_PARAM;
     }
 
@@ -203,13 +204,11 @@ int networkListen(NetworkSocket *p_ptSocket, int p_iBacklog)
 //////////////////////////////////
 NetworkSocket *networkAccept(NetworkSocket *p_ptSocket, NetworkAddress *p_pClientAddress)
 {
-    if (!p_ptSocket || p_ptSocket->t_iSocketFd < 0)
+    if (!networkIsValidSocket(p_ptSocket))
     {
         X_LOG_TRACE("networkAccept: Invalid socket");
         return NULL;
     }
-
-    X_LOG_TRACE("networkAccept: Accepting new connection on socket %d", p_ptSocket->t_iSocketFd);
 
     struct sockaddr_in l_tClientAddr;
     socklen_t l_iAddrLen = sizeof(l_tClientAddr);
@@ -228,11 +227,7 @@ NetworkSocket *networkAccept(NetworkSocket *p_ptSocket, NetworkAddress *p_pClien
         p_pClientAddress->t_usPort = NET_TO_HOST_SHORT(l_tClientAddr.sin_port);
     }
 
-    X_LOG_TRACE("networkAccept: Connection accepted from %s:%d",
-                p_pClientAddress ? p_pClientAddress->t_cAddress : "unknown",
-                p_pClientAddress ? p_pClientAddress->t_usPort : 0);
-
-    // Allocate socket for the new connection
+    // Create client socket structure
     NetworkSocket *l_pClientSocket = (NetworkSocket *)malloc(sizeof(NetworkSocket));
     if (!l_pClientSocket)
     {
@@ -241,36 +236,13 @@ NetworkSocket *networkAccept(NetworkSocket *p_ptSocket, NetworkAddress *p_pClien
         return NULL;
     }
 
-    // Configure client socket
     l_pClientSocket->t_iSocketFd = l_iClientFd;
     l_pClientSocket->t_iType = NETWORK_SOCK_TCP;
     l_pClientSocket->t_bConnected = true;
 
-    // Apply TCP optimizations to accepted client socket
-    // Disable Nagle's algorithm for low latency
-    int l_iNodelay = 1;
-    if (setsockopt(l_iClientFd, IPPROTO_TCP, TCP_NODELAY, &l_iNodelay, sizeof(l_iNodelay)) < 0)
-    {
-        X_LOG_TRACE("networkAccept: Failed to set TCP_NODELAY on client socket");
-        // Continue anyway, this is not fatal
-    }
+    // Apply TCP optimizations to client socket
+    applyTcpOptimizations(l_iClientFd);
 
-    // Increase send buffer size for better throughput
-    int l_iSendBufSize = NETWORK_OPT_TCP_SEND_BUFFER_SIZE;
-    if (setsockopt(l_iClientFd, SOL_SOCKET, SO_SNDBUF, &l_iSendBufSize, sizeof(l_iSendBufSize)) < 0)
-    {
-        X_LOG_TRACE("networkAccept: Failed to set send buffer size on client socket");
-        // Continue anyway, this is not fatal
-    }
-
-    // Increase receive buffer size for better throughput
-    int l_iRecvBufSize = NETWORK_OPT_TCP_RECV_BUFFER_SIZE;
-    if (setsockopt(l_iClientFd, SOL_SOCKET, SO_RCVBUF, &l_iRecvBufSize, sizeof(l_iRecvBufSize)) < 0)
-    {
-        X_LOG_TRACE("networkAccept: Failed to set receive buffer size on client socket");
-    }
-
-    X_LOG_TRACE("networkAccept: Connection successful");
     return l_pClientSocket;
 }
 
@@ -279,21 +251,14 @@ NetworkSocket *networkAccept(NetworkSocket *p_ptSocket, NetworkAddress *p_pClien
 //////////////////////////////////
 int networkConnect(NetworkSocket *p_ptSocket, const NetworkAddress *p_pAddress)
 {
-    if (!p_ptSocket || p_ptSocket->t_iSocketFd < 0)
-        return NETWORK_INVALID_PARAM;
-
-    if (!p_pAddress)
+    if (!networkIsValidSocket(p_ptSocket) || !p_pAddress)
         return NETWORK_INVALID_PARAM;
 
     struct sockaddr_in l_tAddr;
-    memset(&l_tAddr, 0, sizeof(l_tAddr));
-    l_tAddr.sin_family = AF_INET;
-    l_tAddr.sin_port = HOST_TO_NET_SHORT(p_pAddress->t_usPort);
+    int l_iResult = setupSocketAddress(p_pAddress, &l_tAddr);
+    if (l_iResult != NETWORK_OK)
+        return l_iResult;
 
-    if (inet_pton(AF_INET, p_pAddress->t_cAddress, &l_tAddr.sin_addr) <= 0)
-        return NETWORK_INVALID_PARAM;
-
-    X_LOG_TRACE("networkConnect: Connecting to %s:%d", p_pAddress->t_cAddress, p_pAddress->t_usPort);
     if (connect(p_ptSocket->t_iSocketFd, (struct sockaddr *)&l_tAddr, sizeof(l_tAddr)) < 0)
     {
         X_LOG_TRACE("networkConnect: TCP connection failed with error %d", errno);
@@ -302,7 +267,6 @@ int networkConnect(NetworkSocket *p_ptSocket, const NetworkAddress *p_pAddress)
     }
 
     p_ptSocket->t_bConnected = true;
-    X_LOG_TRACE("networkConnect: Connection successful");
     return NETWORK_OK;
 }
 
@@ -311,15 +275,13 @@ int networkConnect(NetworkSocket *p_ptSocket, const NetworkAddress *p_pAddress)
 //////////////////////////////////
 int networkSend(NetworkSocket *p_ptSocket, const void *p_pBuffer, unsigned long p_ulSize)
 {
-    // Fast parameter validation with early returns
-    if (!p_ptSocket || !p_pBuffer || p_ptSocket->t_iSocketFd < 0 || p_ulSize == 0)
+    if (!networkValidateSendRecvParams(p_ptSocket, p_pBuffer, p_ulSize))
     {
         return (p_ulSize == 0) ? 0 : NETWORK_INVALID_PARAM;
     }
 
     ssize_t l_iReturn = send(p_ptSocket->t_iSocketFd, p_pBuffer, p_ulSize, MSG_NOSIGNAL);
     
-    // Enhanced error handling with explicit EPIPE detection
     if (l_iReturn < 0)
     {
         if (errno == EPIPE)
@@ -338,15 +300,12 @@ int networkSend(NetworkSocket *p_ptSocket, const void *p_pBuffer, unsigned long 
 //////////////////////////////////
 int networkReceive(NetworkSocket *p_ptSocket, void *p_pBuffer, unsigned long p_ulSize)
 {
-    // Fast parameter validation - single check with early return
-    if (!p_ptSocket || !p_pBuffer || p_ptSocket->t_iSocketFd < 0 || p_ulSize == 0)
+    if (!networkValidateSendRecvParams(p_ptSocket, p_pBuffer, p_ulSize))
     {
         return (p_ulSize == 0) ? 0 : NETWORK_INVALID_PARAM;
     }
 
     ssize_t l_iReturn = recv(p_ptSocket->t_iSocketFd, p_pBuffer, p_ulSize, 0);
-    
-    // Simplified error handling
     return (l_iReturn < 0) ? NETWORK_ERROR : (int)l_iReturn;
 }
 
@@ -363,13 +322,11 @@ int networkCloseSocket(NetworkSocket *p_ptSocket)
 
     if (p_ptSocket->t_iSocketFd >= 0)
     {
-        X_LOG_TRACE("networkCloseSocket: Closing socket %d", p_ptSocket->t_iSocketFd);
         close(p_ptSocket->t_iSocketFd);
         p_ptSocket->t_iSocketFd = -1;
     }
 
     p_ptSocket->t_bConnected = false;
-
     free(p_ptSocket);
 
     return NETWORK_OK;
@@ -380,7 +337,7 @@ int networkCloseSocket(NetworkSocket *p_ptSocket)
 //////////////////////////////////
 int networkSetTimeout(NetworkSocket *p_ptSocket, int p_iTimeoutMs, bool p_bSendTimeout)
 {
-    if (!p_ptSocket || p_ptSocket->t_iSocketFd < 0)
+    if (!networkIsValidSocket(p_ptSocket))
         return NETWORK_INVALID_PARAM;
 
     struct timeval l_tTimeout;
@@ -400,22 +357,17 @@ int networkSetTimeout(NetworkSocket *p_ptSocket, int p_iTimeoutMs, bool p_bSendT
 //////////////////////////////////
 int networkWaitForActivity(NetworkSocket *p_ptSocket, int p_iTimeoutMs)
 {
-    // Fast parameter validation
-    if (!p_ptSocket || p_ptSocket->t_iSocketFd < 0)
-    {
+    if (!networkIsValidSocket(p_ptSocket))
         return NETWORK_INVALID_PARAM;
-    }
 
 #ifdef NETWORK_HAS_EPOLL
     // Use epoll for better performance on Linux
     int l_iEpollFd = epoll_create1(EPOLL_CLOEXEC);
     if (l_iEpollFd < 0)
-    {
         return NETWORK_ERROR;
-    }
 
     struct epoll_event l_tEvent;
-    l_tEvent.events = EPOLLIN | EPOLLET; // Edge-triggered for better performance
+    l_tEvent.events = EPOLLIN | EPOLLET;
     l_tEvent.data.fd = p_ptSocket->t_iSocketFd;
 
     if (epoll_ctl(l_iEpollFd, EPOLL_CTL_ADD, p_ptSocket->t_iSocketFd, &l_tEvent) < 0)
@@ -484,10 +436,7 @@ const char *networkGetErrorString(int p_iError)
 bool networkIsConnected(NetworkSocket *p_ptSocket)
 {
     if (!p_ptSocket)
-    {
-        X_LOG_TRACE("networkIsConnected: Invalid socket");
         return false;
-    }
 
     return p_ptSocket->t_bConnected;
 }
@@ -501,7 +450,6 @@ bool networkIsConnected(NetworkSocket *p_ptSocket)
 //////////////////////////////////
 int networkSendTo(NetworkSocket *p_ptSocket, const void *p_pBuffer, unsigned long p_ulSize, const NetworkAddress *p_pAddress)
 {
-    // Fast parameter validation with early returns
     if (!p_ptSocket || !p_pBuffer || !p_pAddress || 
         p_ptSocket->t_iSocketFd < 0 || p_ptSocket->t_iType != NETWORK_SOCK_UDP)
     {
@@ -509,23 +457,13 @@ int networkSendTo(NetworkSocket *p_ptSocket, const void *p_pBuffer, unsigned lon
     }
 
     if (p_ulSize == 0)
-    {
         return 0;
-    }
 
-    // Pre-build destination address structure (stack allocation, faster than malloc)
-    struct sockaddr_in l_tAddr = {
-        .sin_family = AF_INET,
-        .sin_port = HOST_TO_NET_SHORT(p_pAddress->t_usPort)
-    };
+    struct sockaddr_in l_tAddr;
+    int l_iResult = setupSocketAddress(p_pAddress, &l_tAddr);
+    if (l_iResult != NETWORK_OK)
+        return l_iResult;
 
-    // Validate and convert address in one step
-    if (inet_pton(AF_INET, p_pAddress->t_cAddress, &l_tAddr.sin_addr) <= 0)
-    {
-        return NETWORK_INVALID_PARAM;
-    }
-
-    // Direct sendto without mutex - UDP operations are atomic at kernel level
     ssize_t l_iReturn = sendto(p_ptSocket->t_iSocketFd, p_pBuffer, p_ulSize, MSG_NOSIGNAL, 
                           (struct sockaddr *)&l_tAddr, sizeof(l_tAddr));
 
@@ -537,7 +475,6 @@ int networkSendTo(NetworkSocket *p_ptSocket, const void *p_pBuffer, unsigned lon
 //////////////////////////////////
 int networkReceiveFrom(NetworkSocket *p_ptSocket, void *p_pBuffer, unsigned long p_ulSize, NetworkAddress *p_pAddress)
 {
-    // Fast parameter validation with early returns
     if (!p_ptSocket || !p_pBuffer || p_ptSocket->t_iSocketFd < 0 || 
         p_ptSocket->t_iType != NETWORK_SOCK_UDP)
     {
@@ -545,22 +482,17 @@ int networkReceiveFrom(NetworkSocket *p_ptSocket, void *p_pBuffer, unsigned long
     }
 
     if (p_ulSize == 0)
-    {
         return 0;
-    }
 
     struct sockaddr_in l_tSenderAddr;
     socklen_t l_iAddrLen = sizeof(l_tSenderAddr);
 
-    // Direct recvfrom without mutex - UDP operations are atomic at kernel level
     ssize_t l_iReturn = recvfrom(p_ptSocket->t_iSocketFd, p_pBuffer, p_ulSize, 0, 
                             (struct sockaddr *)&l_tSenderAddr, &l_iAddrLen);
-    int l_iErrno = errno; // Capture errno immediately after syscall
+    int l_iErrno = errno;
 
-    // Handle errors and success outside critical section
     if (l_iReturn < 0)
     {
-        // Only treat real errors as NETWORK_ERROR, not EAGAIN/EWOULDBLOCK
         return (l_iErrno != EAGAIN && l_iErrno != EWOULDBLOCK) ? NETWORK_ERROR : (int)l_iReturn;
     }
 
@@ -581,57 +513,39 @@ int networkReceiveFrom(NetworkSocket *p_ptSocket, void *p_pBuffer, unsigned long
 int networkWaitForMultipleActivity(NetworkSocket **p_pptSockets, int p_iNumSockets, 
                                    int *p_piReadySocket, int p_iTimeoutMs)
 {
-    // Parameter validation
     if (!p_pptSockets || p_iNumSockets <= 0 || p_iNumSockets > NETWORK_MAX_SOCKETS || !p_piReadySocket)
-    {
         return NETWORK_INVALID_PARAM;
-    }
 
-    *p_piReadySocket = -1; // Initialize to "no socket ready"
+    *p_piReadySocket = -1;
 
-    // Create epoll instance
     int l_iEpollFd = epoll_create1(EPOLL_CLOEXEC);
     if (l_iEpollFd < 0)
-    {
         return NETWORK_ERROR;
-    }
 
-    // Add all sockets to epoll
+    // Add all valid sockets to epoll
     for (int i = 0; i < p_iNumSockets; i++)
     {
-        if (!p_pptSockets[i] || p_pptSockets[i]->t_iSocketFd < 0)
-        {
-            continue; // Skip invalid sockets
-        }
+        if (!networkIsValidSocket(p_pptSockets[i]))
+            continue;
 
         struct epoll_event l_tEvent;
-        l_tEvent.events = EPOLLIN | EPOLLET; // Edge-triggered for performance
-        l_tEvent.data.u32 = (uint32_t)i; // Store socket index for quick lookup
+        l_tEvent.events = EPOLLIN | EPOLLET;
+        l_tEvent.data.u32 = (uint32_t)i;
 
-        if (epoll_ctl(l_iEpollFd, EPOLL_CTL_ADD, p_pptSockets[i]->t_iSocketFd, &l_tEvent) < 0)
-        {
-            // Continue with other sockets if one fails
-            continue;
-        }
+        epoll_ctl(l_iEpollFd, EPOLL_CTL_ADD, p_pptSockets[i]->t_iSocketFd, &l_tEvent);
     }
 
-    // Wait for events
     struct epoll_event l_atResults[NETWORK_MAX_SOCKETS];
     int l_iNumEvents = epoll_wait(l_iEpollFd, l_atResults, p_iNumSockets, p_iTimeoutMs);
     
     close(l_iEpollFd);
 
     if (l_iNumEvents < 0)
-    {
         return NETWORK_ERROR;
-    }
     
     if (l_iNumEvents == 0)
-    {
         return NETWORK_TIMEOUT;
-    }
 
-    // Return the first ready socket (in practice, this is usually sufficient)
     *p_piReadySocket = (int)l_atResults[0].data.u32;
     return NETWORK_OK;
 }

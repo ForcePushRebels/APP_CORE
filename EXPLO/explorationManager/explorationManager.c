@@ -12,6 +12,7 @@
 #include "xAssert.h"
 #include "xLog.h"
 #include "xOsMemory.h"
+#include "xServer.h"
 #include "xTimer.h"
 #include <stdatomic.h>
 #include <string.h>
@@ -188,7 +189,7 @@ void pilot_callback_exploration(void *arg)
 /// @param p_ptClient The client context
 /// @param p_ptMessage The message
 ////////////////////////////////////////////////////////////
-static void handleMissionControl(clientCtx *p_ptClient, const network_message_t *p_ptMessage)
+static void handleMissionControl(struct clientCtx *p_ptClient, const network_message_t *p_ptMessage)
 {
     X_ASSERT(p_ptClient != NULL);
     X_ASSERT(p_ptMessage != NULL);

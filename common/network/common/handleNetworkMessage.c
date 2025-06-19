@@ -8,7 +8,7 @@
 
 #include "handleNetworkMessage.h"
 #include "networkEncode.h"
-#include "networkServer.h"
+#include "xServer.h"
 #include "xAssert.h"
 #include "xLog.h"
 #include <stdlib.h>
@@ -22,7 +22,7 @@ static bool s_abInitialized = false; // Initialization flag
 ///////////////////////////////////////////
 /// handleUnknownMessage
 ///////////////////////////////////////////
-static void handleUnknownMessage(clientCtx *p_ptClient, const network_message_t *p_ptMessage)
+static void handleUnknownMessage(struct clientCtx *p_ptClient, const network_message_t *p_ptMessage)
 {
     (void)p_ptClient;
     X_LOG_TRACE("Unhandled message type: 0x%02X", p_ptMessage->t_iHeader[0]);
@@ -156,7 +156,7 @@ static inline message_handler_t findMessageHandler(uint8_t p_ucMessageType)
 ///////////////////////////////////////////
 /// handleNetworkMessage
 ///////////////////////////////////////////
-void handleNetworkMessage(clientCtx *p_ptClient, const network_message_t *p_ptMessage)
+void handleNetworkMessage(struct clientCtx *p_ptClient, const network_message_t *p_ptMessage)
 {
     // Validate input parameters
     if (p_ptClient == NULL)
@@ -171,16 +171,6 @@ void handleNetworkMessage(clientCtx *p_ptClient, const network_message_t *p_ptMe
         return;
     }
 
-    char clientAddress[64];
-    bool l_bAddressValid
-        = networkServerGetClientAddress(networkServerGetClientID(p_ptClient), clientAddress, sizeof(clientAddress));
-
-    /*
-    X_LOG_TRACE("Received message from %s: type=0x%02X, size=%u bytes",
-                l_bAddressValid ? clientAddress : "UNKNOWN",
-                p_ptMessage->t_iHeader[0],
-                p_ptMessage->t_iPayloadSize);
-    */
     uint8_t l_ucMsgType = p_ptMessage->t_iHeader[0];
 
     // find the handler for this type of message

@@ -11,6 +11,7 @@
 #include "supervisor.h"
 #include "xLog.h"
 #include "xNetwork.h"
+#include "xServer.h"
 #include "xTask.h"
 #include <arpa/inet.h>
 #include <ifaddrs.h>
@@ -147,43 +148,30 @@ int createManifest(manifest_t *p_ptManifest)
 ///////////////////////////////////////////
 /// handleIsAnyRobotHere
 ///////////////////////////////////////////
-static void isAnyRobotHereHandle(clientCtx *p_ptClient, const network_message_t *p_ptMessage)
+static void isAnyRobotHereHandle(struct clientCtx *p_ptClient, const network_message_t *p_ptMessage)
 {
     (void)p_ptMessage; // unused argument avoid warning
 
     manifest_t l_sManifest = {0};
     int l_iReturn = 0;                                                          // return value
-    uint8_t l_ucSendBuffer[3 + sizeof(manifest_t)];                             // buffer to send the manifest
-    size_t totalSize = sizeof(uint16_t) + sizeof(uint8_t) + sizeof(manifest_t); // total size of the message
-    NetworkAddress l_tSenderAddr;                                               // sender address
 
     // create the manifest
     l_iReturn = createManifest(&l_sManifest);
     X_ASSERT(l_iReturn == 0);
 
     // get client id from the message
-    ClientID l_tClientId = networkServerGetClientID(p_ptClient);
+    ClientID l_tClientId = xServerGetClientID(p_ptClient);
 
-    l_iReturn = networkServerSendMessage(l_tClientId, ID_MANIFEST, &l_sManifest, sizeof(manifest_t));
+    l_iReturn = xServerSendMessage(l_tClientId, ID_MANIFEST, &l_sManifest, sizeof(manifest_t));
 
     if (l_iReturn < 0)
     {
-        X_LOG_TRACE("Failed to send manifest: %s", networkGetErrorString(l_iReturn));
+        X_LOG_TRACE("Failed to send manifest: %s", xServerGetErrorString(l_iReturn));
     }
     else
     {
         X_LOG_TRACE("Successfully sent manifest response (%d bytes)", sizeof(manifest_t));
         
-        // Register this client as the Android client for supervisor communication
-        int l_iSetResult = networkServerSetAndroidClient(l_tClientId);
-        if (l_iSetResult == SERVER_OK)
-        {
-            X_LOG_TRACE("Client %u registered as Android client", l_tClientId);
-        }
-        else
-        {
-            X_LOG_TRACE("Failed to register Android client %u: %s", l_tClientId, networkServerGetErrorString(l_iSetResult));
-        }
         
         supervisor_send_full_map(l_tClientId);
         supervisor_start();
@@ -200,7 +188,18 @@ void *handleIsAnyRobotHere(void *p_pvArg)
     int l_iReturn = 0;
     uint8_t l_ucBuffer[64]; // Changed to uint8_t and increased size for binary data
     manifest_t l_sManifest = {0};
+    
+    // Calculate required buffer size and ensure it fits
+    size_t l_ulRequiredSize = sizeof(uint16_t) + sizeof(uint8_t) + sizeof(manifest_t);
     uint8_t l_ucSendBuffer[3 + sizeof(manifest_t)];
+    
+    // Safety check: ensure our buffer is large enough
+    if (l_ulRequiredSize > sizeof(l_ucSendBuffer))
+    {
+        X_LOG_TRACE("ERROR: Send buffer too small (%zu bytes needed, %zu available)", 
+                   l_ulRequiredSize, sizeof(l_ucSendBuffer));
+        return NULL;
+    }
 
     // ensure the buffer is clean
     memset(l_ucSendBuffer, 0, sizeof(l_ucSendBuffer));
@@ -219,6 +218,7 @@ void *handleIsAnyRobotHere(void *p_pvArg)
     {
         X_LOG_TRACE("Failed to bind socket: %s", networkGetErrorString(l_iReturn));
         networkCloseSocket(l_ptSocket);
+        return NULL;
     }
 
     // prepare the manifest
@@ -237,8 +237,18 @@ void *handleIsAnyRobotHere(void *p_pvArg)
     // write the message type (1 byte)
     *ptr++ = ID_MANIFEST;
 
-    // copy the manifest to the buffer
-    memcpy(ptr, &l_sManifest, sizeof(manifest_t));
+    // copy the manifest to the buffer with bounds checking
+    size_t l_ulRemainingSpace = sizeof(l_ucSendBuffer) - (ptr - l_ucSendBuffer);
+    if (sizeof(manifest_t) <= l_ulRemainingSpace)
+    {
+        memcpy(ptr, &l_sManifest, sizeof(manifest_t));
+    }
+    else
+    {
+        X_LOG_TRACE("ERROR: Manifest size exceeds remaining buffer space");
+        networkCloseSocket(l_ptSocket);
+        return NULL;
+    }
 
     while (atomic_load(&s_xTaskHandle.a_iStopFlag) == OS_TASK_SECURE_FLAG)
     {
@@ -254,9 +264,8 @@ void *handleIsAnyRobotHere(void *p_pvArg)
             {
                 X_LOG_TRACE("Received valid robot discovery request (0x%02X)", l_ucBuffer[0]);
 
-                size_t totalSize = sizeof(uint16_t) + sizeof(uint8_t) + sizeof(manifest_t);
-
-                l_iReturn = networkSendTo(l_ptSocket, l_ucSendBuffer, totalSize, &l_tSenderAddr);
+                // Use the pre-calculated size for consistency and safety
+                l_iReturn = networkSendTo(l_ptSocket, l_ucSendBuffer, l_ulRequiredSize, &l_tSenderAddr);
 
                 if (l_iReturn < 0)
                 {
@@ -335,4 +344,14 @@ void idCardNetworkInit(void)
 RobotType_t idCardGetRole()
 {
     return s_iRole;
+}
+
+///////////////////////////////////////////
+/// idCardNetworkCleanup
+///////////////////////////////////////////
+void idCardNetworkCleanup(void)
+{
+    unregisterMessageHandler(ID_IS_ANY_ROBOT_HERE);
+
+    osTaskStop(&s_xTaskHandle, 3000);
 }

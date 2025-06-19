@@ -10,7 +10,7 @@
 #define SUPERVISOR_H
 
 #include "networkEncode.h"
-#include "networkServer.h"
+#include "xServer.h"
 #include "xAssert.h"
 #include "xLog.h"
 #include "xOsMemory.h"

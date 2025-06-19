@@ -18,7 +18,7 @@
 #include "idCard.h"
 #include "map_engine.h"
 #include "motorControl.h"
-#include "networkServer.h"
+#include "xServer.h"
 #include "pilot.h"
 #include "positionControl.h"
 #include "safetyController.h"
@@ -118,13 +118,9 @@ int main()
     // Initialisation du système de handlers de messages
     initMessageHandlerSystem();
 
-    ServerConfig l_tServerConfig = networkServerCreateDefaultConfig();
+    ServerConfig l_tServerConfig = xServerCreateDefaultConfig();
     l_tServerConfig.t_usPort = 8080;
-    l_tServerConfig.t_pcBindAddress = "0.0.0.0";
-    l_tServerConfig.t_iMaxClients = 10;
-    l_tServerConfig.t_iBacklog = 5;
-    l_tServerConfig.t_bUseTimeout = false;
-    l_tServerConfig.t_iReceiveTimeout = 0;
+    l_tServerConfig.t_bUseTls = true;
 
     // Configurer et initialiser la découverte UDP
     idCardNetworkInit();
@@ -153,14 +149,14 @@ int main()
     X_LOG_TRACE("Pilot initialized");
 
     // init server
-    l_iReturn = networkServerInit();
+    l_iReturn = xServerInit();
     X_ASSERT(l_iReturn == SERVER_OK);
 
-    l_iReturn = networkServerConfigure(&l_tServerConfig);
+    l_iReturn = xServerConfigure(&l_tServerConfig);
     X_ASSERT(l_iReturn == SERVER_OK);
 
     // start server
-    l_iReturn = networkServerStart();
+    l_iReturn = xServerStart();
     X_ASSERT(l_iReturn == SERVER_OK);
     X_LOG_TRACE("Server started");
 
@@ -179,19 +175,15 @@ int main()
     explorationManager_start();
     X_LOG_TRACE("Exploration manager initialized");
 
-    while (1)
-    {
-        sleep(1);
-    }
-
+    pause();
 
     hardwareAbstractionClose();
     motor_control_shutdown();
     position_control_shutdown();
     cleanupMessageHandlerSystem();
     idCardNetworkCleanup();
-    networkServerStop();
-    networkServerCleanup();
+    xServerStop();
+    xServerCleanup();
 
     return 0;
 }

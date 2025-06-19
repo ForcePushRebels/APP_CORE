@@ -18,6 +18,7 @@
 #include "sensorManager.h"
 #include "xAssert.h"
 #include "xLog.h"
+#include "xServer.h"
 
 ///////////////////////////////////////////
 /// @brief Movement type

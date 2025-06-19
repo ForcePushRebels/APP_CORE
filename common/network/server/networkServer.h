@@ -6,6 +6,8 @@
 // Written : 18/04/2025
 ////////////////////////////////////////////////////////////
 
+/*
+
 #ifndef NETWORK_SERVER_H
 #define NETWORK_SERVER_H
 
@@ -211,4 +213,4 @@ int networkServerSetAndroidClient(ClientID p_tClientId);
 ///////////////////////////////////////////
 ClientID networkServerGetAndroidClient(void);
 
-#endif // NETWORK_SERVER_H
+#endif // NETWORK_SERVER_H*/

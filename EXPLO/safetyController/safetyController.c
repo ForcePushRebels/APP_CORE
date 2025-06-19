@@ -14,7 +14,7 @@ static atomic_bool s_bAutorizedMovement = ATOMIC_VAR_INIT(false);
 ///////////////////////////////////////////
 /// setMovementHandle
 ///////////////////////////////////////////
-static void setMovementHandle(clientCtx *p_ptClient, const network_message_t *p_ptMessage)
+static void setMovementHandle(struct clientCtx *p_ptClient, const network_message_t *p_ptMessage)
 {
     (void)p_ptClient; // unused parameter
 

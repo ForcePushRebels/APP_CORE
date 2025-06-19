@@ -10,12 +10,14 @@
 #define HANDLE_NETWORK_MESSAGE_H_
 
 #include "networkEncode.h"
-#include "networkServer.h"
+
+// Forward declaration to avoid circular dependencies  
+struct clientCtx;
 
 ///////////////////////////////////////////
 /// @brief Definition of the type for the message handling functions
 ///////////////////////////////////////////
-typedef void (*message_handler_t)(clientCtx *p_ptClient, const network_message_t *p_ptMessage);
+typedef void (*message_handler_t)(struct clientCtx *p_ptClient, const network_message_t *p_ptMessage);
 
 ///////////////////////////////////////////
 /// @brief Register a handler for a specific message type
@@ -44,7 +46,7 @@ void unregisterMessageHandler(uint8_t p_ucMessageType);
 /// @param client Client context
 /// @param message Network message to handle
 ///////////////////////////////////////////
-void handleNetworkMessage(clientCtx *p_ptClient, const network_message_t *p_ptMessage);
+void handleNetworkMessage(struct clientCtx *p_ptClient, const network_message_t *p_ptMessage);
 
 ///////////////////////////////////////////
 /// @brief Initialize message handler system

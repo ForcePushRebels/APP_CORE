@@ -272,7 +272,7 @@ add_compile_definitions(
 
 # Debug/Release build type
 if(DEBUG)
-    add_compile_options(-Og -g)
+    add_compile_options(-Og -g -gdwarf-4)
     add_compile_definitions(DEBUG)
 else()
     add_compile_options(-O2)

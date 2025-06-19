@@ -15,7 +15,7 @@
 #include "handleNetworkMessage.h"
 #include "hardwareAbstraction.h"
 #include "idCard.h"
-#include "networkServer.h"
+#include "xServer.h"
 #include "sensorManager.h"
 #include "watchdog.h"
 #include "xAssert.h"
@@ -105,18 +105,14 @@ int main()
     initMessageHandlerSystem();
 
     // init server
-    l_iReturn = networkServerInit();
+    l_iReturn = xServerInit();
     X_ASSERT(l_iReturn == SERVER_OK);
 
-    ServerConfig l_tServerConfig = networkServerCreateDefaultConfig();
+    ServerConfig l_tServerConfig = xServerCreateDefaultConfig();
     l_tServerConfig.t_usPort = 8080;
-    l_tServerConfig.t_pcBindAddress = "0.0.0.0";
-    l_tServerConfig.t_iMaxClients = 10;
-    l_tServerConfig.t_iBacklog = 5;
-    l_tServerConfig.t_bUseTimeout = false;
-    l_tServerConfig.t_iReceiveTimeout = 0;
+    l_tServerConfig.t_bUseTls = true;
 
-    l_iReturn = networkServerConfigure(&l_tServerConfig);
+    l_iReturn = xServerConfigure(&l_tServerConfig);
     X_ASSERT(l_iReturn == SERVER_OK);
 
     // Configurer et initialiser la découverte UDP
@@ -131,7 +127,7 @@ int main()
     X_ASSERT(l_iReturn == SENSOR_MANAGER_OK);
 
     // start server
-    l_iReturn = networkServerStart();
+    l_iReturn = xServerStart();
     X_ASSERT(l_iReturn == SERVER_OK);
 
 
@@ -148,8 +144,8 @@ int main()
     // Ce code ne sera jamais atteint, mais pour être complet:
     cleanupMessageHandlerSystem();
     idCardNetworkCleanup();
-    networkServerStop();
-    networkServerCleanup();
+    xServerStop();
+    xServerCleanup();
 
     return 0;
 }

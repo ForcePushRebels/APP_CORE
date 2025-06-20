@@ -143,6 +143,12 @@ int osTaskCreate(xOsTaskCtx *p_pttOSTask)
         return OS_TASK_ERROR_CREATE_FAILED;
     }
 
+    // Set thread name for debugging if specified
+    if (p_pttOSTask->t_acTaskName[0] != '\0')
+    {
+        pthread_setname_np(p_pttOSTask->t_tHandle, p_pttOSTask->t_acTaskName);
+    }
+
     p_pttOSTask->t_iState = OS_TASK_STATUS_RUNNING;
     p_pttOSTask->t_iId = (int)(uintptr_t)p_pttOSTask->t_tHandle;
 

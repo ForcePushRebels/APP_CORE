@@ -73,7 +73,7 @@ typedef enum
 #define OS_TASK_DEFAULT_PRIORITY 0   // Normal priority (nice 0)
 #endif
 
-// Default stack size: 8 MB
+// Default stack size: define by the system
 #define OS_TASK_DEFAULT_STACK_SIZE PTHREAD_STACK_MIN
 
 //////////////////////////////////
@@ -90,6 +90,7 @@ typedef struct xos_task_ctx_t
     int t_iExitCode;           // Task exit code
     pthread_t t_tHandle;       // pthread thread handle
     atomic_int a_iStopFlag;    // Stop request flag for graceful shutdown
+    char t_acTaskName[32];     // Task name for debugging (max 31 chars + null terminator)
 #ifdef OS_USE_RT_SCHEDULING
     struct sched_param t_sched_param; // Scheduling parameters
     t_SchedPolicy t_policy;           // Scheduling policy

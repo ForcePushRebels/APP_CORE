@@ -241,6 +241,7 @@ int xServerStart(void)
     
     s_tServer.t_tServerTask.t_ptTask = serverMainThread;
     s_tServer.t_tServerTask.t_ptTaskArg = &s_tServer;
+    strncpy(s_tServer.t_tServerTask.t_acTaskName, "xServer", sizeof(s_tServer.t_tServerTask.t_acTaskName) - 1);
     
     if (osTaskCreate(&s_tServer.t_tServerTask) != OS_TASK_SUCCESS)
     {
@@ -530,6 +531,7 @@ static int handleNewConnection(NetworkSocket *p_ptClientSocket, const NetworkAdd
     
     l_ptClient->t_tClientTask.t_ptTask = clientThread;
     l_ptClient->t_tClientTask.t_ptTaskArg = l_ptClient;
+    snprintf(l_ptClient->t_tClientTask.t_acTaskName, sizeof(l_ptClient->t_tClientTask.t_acTaskName), "client_%u", l_ptClient->t_tId);
     
     if (osTaskCreate(&l_ptClient->t_tClientTask) != OS_TASK_SUCCESS)
     {

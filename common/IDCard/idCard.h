@@ -9,7 +9,7 @@
 #ifndef IDCARD_H_
 #define IDCARD_H_
 
-#include "networkServer.h"
+
 #include "networkEncode.h"
 #include "xAssert.h"
 #include "xLog.h"

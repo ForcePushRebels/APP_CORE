@@ -18,11 +18,13 @@
 #include "stdint.h"
 
 #define SENSOR_MANAGER_SENSORS_COUNT 3
-#define SENSOR_MAX_RAW_VALUE 188
-#define SENSOR_MAX_MM_VALUE 320
 
-#define SENSOR_MIN_RAW_VALUE 24
-#define SENSOR_MIN_MM_VALUE 12
+
+#define SENSOR_MAX_RAW_VALUE 254
+#define SENSOR_MAX_MM_VALUE 250
+
+#define SENSOR_MIN_RAW_VALUE 12
+#define SENSOR_MIN_MM_VALUE 0
 ////////////////////////////////////////////////////////////
 /// @brief Sensor manager structure
 ////////////////////////////////////////////////////////////

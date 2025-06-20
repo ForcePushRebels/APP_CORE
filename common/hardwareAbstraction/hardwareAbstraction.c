@@ -20,7 +20,7 @@ static bool t_bHardwareAbstractionInitialized = false;
 ////////////////////////////////////////////////////////////
 //  hardwareAbstractionInit
 ////////////////////////////////////////////////////////////
-int hardwareAbstractionInit()
+int hardwareAbstractionInit(void)
 {
     X_LOG_TRACE("Initialise hardware abstraction layer with MrPiz");
     int l_iReturn = 0;
@@ -43,9 +43,9 @@ int hardwareAbstractionInit()
     mrpiz_proxy_sensor_id l_tAvailableSensors[] = 
     {
         MRPIZ_PROXY_SENSOR_FRONT_LEFT,
-        MRPIZ_PROXY_SENSOR_FRONT_CENTER_LEFT,
+        //MRPIZ_PROXY_SENSOR_FRONT_CENTER_LEFT, //not available on the robot
         MRPIZ_PROXY_SENSOR_FRONT_CENTER,
-        MRPIZ_PROXY_SENSOR_FRONT_CENTER_RIGHT,
+        //MRPIZ_PROXY_SENSOR_FRONT_CENTER_RIGHT, //not available on the robot
         MRPIZ_PROXY_SENSOR_FRONT_RIGHT
     };
 
@@ -58,7 +58,7 @@ int hardwareAbstractionInit()
             // This sensor is available, add it to our configuration
             if (l_iSensorCount < HARDWARE_ABSTRACTION_MAX_SENSORS)
             {
-                t_HardwareAbstraction.t_iSensors[l_iSensorCount] = l_tAvailableSensors[l_uIndex];
+                t_HardwareAbstraction.t_iSensors[l_iSensorCount] = (uint16_t)l_tAvailableSensors[l_uIndex];
                 l_iSensorCount++;
                 X_LOG_TRACE("Sensor %d available", l_tAvailableSensors[l_uIndex]);
             }

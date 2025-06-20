@@ -9,7 +9,7 @@
 #ifndef IDCARD_H_
 #define IDCARD_H_
 
-#include "networkServer.h"
+
 #include "networkEncode.h"
 #include "xAssert.h"
 #include "xLog.h"
@@ -67,6 +67,6 @@ void idCardNetworkCleanup(void);
 ///////////////////////////////////////////
 /// @brief Get the role of the robot
 ///////////////////////////////////////////
-RobotType_t idCardGetRole();
+RobotType_t idCardGetRole(void);
 
 #endif // IDCARD_H_

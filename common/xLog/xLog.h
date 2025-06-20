@@ -39,6 +39,16 @@ typedef struct
     char t_cLogPath[XOS_LOG_PATH_SIZE]; // Log filename (full path will be auto-constructed with executable directory)
 } t_logCtx;
 
+// Log severity levels
+typedef enum {
+    XOS_LOG_LEVEL_TRACE = 0,
+    XOS_LOG_LEVEL_DEBUG = 1,
+    XOS_LOG_LEVEL_INFO = 2,
+    XOS_LOG_LEVEL_WARN = 3,
+    XOS_LOG_LEVEL_ERROR = 4,
+    XOS_LOG_LEVEL_FATAL = 5
+} t_logLevel;
+
 //////////////////////////////////
 /// @brief Initialize logging system
 /// @param p_ptConfig : log configuration
@@ -61,8 +71,16 @@ int xLogWrite(const char *p_ptkcFile, uint32_t p_ulLine, const char *p_ptkcForma
 //////////////////////////////////
 int xLogClose(void);
 
-// Log macros
+// Enhanced log macros with severity levels and proper color handling
+#define X_LOG_DEBUG(msg, ...) xLogWrite(__FILE__, __LINE__, "\033[36m[DEBUG] " msg "\033[0m", ##__VA_ARGS__)
+#define X_LOG_INFO(msg, ...) xLogWrite(__FILE__, __LINE__, "\033[32m[INFO] " msg "\033[0m", ##__VA_ARGS__)
+#define X_LOG_WARN(msg, ...) xLogWrite(__FILE__, __LINE__, "\033[33m[WARN] " msg "\033[0m", ##__VA_ARGS__)
+#define X_LOG_ERROR(msg, ...) xLogWrite(__FILE__, __LINE__, "\033[31m[ERROR] " msg "\033[0m", ##__VA_ARGS__)
+#define X_LOG_FATAL(msg, ...) xLogWrite(__FILE__, __LINE__, "\033[35m[FATAL] " msg "\033[0m", ##__VA_ARGS__)
+
+// Legacy macro (keep for compatibility)
 #define X_LOG_TRACE(msg, ...) xLogWrite(__FILE__, __LINE__, "TRACE | " msg, ##__VA_ARGS__)
 #define X_LOG_ASSERT(msg, ...) xLogWrite(__FILE__, __LINE__, "ASSERT | " msg, ##__VA_ARGS__)
+
 
 #endif // XOS_LOG_H_

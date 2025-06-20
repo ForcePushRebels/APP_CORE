@@ -29,7 +29,7 @@ uint32_t compute_crc32(const uint8_t *p_ptcData, unsigned long p_ulLength)
     uLong crc = crc32(0L, Z_NULL, 0);
     
     // Calcul du CRC en utilisant la fonction zlib
-    crc = crc32(crc, p_ptcData, p_ulLength);
+    crc = crc32(crc, p_ptcData, (unsigned int)p_ulLength);
     
     return (uint32_t)crc;
 }

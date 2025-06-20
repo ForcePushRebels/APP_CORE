@@ -8,19 +8,19 @@
 
 // system includes
 #include <stdio.h>
-#include <unistd.h>
 #include <string.h>
+#include <unistd.h>
 
 // project includes
-#include "hardwareAbstraction.h"
-#include "xNetwork.h"
-#include "xLog.h"
-#include "xAssert.h"
-#include "watchdog.h"
-#include "networkServer.h"
 #include "handleNetworkMessage.h"
+#include "hardwareAbstraction.h"
 #include "idCard.h"
+#include "xServer.h"
 #include "sensorManager.h"
+#include "watchdog.h"
+#include "xAssert.h"
+#include "xLog.h"
+#include "xNetwork.h"
 
 static const uint8_t s_aCLogPath[] = "inter.log";
 
@@ -35,9 +35,9 @@ static const uint8_t s_aCLogPath[] = "inter.log";
 void blinkLed(mrpiz_led_rgb_color_t t_eColor, int t_iDurationMs)
 {
     SetLedColor(t_eColor);
-    usleep(t_iDurationMs * 1000);
+    usleep((unsigned int)t_iDurationMs * 1000);
     SetLedColor(MRPIZ_LED_OFF);
-    usleep(PAUSE_SIGNAL * 1000);
+    usleep((unsigned int)PAUSE_SIGNAL * 1000);
 }
 
 // Fonction pour envoyer un SOS en morse avec différentes couleurs
@@ -85,7 +85,7 @@ int main()
     t_logCtx t_LogConfig;
     t_LogConfig.t_bLogToFile = true;
     t_LogConfig.t_bLogToConsole = true;
-    strncpy(t_LogConfig.t_cLogPath, (const char*)s_aCLogPath, sizeof(t_LogConfig.t_cLogPath) - 1);
+    strncpy(t_LogConfig.t_cLogPath, (const char *)s_aCLogPath, sizeof(t_LogConfig.t_cLogPath) - 1);
     t_LogConfig.t_cLogPath[sizeof(t_LogConfig.t_cLogPath) - 1] = '\0';
 
     // initialisation des logs
@@ -105,22 +105,15 @@ int main()
     initMessageHandlerSystem();
 
     // init server
-    l_iReturn = networkServerInit();
+    l_iReturn = xServerInit();
     X_ASSERT(l_iReturn == SERVER_OK);
 
-    ServerConfig l_tServerConfig = networkServerCreateDefaultConfig();
+    ServerConfig l_tServerConfig = xServerCreateDefaultConfig();
     l_tServerConfig.t_usPort = 8080;
-    l_tServerConfig.t_pcBindAddress = "127.0.0.1";
-    l_tServerConfig.t_iMaxClients = 10;
-    l_tServerConfig.t_iBacklog = 5;
-    l_tServerConfig.t_bUseTimeout = false;
-    l_tServerConfig.t_iReceiveTimeout = 0;
+    l_tServerConfig.t_bUseTls = true;
 
-    l_iReturn = networkServerConfigure(&l_tServerConfig);
+    l_iReturn = xServerConfigure(&l_tServerConfig);
     X_ASSERT(l_iReturn == SERVER_OK);
-
-    // Définir le gestionnaire de messages
-    networkServerSetMessageHandler(handleNetworkMessage);
 
     // Configurer et initialiser la découverte UDP
     idCardNetworkInit();
@@ -134,8 +127,9 @@ int main()
     X_ASSERT(l_iReturn == SENSOR_MANAGER_OK);
 
     // start server
-    l_iReturn = networkServerStart();
+    l_iReturn = xServerStart();
     X_ASSERT(l_iReturn == SERVER_OK);
+
 
     // main loop
     while (1)
@@ -150,8 +144,8 @@ int main()
     // Ce code ne sera jamais atteint, mais pour être complet:
     cleanupMessageHandlerSystem();
     idCardNetworkCleanup();
-    networkServerStop();
-    networkServerCleanup();
+    xServerStop();
+    xServerCleanup();
 
     return 0;
 }

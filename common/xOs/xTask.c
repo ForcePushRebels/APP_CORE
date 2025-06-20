@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////
-// os t_ptTask src file
-// defines the os function for t_ptTask manipulation
+// os task src file
+// defines the os linux function for task manipulation
 //
 // general discloser: copy or share the file is forbidden
 // Written : 14/11/2024
@@ -24,7 +24,7 @@ int osTaskInit(xOsTaskCtx *p_pttOSTask)
     }
 
     memset(p_pttOSTask, 0, sizeof(xOsTaskCtx));
-    p_pttOSTask->t_ulStackSize = OS_TASK_DEFAULT_STACK_SIZE;
+    p_pttOSTask->t_ulStackSize = (size_t)OS_TASK_DEFAULT_STACK_SIZE;
 #ifdef OS_USE_RT_SCHEDULING
     p_pttOSTask->policy = OS_DEFAULT_SCHED_POLICY;
 #endif
@@ -80,7 +80,7 @@ int osTaskCreate(xOsTaskCtx *p_pttOSTask)
     if ((long int)p_pttOSTask->t_ulStackSize < PTHREAD_STACK_MIN)
     {
         X_LOG_TRACE("pthread_attr_setstacksize: Stack size is less than the default stack size");
-        p_pttOSTask->t_ulStackSize = PTHREAD_STACK_MIN;
+        p_pttOSTask->t_ulStackSize = (size_t)PTHREAD_STACK_MIN;
     }
 
     if (pthread_attr_setstacksize(&l_tAttr, p_pttOSTask->t_ulStackSize) != 0)
@@ -141,6 +141,12 @@ int osTaskCreate(xOsTaskCtx *p_pttOSTask)
     if (l_iReturn != 0)
     {
         return OS_TASK_ERROR_CREATE_FAILED;
+    }
+
+    // Set thread name for debugging if specified
+    if (p_pttOSTask->t_acTaskName[0] != '\0')
+    {
+        pthread_setname_np(p_pttOSTask->t_tHandle, p_pttOSTask->t_acTaskName);
     }
 
     p_pttOSTask->t_iState = OS_TASK_STATUS_RUNNING;
@@ -291,69 +297,59 @@ int osTaskStop(xOsTaskCtx *p_pttOSTask, int p_iTimeout)
         return OS_TASK_ERROR_NULL_POINTER;
     }
 
-    // If the task is already terminated, no need to stop it
+    // check if the thread is already marked as terminated, if so, do nothing.
     if (p_pttOSTask->t_iState == OS_TASK_STATUS_TERMINATED)
     {
         return OS_TASK_SUCCESS;
     }
 
-    // Check if the thread is still valid
+    // check if the thread exists really at the operating system level.
     int l_iReturn = pthread_kill(p_pttOSTask->t_tHandle, 0);
     if (l_iReturn == ESRCH) // ESRCH = No such process
     {
-        // Thread already terminated
+        pthread_join(p_pttOSTask->t_tHandle, NULL); 
         p_pttOSTask->t_iState = OS_TASK_STATUS_TERMINATED;
         return OS_TASK_SUCCESS;
     }
+
     else if (l_iReturn != 0)
     {
         return OS_TASK_ERROR_NOT_RUNNING;
     }
 
-    // Set the stop flag
-    p_pttOSTask->a_iStopFlag = OS_TASK_STOP_REQUEST;
+    atomic_store(&p_pttOSTask->a_iStopFlag, OS_TASK_STOP_REQUEST);
 
-    // If timeout is 0, don't wait
     if (p_iTimeout <= 0)
     {
         return OS_TASK_SUCCESS;
     }
 
-    // Wait for the task to terminate with timeout
     time_t start_time = time(NULL);
-    time_t current_time;
 
-    while (1)
+    while ((time(NULL) - start_time) < p_iTimeout)
     {
-        // Check if the task has terminated
+        // check if the thread has terminated.
         l_iReturn = pthread_kill(p_pttOSTask->t_tHandle, 0);
         if (l_iReturn == ESRCH)
         {
-            // Thread naturally terminated
+            pthread_join(p_pttOSTask->t_tHandle, NULL);
+
             p_pttOSTask->t_iState = OS_TASK_STATUS_TERMINATED;
-            return OS_TASK_SUCCESS;
+            X_LOG_TRACE("Task ID %d terminated gracefully.", p_pttOSTask->t_iId);
+            return OS_TASK_SUCCESS; 
         }
 
-        // Check the timeout
-        current_time = time(NULL);
-        if ((current_time - start_time) >= p_iTimeout)
-        {
-            // If timeout is reached, force task termination
-            int l_iReturn = osTaskEnd(p_pttOSTask);
-            if (l_iReturn != OS_TASK_SUCCESS)
-            {
-                return OS_TASK_ERROR_TIMEOUT;
-            }
-            return l_iReturn;
-        }
-
-        // Wait a short moment before testing again
-        struct timespec ts;
-        ts.tv_sec = 0;
-        ts.tv_nsec = 100 * 1000000; // 100 ms
+        // wait a short time before checking again to avoid saturating the CPU.
+        struct timespec ts = {.tv_sec = 0, .tv_nsec = 100 * 1000 * 1000}; // 100 ms
         nanosleep(&ts, NULL);
     }
+
+    X_LOG_TRACE("Task ID %d did not stop gracefully. Forcing termination.", p_pttOSTask->t_iId);
+    osTaskEnd(p_pttOSTask); 
+
+    return OS_TASK_ERROR_TIMEOUT; 
 }
+
 
 ////////////////////////////////////////////////////////////
 /// osTaskGetErrorString

@@ -6,18 +6,23 @@
 #include "xTask.h"
 #include "xLog.h"
 #include <math.h>
+#include <stdbool.h>
 #include <string.h>
+#include "pilot.h"
 
 
 // Définition de la marge de correction en ticks
-#define CORRECTION_MARGIN_TICKS 0
+#define CORRECTION_MARGIN_TICKS 5
+
+#define NB_TOURS_DEMANDE 10
+#define ECART_TOUR 150.0f
+#define CORRECTION_ANGLE_FACTOR ((NB_TOURS_DEMANDE * 360.0f) /  (NB_TOURS_DEMANDE * 360.0f + ECART_TOUR))
 
 // Activer/désactiver la correction du débordement des encodeurs
-#define CORRECTION 1
 bool g_bCorrection = true;
 
 // Variable de position globale
-static Position_t g_robot_position = {0, 0, 0.0};
+static Position_t g_robot_position = {50, 900, 0.0};
 static xOsMutexCtx g_position_mutex;
 
 // Structure de contrôle de position pour chaque roue
@@ -83,7 +88,7 @@ static int32_t angle_to_ticks(double angle_rad)
     // Calculer la rotation de roue pour l'angle souhaité
     // Pour une propulsion différentielle, la rotation de roue est:
     // rotation_roue = (angle * distance_roues) / rayon_roue
-    double wheel_rotation_rad = ((WHEEL_DISTANCE_CM/2.0) * angle_rad)*0.962;
+    double wheel_rotation_rad = ((WHEEL_DISTANCE_CM/2.0) * angle_rad)*CORRECTION_ANGLE_FACTOR;
     
     // Convertir les radians en ticks d'encodeur
     // Multiplier par 10 pour corriger l'échelle
@@ -232,8 +237,6 @@ static void* wheel_position_control_task(void* arg)
                 right_wheel_speed = 0.0; 
                 left_wheel_speed = 0.0;
 
-                g_bCorrection = true;
-
                 X_ASSERT(g_left_wheel.max_speed == g_right_wheel.max_speed);
                 
                 // Calculer le nombre de ticks pendant la rampe de décélération
@@ -335,6 +338,10 @@ static void* wheel_position_control_task(void* arg)
 
                 if(g_left_wheel.motion_finished && g_right_wheel.motion_finished)
                 {
+
+                    // Les deux roues ont fini leur mouvement : prévenir le pilot
+                    pilot_notify_end_move();
+
                     g_state = WAIT;
                 }
                 break; 
@@ -346,6 +353,9 @@ static void* wheel_position_control_task(void* arg)
 
                 if(g_left_wheel.motion_finished && g_right_wheel.motion_finished)
                 {
+
+                    // Fin du mouvement demandé par STOP : prévenir le pilot aussi
+                    pilot_notify_end_move();
                     g_state = WAIT;
                 }
                 else if (!g_left_wheel.motion_finished)
@@ -440,6 +450,8 @@ static void wheel_position_control_init(wheel_position_control_t* control)
 
     control->running = true;
     // X_LOG_TRACE("Tâche de contrôle de position de roue initialisée avec succès");
+
+    X_LOG_TRACE("CORRECTION_ANGLE_FACTOR: %f", CORRECTION_ANGLE_FACTOR);
 }
 
 static void wheel_position_control_shutdown(wheel_position_control_t *control)
@@ -598,7 +610,7 @@ int32_t position_control_init(void)
     }
 
     // Initialiser d'abord le contrôle moteur
-    int16_t motor_init_result = motor_control_init();
+    int motor_init_result = motor_control_init();
     if (motor_init_result != 0)
     {
         mutexDestroy(&g_position_mutex);

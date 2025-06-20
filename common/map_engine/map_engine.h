@@ -11,8 +11,8 @@
 #define _MAP_ENGINE_H_
 
 /* ******************************************************* Includes ****************************************************** */
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
 
 /* ***************************************************** Public macros *************************************************** */
 
@@ -32,14 +32,14 @@ typedef enum
     MAP_CELL_EMPTY = 0,
     MAP_CELL_WALL = 1,
     MAP_CELL_INTEREST_AREA = 2,
-    MAP_CELL_UNKNOWN = 3
+    MAP_CELL_ROBOT = 3,
+    MAP_CELL_UNKNOWN = 4
 } map_cell_type_t;
 
-typedef struct
+typedef struct __attribute__((packed))
 {
     map_cell_type_t type : 8;
-    union
-    {
+    union {
         struct
         {
             uint8_t empty_field; // not used
@@ -54,12 +54,22 @@ typedef struct
         } interest_area;
         struct
         {
+            uint8_t robot_id;
+        } robot;
+        struct
+        {
             uint8_t unknown_field; // not used
         } unknown;
     };
 
 } map_cell_t;
 
+typedef struct __attribute__((packed))
+{
+    int16_t x_grid;
+    int16_t y_grid;
+    map_cell_t cell;
+} map_fragment_t;
 /* *********************************************** Public functions declarations ***************************************** */
 
 /**
@@ -76,9 +86,11 @@ int map_engine_explo_ask_current_map();
 
 /**
  * @brief Get the size of the map
+ * @param x_size The size of the map on the x axis (output)
+ * @param y_size The size of the map on the y axis (output)
  * @return The size of the map
  */
-size_t map_engine_get_map_size();
+size_t map_engine_get_map_size(size_t *x_size, size_t *y_size, size_t *resolution_mm_per_cell);
 
 /**
  * @brief Get the map
@@ -101,13 +113,53 @@ int map_engine_get_discovery_percent();
  */
 int map_engine_update_vision(uint16_t *sensor_data, uint8_t sensor_count);
 
-
 /**
  * @brief Update the floor sensor
  * @param floor_sensor The floor sensor to update: value in mm.
  * @return MAP_ENGINE_OK if successful, MAP_ENGINE_ERROR_UPDATE_FLOOR_SENSOR if not
  */
 int map_engine_update_floor_sensor(uint16_t floor_sensor);
+
+/**
+ * @brief Get a 32-bit hash of the current map state
+ * @return 32-bit hash value representing the current map state
+ */
+uint32_t map_engine_get_hash();
+
+/**
+ * @brief Get the number of updated cells
+ * @return The number of updated cells
+ */
+uint32_t map_engine_get_updated_cells_count();
+
+/**
+ * @brief Get the updated cells
+ * @param cells The cells to get
+ * @param cell_count The number of cells to get
+ * @return The number of updated cells
+ */
+uint32_t map_engine_get_updated_cells(map_fragment_t *cells, size_t cell_count);
+
+/**
+ * @brief Clear the updated cells
+ * @param cells The cells to clear
+ * @param cell_count The number of cells to clear
+ */
+void map_engine_clear_updated_cells(map_fragment_t *cells, size_t cell_count);
+
+/**
+ * @brief Get the robot fragment
+ * @return The robot fragment
+ */
+map_fragment_t map_engine_get_robot_fragment();
+
+/**
+ * @brief Get the fragment
+ * @param x_mm The x position in mm
+ * @param y_mm The y position in mm
+ * @return The fragment
+ */
+map_fragment_t map_engine_get_fragment(int16_t x_mm, int16_t y_mm);
 
 /* ******************************************* Public callback functions declarations ************************************ */
 

@@ -26,15 +26,27 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+// polling (Linux)
+#ifdef __linux__
+#include <sys/epoll.h>
+#define NETWORK_HAS_EPOLL 1
+#endif
+
 #include "xAssert.h"
 #include "xLog.h"
 #include "xOsMutex.h"
 
-// Configuration constants
+// Performance and configuration constants
 #define NETWORK_MAX_SOCKETS 16        // Maximum number of simultaneous sockets
-#define NETWORK_BUFFER_SIZE 512       // Default buffer size for operations
+#define NETWORK_BUFFER_SIZE 4096      // Default buffer size for operations
 #define NETWORK_MAX_PENDING 5         // Default pending connections queue
 #define NETWORK_DEFAULT_TIMEOUT 30000 // Default timeout in milliseconds (30 seconds)
+
+// Socket options for scenarios
+#define NETWORK_OPT_TCP_SEND_BUFFER_SIZE (256 * 1024) // 256KB send buffer
+#define NETWORK_OPT_TCP_RECV_BUFFER_SIZE (256 * 1024) // 256KB receive buffer
+#define NETWORK_OPT_UDP_SEND_BUFFER_SIZE (1 * 1024)   //  1KB UDP send buffer
+#define NETWORK_OPT_UDP_RECV_BUFFER_SIZE (1 * 1024)   //  1KB UDP receive buffer
 
 // Network error codes
 #define NETWORK_OK 0x17A2B40
@@ -42,6 +54,8 @@
 #define NETWORK_TIMEOUT 0x17A2B42
 #define NETWORK_INVALID_PARAM 0x17A2B43
 #define NETWORK_ZERO_SIZE 0x17A2B44
+#define NETWORK_BROKEN_PIPE 0x17A2B45
+
 // Byte order conversion macros
 #define HOST_TO_NET_LONG(p_uiValue) htonl(p_uiValue)
 #define HOST_TO_NET_SHORT(p_usValue) htons(p_usValue)
@@ -51,10 +65,10 @@
 // Socket type definition
 typedef struct
 {
-    int t_iSocketFd;     // Socket file descriptor
-    int t_iType;         // Socket type (TCP/UDP)
-    bool t_bConnected;   // Connection state
-    xOsMutexCtx t_Mutex; // Mutex for thread safety
+    int t_iSocketFd;   // Socket file descriptor
+    int t_iType;       // Socket type (TCP/UDP)
+    bool t_bConnected; // Connection state
+    // Note: Mutex removed for performance - TCP ops are kernel thread-safe, UDP ops should be single-threaded
 } NetworkSocket;
 
 // Network address structure (IPv4 only)
@@ -78,6 +92,20 @@ typedef struct
 /// @return NetworkSocket* Socket handle or NULL on error
 //////////////////////////////////
 NetworkSocket *networkCreateSocket(int p_iType);
+
+//////////////////////////////////
+/// @brief Create a socket from pre-allocated pool (zero allocation)
+/// @param p_iType Socket type (NETWORK_SOCK_TCP or NETWORK_SOCK_UDP)
+/// @return NetworkSocket* Socket handle or NULL if pool exhausted
+//////////////////////////////////
+NetworkSocket *networkCreateSocketFromPool(int p_iType);
+
+//////////////////////////////////
+/// @brief Return socket to pool instead of freeing
+/// @param p_ptSocket Socket handle to return to pool
+/// @return int Error code
+//////////////////////////////////
+int networkReturnSocketToPool(NetworkSocket *p_ptSocket);
 
 //////////////////////////////////
 /// @brief Create a network address
@@ -154,12 +182,24 @@ int networkCloseSocket(NetworkSocket *p_ptSocket);
 int networkSetTimeout(NetworkSocket *p_ptSocket, int p_iTimeoutMs, bool p_bSendTimeout);
 
 //////////////////////////////////
-/// @brief Wait for events on socket
+/// @brief Wait for events on socket (uses epoll on Linux, select elsewhere)
 /// @param p_ptSocket Socket handle
 /// @param p_iTimeoutMs Timeout in milliseconds (-1 for infinite)
 /// @return int 1 if ready, 0 if timeout, negative for error
 //////////////////////////////////
 int networkWaitForActivity(NetworkSocket *p_ptSocket, int p_iTimeoutMs);
+
+#ifdef NETWORK_HAS_EPOLL
+//////////////////////////////////
+/// @brief epoll-based multi-socket polling (Linux only)
+/// @param p_pptSockets Array of socket pointers
+/// @param p_iNumSockets Number of sockets in array
+/// @param p_piReadySocket Output: index of ready socket (-1 if timeout/error)
+/// @param p_iTimeoutMs Timeout in milliseconds (-1 for infinite)
+/// @return int 1 if ready, 0 if timeout, negative for error
+//////////////////////////////////
+int networkWaitForMultipleActivity(NetworkSocket **p_pptSockets, int p_iNumSockets, int *p_piReadySocket, int p_iTimeoutMs);
+#endif
 
 //////////////////////////////////
 /// @brief Get last error description
@@ -201,5 +241,33 @@ int networkSendTo(NetworkSocket *p_ptSocket,
 /// @return int Bytes received or error code
 //////////////////////////////////
 int networkReceiveFrom(NetworkSocket *p_ptSocket, void *p_pBuffer, unsigned long p_ulSize, NetworkAddress *p_pAddress);
+
+//////////////////////////////////
+/// inline helpers
+//////////////////////////////////
+
+//////////////////////////////////
+/// @brief Fast inline socket validation (use for hot paths)
+/// @param p_ptSocket Socket to validate
+/// @return bool True if socket is valid
+//////////////////////////////////
+static inline bool networkIsValidSocket(const NetworkSocket *p_ptSocket)
+{
+    return (p_ptSocket != NULL && p_ptSocket->t_iSocketFd >= 0);
+}
+
+//////////////////////////////////
+/// @brief Fast inline parameter validation for send/receive operations
+/// @param p_ptSocket Socket handle
+/// @param p_pBuffer Data buffer
+/// @param p_ulSize Data size
+/// @return bool True if parameters are valid
+//////////////////////////////////
+static inline bool networkValidateSendRecvParams(const NetworkSocket *p_ptSocket,
+                                                 const void *p_pBuffer,
+                                                 unsigned long p_ulSize)
+{
+    return (networkIsValidSocket(p_ptSocket) && p_pBuffer != NULL && p_ulSize > 0);
+}
 
 #endif // NETWORK_CORE_H_

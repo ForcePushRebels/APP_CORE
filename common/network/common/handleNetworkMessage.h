@@ -9,13 +9,15 @@
 #ifndef HANDLE_NETWORK_MESSAGE_H_
 #define HANDLE_NETWORK_MESSAGE_H_
 
-#include "networkServer.h"
 #include "networkEncode.h"
+
+// Forward declaration to avoid circular dependencies  
+struct clientCtx;
 
 ///////////////////////////////////////////
 /// @brief Definition of the type for the message handling functions
 ///////////////////////////////////////////
-typedef void (*message_handler_t)(clientCtx* p_ptClient, const network_message_t* p_ptMessage);
+typedef void (*message_handler_t)(struct clientCtx *p_ptClient, const network_message_t *p_ptMessage);
 
 ///////////////////////////////////////////
 /// @brief Register a handler for a specific message type
@@ -33,13 +35,18 @@ void registerMessageHandler(uint8_t p_ucMessageType, message_handler_t p_ptHandl
 void unregisterMessageHandler(uint8_t p_ucMessageType);
 
 ///////////////////////////////////////////
+/// @brief Get maximum number of supported message types
+/// @return Maximum message type value + 1
+///////////////////////////////////////////
+#define MAX_MESSAGE_HANDLERS 128
+
+///////////////////////////////////////////
 /// @brief Main function to handle network messages
 ///
 /// @param client Client context
 /// @param message Network message to handle
 ///////////////////////////////////////////
-void handleNetworkMessage(clientCtx* p_ptClient, 
-                          const network_message_t* p_ptMessage);
+void handleNetworkMessage(struct clientCtx *p_ptClient, const network_message_t *p_ptMessage);
 
 ///////////////////////////////////////////
 /// @brief Initialize message handler system

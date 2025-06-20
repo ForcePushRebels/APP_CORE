@@ -15,7 +15,7 @@
 #include <stdint.h>
 
 // Fixed bounds for security operations
-#define XOS_SECURE_MAX_CLEAR_SIZE (SIZE_MAX / 2)
+#define XOS_SECURE_MAX_CLEAR_SIZE ((size_t)UINT32_MAX)
 #define XOS_SECURE_MAX_ITERATIONS 1024
 #define XOS_SECURE_TIMING_LOOPS 16
 

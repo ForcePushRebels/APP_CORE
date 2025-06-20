@@ -7,16 +7,17 @@
 ////////////////////////////////////////////////////////////
 
 #include "idCard.h"
-#include "xNetwork.h"
 #include "networkEncode.h"
+#include "supervisor.h"
 #include "xLog.h"
+#include "xNetwork.h"
+#include "xServer.h"
 #include "xTask.h"
-#include <ifaddrs.h>
 #include <arpa/inet.h>
-#include <string.h>
-#include <stdio.h>
+#include <ifaddrs.h>
 #include <stdbool.h>
-
+#include <stdio.h>
+#include <string.h>
 
 static char s_pcIpAddr[16] = {0};
 #ifdef INTER_BUILD
@@ -29,27 +30,40 @@ static char s_pcRobotName[] = "Dora l'exploratrice";
 static bool s_bUseLoopback = false; // boolean to enable/disable the use of loopback
 static xOsTaskCtx s_xTaskHandle = {0};
 
-
 ///////////////////////////////////////////
 /// findIpAddress
 ///////////////////////////////////////////
+static inline struct sockaddr_in* safe_sockaddr_cast(struct sockaddr* addr) 
+{
+    // This function ensures proper alignment for sockaddr_in cast
+    if (addr && addr->sa_family == AF_INET) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-align"
+        return (struct sockaddr_in*)addr;
+#pragma GCC diagnostic pop
+    }
+    return NULL;
+}
+
 static void findIpAddress(void)
 {
     struct ifaddrs *ifaddr, *ifa;
-    int family;
-    char host[16];
     bool found = false;
+    int family;
+    char host[NI_MAXHOST];
 
     if (getifaddrs(&ifaddr) == -1)
     {
-        perror("getifaddrs");
+        X_LOG_TRACE("Error: Unable to retrieve network interfaces\n");
+        // use localhost as default
+        strcpy(s_pcIpAddr, "127.0.0.1");
         return;
     }
 
-    // if loopback is used, search first the loopback interface
+    // if loopback is used, search specifically for it
     if (s_bUseLoopback)
     {
-        for (ifa = ifaddr; ifa != NULL && !found; ifa = ifa->ifa_next)
+        for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next)
         {
             if (ifa->ifa_addr == NULL)
                 continue;
@@ -61,13 +75,16 @@ static void findIpAddress(void)
                 // search specifically the loopback interface
                 if (strcmp(ifa->ifa_name, "lo") == 0)
                 {
-                    void *addr_ptr = &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;
-                    inet_ntop(AF_INET, addr_ptr, host, 16);
-                    // copy the IP address to the static variable
-                    strncpy(s_pcIpAddr, host, sizeof(s_pcIpAddr) - 1);
-                    s_pcIpAddr[sizeof(s_pcIpAddr) - 1] = '\0';
-                    found = true;
-                    break;
+                    struct sockaddr_in* sin = safe_sockaddr_cast(ifa->ifa_addr);
+                    if (sin) {
+                        void *addr_ptr = &sin->sin_addr;
+                        inet_ntop(AF_INET, addr_ptr, host, 16);
+                        // copy the IP address to the static variable
+                        strncpy(s_pcIpAddr, host, sizeof(s_pcIpAddr) - 1);
+                        s_pcIpAddr[sizeof(s_pcIpAddr) - 1] = '\0';
+                        found = true;
+                        break;
+                    }
                 }
             }
         }
@@ -88,13 +105,16 @@ static void findIpAddress(void)
                 // ignore the loopback interface
                 if (strcmp(ifa->ifa_name, "lo") != 0)
                 {
-                    void *addr_ptr = &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;
-                    inet_ntop(AF_INET, addr_ptr, host, 16);
-                    // copy the IP address to the static variable
-                    strncpy(s_pcIpAddr, host, sizeof(s_pcIpAddr) - 1);
-                    s_pcIpAddr[sizeof(s_pcIpAddr) - 1] = '\0';
-                    found = true;
-                    break; // take the first IPv4 non loopback address
+                    struct sockaddr_in* sin = safe_sockaddr_cast(ifa->ifa_addr);
+                    if (sin) {
+                        void *addr_ptr = &sin->sin_addr;
+                        inet_ntop(AF_INET, addr_ptr, host, 16);
+                        // copy the IP address to the static variable
+                        strncpy(s_pcIpAddr, host, sizeof(s_pcIpAddr) - 1);
+                        s_pcIpAddr[sizeof(s_pcIpAddr) - 1] = '\0';
+                        found = true;
+                        break; // take the first IPv4 non loopback address
+                    }
                 }
             }
         }
@@ -105,9 +125,7 @@ static void findIpAddress(void)
     {
         strcpy(s_pcIpAddr, "127.0.0.1");
     }
-
     freeifaddrs(ifaddr);
-
 }
 
 ///////////////////////////////////////////
@@ -130,32 +148,33 @@ int createManifest(manifest_t *p_ptManifest)
 ///////////////////////////////////////////
 /// handleIsAnyRobotHere
 ///////////////////////////////////////////
-static void isAnyRobotHereHandle(clientCtx *p_ptClient, const network_message_t *p_ptMessage)
+static void isAnyRobotHereHandle(struct clientCtx *p_ptClient, const network_message_t *p_ptMessage)
 {
     (void)p_ptMessage; // unused argument avoid warning
 
     manifest_t l_sManifest = {0};
     int l_iReturn = 0;                                                          // return value
-    uint8_t l_ucSendBuffer[3 + sizeof(manifest_t)];                             // buffer to send the manifest
-    size_t totalSize = sizeof(uint16_t) + sizeof(uint8_t) + sizeof(manifest_t); // total size of the message
-    NetworkAddress l_tSenderAddr;                                               // sender address
 
     // create the manifest
     l_iReturn = createManifest(&l_sManifest);
     X_ASSERT(l_iReturn == 0);
 
     // get client id from the message
-    ClientID l_tClientId = networkServerGetClientID(p_ptClient);
+    ClientID l_tClientId = xServerGetClientID((const clientCtx *)p_ptClient);
 
-    l_iReturn = networkServerSendMessage(l_tClientId, ID_MANIFEST, &l_sManifest, sizeof(manifest_t));
+    l_iReturn = xServerSendMessage(l_tClientId, ID_MANIFEST, &l_sManifest, sizeof(manifest_t));
 
     if (l_iReturn < 0)
     {
-        X_LOG_TRACE("Failed to send manifest: %s", networkGetErrorString(l_iReturn));
+        X_LOG_TRACE("Failed to send manifest: %s", xServerGetErrorString(l_iReturn));
     }
     else
     {
         X_LOG_TRACE("Successfully sent manifest response (%d bytes)", sizeof(manifest_t));
+        
+        
+        supervisor_send_full_map(l_tClientId);
+        supervisor_start();
     }
 }
 
@@ -167,9 +186,20 @@ void *handleIsAnyRobotHere(void *p_pvArg)
     (void)p_pvArg; // unused argument avoid warning
 
     int l_iReturn = 0;
-    uint8_t l_ucBuffer[64];  // Changed to uint8_t and increased size for binary data
+    uint8_t l_ucBuffer[64]; // Changed to uint8_t and increased size for binary data
     manifest_t l_sManifest = {0};
+    
+    // Calculate required buffer size and ensure it fits
+    size_t l_ulRequiredSize = sizeof(uint16_t) + sizeof(uint8_t) + sizeof(manifest_t);
     uint8_t l_ucSendBuffer[3 + sizeof(manifest_t)];
+    
+    // Safety check: ensure our buffer is large enough
+    if (l_ulRequiredSize > sizeof(l_ucSendBuffer))
+    {
+        X_LOG_TRACE("ERROR: Send buffer too small (%zu bytes needed, %zu available)", 
+                   l_ulRequiredSize, sizeof(l_ucSendBuffer));
+        return NULL;
+    }
 
     // ensure the buffer is clean
     memset(l_ucSendBuffer, 0, sizeof(l_ucSendBuffer));
@@ -188,6 +218,7 @@ void *handleIsAnyRobotHere(void *p_pvArg)
     {
         X_LOG_TRACE("Failed to bind socket: %s", networkGetErrorString(l_iReturn));
         networkCloseSocket(l_ptSocket);
+        return NULL;
     }
 
     // prepare the manifest
@@ -206,8 +237,19 @@ void *handleIsAnyRobotHere(void *p_pvArg)
     // write the message type (1 byte)
     *ptr++ = ID_MANIFEST;
 
-    // copy the manifest to the buffer
-    memcpy(ptr, &l_sManifest, sizeof(manifest_t));
+    // copy the manifest to the buffer with bounds checking
+    size_t l_ulRemainingSpace = sizeof(l_ucSendBuffer) - (size_t)(ptr - l_ucSendBuffer);
+
+    if (sizeof(manifest_t) <= l_ulRemainingSpace)
+    {
+        memcpy(ptr, &l_sManifest, sizeof(manifest_t));
+    }
+    else
+    {
+        X_LOG_TRACE("ERROR: Manifest size exceeds remaining buffer space");
+        networkCloseSocket(l_ptSocket);
+        return NULL;
+    }
 
     while (atomic_load(&s_xTaskHandle.a_iStopFlag) == OS_TASK_SECURE_FLAG)
     {
@@ -216,33 +258,30 @@ void *handleIsAnyRobotHere(void *p_pvArg)
 
         if (l_iReturn > 0) // check if data has been received
         {
-            X_LOG_TRACE("Received UDP data: %d bytes from %s:%d", 
-                       l_iReturn, l_tSenderAddr.t_cAddress, l_tSenderAddr.t_usPort);
-            
+            X_LOG_TRACE(
+                "Received UDP data: %d bytes from %s:%d", l_iReturn, l_tSenderAddr.t_cAddress, l_tSenderAddr.t_usPort);
+
             if (l_iReturn == 1 && l_ucBuffer[0] == ID_IS_ANY_ROBOT_HERE)
             {
                 X_LOG_TRACE("Received valid robot discovery request (0x%02X)", l_ucBuffer[0]);
 
-                size_t totalSize = sizeof(uint16_t) + sizeof(uint8_t) + sizeof(manifest_t);
-
-                l_iReturn = networkSendTo(l_ptSocket, l_ucSendBuffer,
-                                          totalSize,
-                                          &l_tSenderAddr);
+                // Use the pre-calculated size for consistency and safety
+                l_iReturn = networkSendTo(l_ptSocket, l_ucSendBuffer, (unsigned long)l_ulRequiredSize, &l_tSenderAddr);
 
                 if (l_iReturn < 0)
                 {
-                    X_LOG_TRACE("Failed to send manifest: %s",
-                                networkGetErrorString(l_iReturn));
+                    X_LOG_TRACE("Failed to send manifest: %s", networkGetErrorString(l_iReturn));
                 }
                 else
                 {
                     X_LOG_TRACE("Successfully sent manifest response (%d bytes)", l_iReturn);
+                    supervisor_send_full_map(0);
+                    supervisor_start();
                 }
             }
             else
             {
-                X_LOG_TRACE("Received unrecognized UDP message: %d bytes, first byte=0x%02X", 
-                           l_iReturn, l_ucBuffer[0]);
+                X_LOG_TRACE("Received unrecognized UDP message: %d bytes, first byte=0x%02X", l_iReturn, l_ucBuffer[0]);
             }
         }
         else if (l_iReturn == NETWORK_TIMEOUT)
@@ -285,6 +324,7 @@ void idCardNetworkInit(void)
     // Configurer le handler comme fonction de tâche
     s_xTaskHandle.t_ptTask = handleIsAnyRobotHere;
     s_xTaskHandle.t_ptTaskArg = NULL;
+    strcpy(s_xTaskHandle.t_acTaskName, "idCardNetwork");
 
     // Ensure the stop flag is correctly reset before creating the task
     atomic_store(&s_xTaskHandle.a_iStopFlag, OS_TASK_SECURE_FLAG);
@@ -306,4 +346,14 @@ void idCardNetworkInit(void)
 RobotType_t idCardGetRole()
 {
     return s_iRole;
+}
+
+///////////////////////////////////////////
+/// idCardNetworkCleanup
+///////////////////////////////////////////
+void idCardNetworkCleanup(void)
+{
+    unregisterMessageHandler(ID_IS_ANY_ROBOT_HERE);
+
+    osTaskStop(&s_xTaskHandle, 3000);
 }

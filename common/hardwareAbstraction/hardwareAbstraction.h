@@ -26,13 +26,13 @@
 ////////////////////////////////////////////////
 ///  Hardware Abstraction Layer structure
 ///
-///  @param t_Mutex : Mutex for thread safety
-///  @param t_iSensors : Array of sensors
-///  @param t_iMotors : Array of motors
-///  @param t_iLedColor : Color of the LED
-///  @param t_iBatteryLevel : Level of the battery
-///  @param t_fBatteryVoltage : Voltage of the battery
-///  @detail: this structure is used to abstract the hardware layer and only for the hardwareAbstractionInit function. You cannot allocate double time the structure.
+///  t_Mutex : Mutex for thread safety
+///  t_iSensors : Array of sensors
+///  t_iMotors : Array of motors
+///  t_iLedColor : Color of the LED
+///  t_iBatteryLevel : Level of the battery
+///  t_fBatteryVoltage : Voltage of the battery
+///  @details : this structure is used to abstract the hardware layer and only for the hardwareAbstractionInit function. You cannot allocate double time the structure.
 ////////////////////////////////////////////////
 typedef struct
 {
@@ -48,13 +48,13 @@ typedef struct
 /// @brief Hardware Abstraction Layer initialization
 /// @return 0 if success, -1 if error
 ////////////////////////////////////////////////////////////
-int hardwareAbstractionInit();
+int hardwareAbstractionInit(void);
 
 ////////////////////////////////////////////////////////////
 /// @brief Hardware Abstraction Layer close
 /// @return 0 if success, -1 if error
 ////////////////////////////////////////////////////////////
-int hardwareAbstractionClose();
+int hardwareAbstractionClose(void);
 
 ////////////////////////////////////////////////////////////
 /// @brief Hardware Abstraction Layer get sensor values
@@ -74,19 +74,19 @@ int GetMotorEncoderValues(int32_t *p_ptIMotors);
 /// @brief Hardware Abstraction Layer get battery level
 /// @return value of the battery level
 ////////////////////////////////////////////////////////////
-int GetBatteryLevel();
+int GetBatteryLevel(void);
 
 ////////////////////////////////////////////////////////////
 /// @brief Hardware Abstraction Layer get battery voltage
 /// @return value of the battery voltage
 ////////////////////////////////////////////////////////////
-float GetBatteryVoltage();
+float GetBatteryVoltage(void);
 
 ////////////////////////////////////////////////////////////
 /// @brief Hardware Abstraction Layer get led color
 /// @return value of the led color
 ////////////////////////////////////////////////////////////
-mrpiz_led_rgb_color_t GetLedColor();
+mrpiz_led_rgb_color_t GetLedColor(void);
 
 ////////////////////////////////////////////////////////////
 /// @brief Hardware Abstraction Layer set led color
@@ -107,12 +107,12 @@ int SetMotorSpeed(uint8_t p_iMotor, int p_iSpeed);
 /// @brief Hardware Abstraction Layer reset motor encoders
 /// @return 0 if success, -1 if error
 ////////////////////////////////////////////////////////////
-int ResetMotorEncoders();
+int ResetMotorEncoders(void);
 
 ////////////////////////////////////////////////////////////
 /// @brief Hardware Abstraction Layer get floor sensor value
 ////////////////////////////////////////////////////////////
-int GetFloorSensorValue();
+int GetFloorSensorValue(void);
 
 ////////////////////////////////////////////////////////////
 /// @brief Hardware Abstraction Layer set floor sensor light

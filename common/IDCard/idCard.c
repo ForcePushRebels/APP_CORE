@@ -160,7 +160,7 @@ static void isAnyRobotHereHandle(struct clientCtx *p_ptClient, const network_mes
     X_ASSERT(l_iReturn == 0);
 
     // get client id from the message
-    ClientID l_tClientId = xServerGetClientID(p_ptClient);
+    ClientID l_tClientId = xServerGetClientID((const clientCtx *)p_ptClient);
 
     l_iReturn = xServerSendMessage(l_tClientId, ID_MANIFEST, &l_sManifest, sizeof(manifest_t));
 
@@ -238,7 +238,8 @@ void *handleIsAnyRobotHere(void *p_pvArg)
     *ptr++ = ID_MANIFEST;
 
     // copy the manifest to the buffer with bounds checking
-    size_t l_ulRemainingSpace = sizeof(l_ucSendBuffer) - (ptr - l_ucSendBuffer);
+    size_t l_ulRemainingSpace = sizeof(l_ucSendBuffer) - (size_t)(ptr - l_ucSendBuffer);
+
     if (sizeof(manifest_t) <= l_ulRemainingSpace)
     {
         memcpy(ptr, &l_sManifest, sizeof(manifest_t));
@@ -265,7 +266,7 @@ void *handleIsAnyRobotHere(void *p_pvArg)
                 X_LOG_TRACE("Received valid robot discovery request (0x%02X)", l_ucBuffer[0]);
 
                 // Use the pre-calculated size for consistency and safety
-                l_iReturn = networkSendTo(l_ptSocket, l_ucSendBuffer, l_ulRequiredSize, &l_tSenderAddr);
+                l_iReturn = networkSendTo(l_ptSocket, l_ucSendBuffer, (unsigned long)l_ulRequiredSize, &l_tSenderAddr);
 
                 if (l_iReturn < 0)
                 {

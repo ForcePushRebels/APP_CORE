@@ -24,8 +24,8 @@
 //-----------------------------------------------------------------------------
 
 #define SERVER_MAX_CLIENTS          8      // Maximum concurrent clients
-#define SERVER_RECV_BUFFER_SIZE     4096   // Client receive buffer size
-#define SERVER_SEND_BUFFER_SIZE     4096   // Client send buffer size
+#define SERVER_RECV_BUFFER_SIZE     65536   // Client receive buffer size
+#define SERVER_SEND_BUFFER_SIZE     65536   // Client send buffer size
 #define SERVER_CLIENT_NAME_SIZE     64     // Client name/address buffer
 #define SERVER_DEFAULT_PORT         8080   // Default server port
 #define SERVER_EPOLL_TIMEOUT        100    // Epoll timeout in milliseconds

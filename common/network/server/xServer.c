@@ -65,6 +65,7 @@ static clientCtx *findClientById(ClientID p_tClientId);
 static void clientCleanup(clientCtx *p_ptClient);
 static int clientSendData(clientCtx *p_ptClient, const void *p_pvData, int p_iSize);
 static int clientReceiveMessage(clientCtx *p_ptClient);
+static void cleanupDisconnectedClients(void);
 
 //-----------------------------------------------------------------------------
 // Server Core Implementation
@@ -285,10 +286,19 @@ int xServerStop(void)
         if (l_ptClient->t_tId != INVALID_CLIENT_ID)
         {
             l_ptClient->t_bShutdown = true;
+            mutexUnlock(&s_tServer.t_tClientsMutex); // Unlock before waiting
             osTaskWait(&l_ptClient->t_tClientTask, NULL);
-            clientCleanup(l_ptClient);
+            mutexLock(&s_tServer.t_tClientsMutex); // Lock again for next iteration
+            
+            // Check if client is still present (might have been cleaned up automatically)
+            if (l_ptClient->t_tId != INVALID_CLIENT_ID)
+            {
+                clientCleanup(l_ptClient);
+                s_tServer.t_iClientCount--;
+            }
         }
     }
+    // Ensure count is reset to 0
     s_tServer.t_iClientCount = 0;
     mutexUnlock(&s_tServer.t_tClientsMutex);
     
@@ -375,7 +385,9 @@ static void *serverMainThread(void *p_pvArg)
         
         if (l_iNumEvents == 0)
         {
-            continue; // Timeout, check running flag
+            // Timeout - perform maintenance tasks
+            cleanupDisconnectedClients();
+            continue; // Check running flag
         }
         
         // Process events
@@ -445,6 +457,19 @@ static int handleNewConnection(NetworkSocket *p_ptClientSocket, const NetworkAdd
     
     // Find free client slot
     mutexLock(&s_tServer.t_tClientsMutex);
+    
+    // First, try to cleanup any disconnected clients to free slots
+    for (int i = 0; i < SERVER_MAX_CLIENTS; i++)
+    {
+        clientCtx *l_ptCheckClient = &s_tServer.t_atClients[i];
+        if (l_ptCheckClient->t_tId != INVALID_CLIENT_ID && !l_ptCheckClient->t_bConnected && 
+            l_ptCheckClient->t_tClientTask.t_iState == OS_TASK_STATUS_TERMINATED)
+        {
+            X_LOG_INFO("Freeing slot for terminated client %u before new connection", l_ptCheckClient->t_tId);
+            clientCleanup(l_ptCheckClient);
+            s_tServer.t_iClientCount--;
+        }
+    }
     
     if (s_tServer.t_iClientCount >= SERVER_MAX_CLIENTS)
     {
@@ -553,6 +578,20 @@ static void *clientThread(void *p_pvArg)
     X_LOG_INFO("Client %u thread terminating", l_ptClient->t_tId);
     l_ptClient->t_bConnected = false;
     
+    // Automatic cleanup when thread terminates
+    mutexLock(&s_tServer.t_tClientsMutex);
+    
+    // Only cleanup if client is still in the array (not already cleaned up)
+    if (l_ptClient->t_tId != INVALID_CLIENT_ID)
+    {
+        X_LOG_INFO("Automatically cleaning up client %u after disconnection", l_ptClient->t_tId);
+        clientCleanup(l_ptClient);
+        s_tServer.t_iClientCount--;
+        X_LOG_INFO("Client count after cleanup: %d", s_tServer.t_iClientCount);
+    }
+    
+    mutexUnlock(&s_tServer.t_tClientsMutex);
+    
     return NULL;
 }
 
@@ -640,7 +679,7 @@ static int clientReceiveMessage(clientCtx *p_ptClient)
         p_ptClient->t_ulMessagesReceived++;
         
         // Handle message using callback system
-        handleNetworkMessage(p_ptClient, &l_tFrame);
+        handleNetworkMessage((struct clientCtx *)p_ptClient, &l_tFrame);
     }
     else
     {
@@ -721,10 +760,38 @@ static int clientSendData(clientCtx *p_ptClient, const void *p_pvData, int p_iSi
     }
     
     // Update statistics
-    p_ptClient->t_ulBytesSent += l_iResult;
+    p_ptClient->t_ulBytesSent += (uint64_t)l_iResult;
     p_ptClient->t_ulMessagesSent++;
     
     return l_iResult;
+}
+
+//-----------------------------------------------------------------------------
+// Utility Functions
+//-----------------------------------------------------------------------------
+
+static void cleanupDisconnectedClients(void)
+{
+    mutexLock(&s_tServer.t_tClientsMutex);
+    
+    for (int i = 0; i < SERVER_MAX_CLIENTS; i++)
+    {
+        clientCtx *l_ptClient = &s_tServer.t_atClients[i];
+        
+        // Check if client is marked as disconnected but thread hasn't cleaned up yet
+        if (l_ptClient->t_tId != INVALID_CLIENT_ID && !l_ptClient->t_bConnected && !l_ptClient->t_bShutdown)
+        {
+            // Check if thread is still running
+            if (l_ptClient->t_tClientTask.t_iState == OS_TASK_STATUS_TERMINATED)
+            {
+                X_LOG_INFO("Cleaning up terminated client %u", l_ptClient->t_tId);
+                clientCleanup(l_ptClient);
+                s_tServer.t_iClientCount--;
+            }
+        }
+    }
+    
+    mutexUnlock(&s_tServer.t_tClientsMutex);
 }
 
 //-----------------------------------------------------------------------------
@@ -834,6 +901,7 @@ int xServerBroadcastMessage(uint8_t p_ucMsgType, const void *p_pvPayload, uint32
                 if (l_iSent == SERVER_ERROR)
                 {
                     l_ptClient->t_bConnected = false; // Mark for cleanup
+                    X_LOG_INFO("Client %u marked for cleanup due to send error", l_ptClient->t_tId);
                 }
             }
         }
@@ -862,13 +930,13 @@ bool xServerGetClientInfo(ClientID p_tClientId, char *p_pcBuffer, int p_iBufferS
     }
     
     snprintf(p_pcBuffer, (size_t)p_iBufferSize, 
-            "Client %u: %s (TLS: %s, RX: %llu bytes/%u msgs, TX: %llu bytes/%u msgs)",
+            "Client %u: %s (TLS: %s, RX: %lu bytes/%u msgs, TX: %lu bytes/%u msgs)",
             l_ptClient->t_tId,
             l_ptClient->t_acClientName,
             l_ptClient->t_ptTlsSession ? "yes" : "no",
-            l_ptClient->t_ullBytesReceived,
+            (unsigned long)l_ptClient->t_ullBytesReceived,
             l_ptClient->t_ulMessagesReceived,
-            l_ptClient->t_ulBytesSent,
+            (unsigned long)l_ptClient->t_ulBytesSent,
             l_ptClient->t_ulMessagesSent);
     
     mutexUnlock(&s_tServer.t_tClientsMutex);
@@ -897,7 +965,8 @@ clientCtx *xServerGetclientCtx(ClientID p_tClientId)
 
 ClientID xServerGetClientID(const clientCtx *p_ptContext)
 {
-    return (p_ptContext != NULL) ? p_ptContext->t_tId : INVALID_CLIENT_ID;
+    const clientCtx *l_ptContext = (const clientCtx *)p_ptContext;
+    return (l_ptContext != NULL) ? l_ptContext->t_tId : INVALID_CLIENT_ID;
 }
 
 ServerConfig xServerCreateDefaultConfig(void)

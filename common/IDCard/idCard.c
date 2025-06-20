@@ -324,6 +324,7 @@ void idCardNetworkInit(void)
     // Configurer le handler comme fonction de tâche
     s_xTaskHandle.t_ptTask = handleIsAnyRobotHere;
     s_xTaskHandle.t_ptTaskArg = NULL;
+    strcpy(s_xTaskHandle.t_acTaskName, "idCardNetwork");
 
     // Ensure the stop flag is correctly reset before creating the task
     atomic_store(&s_xTaskHandle.a_iStopFlag, OS_TASK_SECURE_FLAG);

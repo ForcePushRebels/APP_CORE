@@ -95,7 +95,7 @@ static void sendFullMapHandle(struct clientCtx *p_ptClient, const network_messag
 {
     (void)p_ptMessage; // unused parameter
     X_LOG_TRACE("sendFullMapHandle");
-    supervisor_send_full_map(xServerGetClientID(p_ptClient));
+    supervisor_send_full_map(xServerGetClientID((const clientCtx *)p_ptClient));
 }
 
 ////////////////////////////////////////////////////////////
@@ -210,10 +210,16 @@ static int32_t sendDuration(void)
     exploration_manager_state_t l_eStatus = explorationManager_getState();
     switch (l_eStatus)
     {
+        case INIT:
+        case PRET:
         case MISSION_EN_COURS:
         case MODE_MANUEL:
             l_ulDuration = l_ulCurrentTime - l_ulStartTime;
             break;
+        case FIN_DE_MISSION:
+            l_ulDuration = 0;
+            break;
+        case ECHEC:
         default:
             l_ulDuration = 0;
             break;
@@ -259,10 +265,6 @@ int32_t supervisor_init(void)
     XOS_MEMORY_SANITIZE(&s_tSupervisorCtx.t_tLastReport, sizeof(tReportCtx));
     XOS_MEMORY_SANITIZE(&s_tSupervisorCtx.t_tCurrentReport, sizeof(tReportCtx));
 
-    // Initialize timer
-    s_tSupervisorCtx.t_tTimer.t_ucMode = XOS_TIMER_MODE_PERIODIC;
-    s_tSupervisorCtx.t_tTimer.t_ulPeriod = SUPERVISOR_TIMER_PERIOD_MS;
-
     // Initialize mutex
     l_iResult = mutexCreate(&s_tSupervisorCtx.t_tMutex);
     if (l_iResult != MUTEX_OK)
@@ -270,7 +272,7 @@ int32_t supervisor_init(void)
         return l_iResult;
     }
 
-    // Initialize timer
+    // Initialize high-performance timer with kernel-based implementation
     l_iResult = xTimerCreate(&s_tSupervisorCtx.t_tTimer, SUPERVISOR_TIMER_PERIOD_MS, XOS_TIMER_MODE_PERIODIC);
     if (l_iResult != XOS_TIMER_OK)
     {
@@ -283,12 +285,14 @@ int32_t supervisor_init(void)
     if (l_iResult != OS_TASK_SUCCESS)
     {
         mutexDestroy(&s_tSupervisorCtx.t_tMutex);
+        xTimerDestroy(&s_tSupervisorCtx.t_tTimer);
         return l_iResult;
     }
 
     s_tSupervisorCtx.t_tTask.t_ptTask = supervisor_task;
     s_tSupervisorCtx.t_tTask.t_ptTaskArg = &s_tSupervisorCtx;
-
+    strcpy(s_tSupervisorCtx.t_tTask.t_acTaskName, "supervisor");
+    
     //create task
     l_iResult = osTaskCreate(&s_tSupervisorCtx.t_tTask);
     if (l_iResult != OS_TASK_SUCCESS)
@@ -308,16 +312,22 @@ int32_t supervisor_init(void)
 ////////////////////////////////////////////////////////////
 int32_t supervisor_shutdown(void)
 {
-    // Stop timer if active
-    if (s_tSupervisorCtx.t_tTimer.t_ucActive)
+    // Signal task to stop first
+    atomic_store(&s_tSupervisorCtx.t_tTask.a_iStopFlag, OS_TASK_STOP_REQUEST);
+    
+    // Request graceful timer stop using atomic flag
+    atomic_store(&s_tSupervisorCtx.t_tTimer.t_bStopRequested, true);
+
+    // Stop timer if active (this will interrupt xTimerProcessCallback)
+    if (atomic_load(&s_tSupervisorCtx.t_tTimer.t_bActive))
     {
         xTimerStop(&s_tSupervisorCtx.t_tTimer);
     }
 
-    // Signal task to stop
-    atomic_store(&s_tSupervisorCtx.t_tTask.a_iStopFlag, OS_TASK_STOP_REQUEST);
+    // Stop task gracefully with timeout (2 seconds)
+    osTaskStop(&s_tSupervisorCtx.t_tTask, 2);
 
-    // Destroy timer
+    // Destroy timer resources
     xTimerDestroy(&s_tSupervisorCtx.t_tTimer);
 
     // Destroy mutex
@@ -343,7 +353,9 @@ int32_t supervisor_stop(void)
 }
 
 ////////////////////////////////////////////////////////////
-/// checkInfo
+/// checkInfo - Called by high-performance timer system
+/// This function is invoked every SUPERVISOR_TIMER_PERIOD_MS 
+/// by the kernel-based timer via xTimerProcessCallback
 ////////////////////////////////////////////////////////////
 static void checkInfo(void *arg)
 {
@@ -446,6 +458,7 @@ static void *supervisor_task(void *arg)
 {
     X_ASSERT(arg != NULL);
 
+    // Wait for supervisor to be started
     while (!supervisor_is_running)
     {
         ihm_robot_status_t l_tIhmStatus = {
@@ -459,31 +472,46 @@ static void *supervisor_task(void *arg)
         };
         ihm_set_robot_status(&l_tIhmStatus);
 
+        // Check for stop request during initialization wait
+        if (atomic_load(&s_tSupervisorCtx.t_tTask.a_iStopFlag) == OS_TASK_STOP_REQUEST)
+        {
+            X_LOG_TRACE("Task stop requested during startup");
+            return NULL;
+        }
+        
         sleep(1);
     }
-    sleep(3);
+    
+    sleep(3); // Brief initialization delay
     X_LOG_TRACE("Supervisor task started");
+    
 #ifdef EXPLO_BUILD
     explorationManager_setState(PRET);
 #endif
 
     tSupervisorCtx *l_ptCtx = (tSupervisorCtx *)arg;
 
+    // Start the high-performance kernel-based timer
     int32_t l_iResult = xTimerStart(&l_ptCtx->t_tTimer);
-    X_ASSERT(l_iResult == XOS_TIMER_OK);
-
-    while (!l_ptCtx->t_tTimer.t_ucActive || !atomic_load(&l_ptCtx->t_tTimer.t_bPeriodicLockFlag))
+    if (l_iResult != XOS_TIMER_OK)
     {
-        // Vérifier si on doit arrêter la tâche
-        if (atomic_load(&l_ptCtx->t_tTask.a_iStopFlag) == OS_TASK_STOP_REQUEST)
-        {
-            X_LOG_TRACE("Task stop requested while waiting for timer");
-            return NULL;
-        }
+        X_LOG_TRACE("Failed to start supervisor timer: 0x%x", l_iResult);
+        return NULL;
     }
 
-    // Maintenant on peut appeler xTimerProcessPeriodicCallback
-    l_iResult = xTimerProcessPeriodicCallback(&l_ptCtx->t_tTimer, checkInfo, l_ptCtx);
+    // Use efficient kernel-based periodic callback processing
+    // This call blocks and handles all timer expirations efficiently
+    // It will return when the timer is stopped or an error occurs
+    l_iResult = xTimerProcessCallback(&l_ptCtx->t_tTimer, checkInfo, l_ptCtx);
+    
+    if (l_iResult < 0)
+    {
+        X_LOG_TRACE("Timer callback processing ended with error: 0x%x", l_iResult);
+    }
+    else
+    {
+        X_LOG_TRACE("Supervisor task completed %d callbacks", l_iResult);
+    }
 
     return NULL;
 }

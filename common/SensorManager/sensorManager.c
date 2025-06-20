@@ -50,7 +50,8 @@ int sensorManagerInit(void)
     s_tSensorManager.t_tTaskHandler.t_ptTaskArg = NULL;
     s_tSensorManager.t_tTaskHandler.t_ulStackSize = (size_t)OS_TASK_DEFAULT_STACK_SIZE;
     s_tSensorManager.t_tTaskHandler.a_iStopFlag = OS_TASK_SECURE_FLAG;
-
+    strcpy(s_tSensorManager.t_tTaskHandler.t_acTaskName, "sensorManager");
+    
     return SENSOR_MANAGER_OK;
 }
 
@@ -175,7 +176,7 @@ static void *sensorManagerTask(void *p_pvParam)
 
     while (s_tSensorManager.t_tTaskHandler.a_iStopFlag == OS_TASK_SECURE_FLAG)
     {
-        int l_iPeriods = xTimerProcessElapsedPeriods(&s_tSensorManager.t_tTimer, updateSensorData, NULL);
+        int l_iPeriods = xTimerProcessCallback(&s_tSensorManager.t_tTimer, updateSensorData, NULL);
 
         if (l_iPeriods < 0)
         {

@@ -362,6 +362,9 @@ void xServerCleanup(void)
 // Server Thread Implementation
 //-----------------------------------------------------------------------------
 
+///////////////////////////////////////////
+/// serverMainThread
+///////////////////////////////////////////
 static void *serverMainThread(void *p_pvArg)
 {
     ServerInstance *l_ptServer = (ServerInstance *)p_pvArg;
@@ -423,6 +426,9 @@ static void *serverMainThread(void *p_pvArg)
 // Client Management
 //-----------------------------------------------------------------------------
 
+///////////////////////////////////////////
+/// findFreeClientSlot
+///////////////////////////////////////////
 static clientCtx *findFreeClientSlot(void)
 {
     for (int i = 0; i < SERVER_MAX_CLIENTS; i++)
@@ -435,6 +441,9 @@ static clientCtx *findFreeClientSlot(void)
     return NULL;
 }
 
+///////////////////////////////////////////
+/// findClientById
+///////////////////////////////////////////
 static clientCtx *findClientById(ClientID p_tClientId)
 {
     if (p_tClientId == INVALID_CLIENT_ID)
@@ -452,6 +461,9 @@ static clientCtx *findClientById(ClientID p_tClientId)
     return NULL;
 }
 
+///////////////////////////////////////////
+/// handleNewConnection
+///////////////////////////////////////////
 static int handleNewConnection(NetworkSocket *p_ptClientSocket, const NetworkAddress *p_ptClientAddr)
 {
     X_LOG_INFO("New client connection from %s:%d", p_ptClientAddr->t_cAddress, p_ptClientAddr->t_usPort);
@@ -554,6 +566,9 @@ static int handleNewConnection(NetworkSocket *p_ptClientSocket, const NetworkAdd
 // Client Thread Implementation
 //-----------------------------------------------------------------------------
 
+///////////////////////////////////////////
+/// clientThread
+///////////////////////////////////////////
 static void *clientThread(void *p_pvArg)
 {
     clientCtx *l_ptClient = (clientCtx *)p_pvArg;
@@ -597,6 +612,9 @@ static void *clientThread(void *p_pvArg)
     return NULL;
 }
 
+///////////////////////////////////////////
+/// clientReceiveMessage
+///////////////////////////////////////////
 static int clientReceiveMessage(clientCtx *p_ptClient)
 {
     // Read protocol header first (3 bytes)
@@ -692,6 +710,9 @@ static int clientReceiveMessage(clientCtx *p_ptClient)
     return (int)l_ulFrameSize;
 }
 
+///////////////////////////////////////////
+/// clientCleanup
+///////////////////////////////////////////
 static void clientCleanup(clientCtx *p_ptClient)
 {
     if (p_ptClient == NULL || p_ptClient->t_tId == INVALID_CLIENT_ID)
@@ -724,6 +745,9 @@ static void clientCleanup(clientCtx *p_ptClient)
 // Client Communication
 //-----------------------------------------------------------------------------
 
+///////////////////////////////////////////
+/// clientSendData
+///////////////////////////////////////////
 static int clientSendData(clientCtx *p_ptClient, const void *p_pvData, int p_iSize)
 {
     if (p_ptClient == NULL || !p_ptClient->t_bConnected || p_ptClient->t_bShutdown)
@@ -772,6 +796,9 @@ static int clientSendData(clientCtx *p_ptClient, const void *p_pvData, int p_iSi
 // Utility Functions
 //-----------------------------------------------------------------------------
 
+///////////////////////////////////////////
+/// cleanupDisconnectedClients
+///////////////////////////////////////////
 static void cleanupDisconnectedClients(void)
 {
     mutexLock(&s_tServer.t_tClientsMutex);
@@ -800,6 +827,9 @@ static void cleanupDisconnectedClients(void)
 // Public API Implementation
 //-----------------------------------------------------------------------------
 
+///////////////////////////////////////////
+/// xServerSendMessage
+///////////////////////////////////////////
 int xServerSendMessage(ClientID p_tClientId, uint8_t p_ucMsgType, 
                       const void *p_pvPayload, uint32_t p_ulPayloadSize)
 {
@@ -852,6 +882,9 @@ int xServerSendMessage(ClientID p_tClientId, uint8_t p_ucMsgType,
     return SERVER_OK;
 }
 
+///////////////////////////////////////////
+/// xServerBroadcastMessage
+///////////////////////////////////////////
 int xServerBroadcastMessage(uint8_t p_ucMsgType, const void *p_pvPayload, uint32_t p_ulPayloadSize)
 {
     if (!s_tServer.t_bInitialized || !s_tServer.t_bRunning)
@@ -915,6 +948,9 @@ int xServerBroadcastMessage(uint8_t p_ucMsgType, const void *p_pvPayload, uint32
     return (l_iFailureCount == 0) ? SERVER_OK : SERVER_ERROR;
 }
 
+///////////////////////////////////////////
+/// xServerGetClientInfo
+///////////////////////////////////////////
 bool xServerGetClientInfo(ClientID p_tClientId, char *p_pcBuffer, int p_iBufferSize)
 {
     if (p_pcBuffer == NULL || p_iBufferSize <= 0)
@@ -945,6 +981,9 @@ bool xServerGetClientInfo(ClientID p_tClientId, char *p_pcBuffer, int p_iBufferS
     return true;
 }
 
+///////////////////////////////////////////
+/// xServerGetClientCount
+///////////////////////////////////////////
 int xServerGetClientCount(void)
 {
     mutexLock(&s_tServer.t_tClientsMutex);
@@ -953,6 +992,9 @@ int xServerGetClientCount(void)
     return l_iCount;
 }
 
+///////////////////////////////////////////
+/// xServerGetclientCtx
+///////////////////////////////////////////
 clientCtx *xServerGetclientCtx(ClientID p_tClientId)
 {
     // This is safe because we use fixed-size arrays, no allocation/deallocation
@@ -965,12 +1007,18 @@ clientCtx *xServerGetclientCtx(ClientID p_tClientId)
     return (l_ptClient->t_tId == p_tClientId) ? l_ptClient : NULL;
 }
 
+///////////////////////////////////////////
+/// xServerGetClientID
+///////////////////////////////////////////
 ClientID xServerGetClientID(const clientCtx *p_ptContext)
 {
     const clientCtx *l_ptContext = (const clientCtx *)p_ptContext;
     return (l_ptContext != NULL) ? l_ptContext->t_tId : INVALID_CLIENT_ID;
 }
 
+///////////////////////////////////////////
+/// xServerCreateDefaultConfig
+///////////////////////////////////////////
 ServerConfig xServerCreateDefaultConfig(void)
 {
     ServerConfig l_sConfig;
@@ -981,13 +1029,16 @@ ServerConfig xServerCreateDefaultConfig(void)
     l_sConfig.t_iSocketTimeout = 30; // 30 seconds
     
     // Default TLS paths (will be ignored if TLS is disabled)
-    strcpy(l_sConfig.t_acCertFile, "/home/christophe/pato/APP_CORE/pki/server/fullchain.pem");
-    strcpy(l_sConfig.t_acKeyFile, "/home/christophe/pato/APP_CORE/pki/server/server.key");
-    strcpy(l_sConfig.t_acCaDir, "/home/christophe/pato/APP_CORE/pki/root");
+    strcpy(l_sConfig.t_acCertFile, "../pki/server/fullchain.pem");
+    strcpy(l_sConfig.t_acKeyFile, "../pki/server/server.key");
+    strcpy(l_sConfig.t_acCaDir, "../pki/root");
     
     return l_sConfig;
 }
 
+///////////////////////////////////////////
+/// xServerGetErrorString
+///////////////////////////////////////////
 const char *xServerGetErrorString(int p_iError)
 {
     switch (p_iError)

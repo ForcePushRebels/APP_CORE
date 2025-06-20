@@ -263,6 +263,7 @@ int ihm_init()
     }
     ihmTask.t_ptTask = ihm_task;
     ihmTask.t_ptTaskArg = (void *)&ihmTask;
+    strcpy(ihmTask.t_acTaskName, "ihm");
     atomic_init(&ihmTask.a_iStopFlag, OS_TASK_SECURE_FLAG);
 
     ret = osTaskCreate(&ihmTask);

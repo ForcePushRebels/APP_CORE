@@ -699,8 +699,15 @@ static int clientSendData(clientCtx *p_ptClient, const void *p_pvData, int p_iSi
         if (l_iResult <= 0)
         {
             int l_iError = wolfSSL_get_error(p_ptClient->t_ptTlsSession, l_iResult);
-            X_LOG_WARN("TLS write error for client %u: %d", p_ptClient->t_tId, l_iError);
-            return SERVER_ERROR;
+            if (l_iError == SOCKET_PEER_CLOSED_E)
+            {
+                p_ptClient->t_bConnected = false;
+            }
+            else
+            {
+                X_LOG_WARN("TLS write error for client %u: %d", p_ptClient->t_tId, l_iError);
+                return SERVER_ERROR;
+            }
         }
     }
     else

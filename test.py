@@ -39,14 +39,14 @@ def main_client_loop():
     
     # --- 1. Contexte TLS côté client ----------------------------------------
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)          # contexte « client »
-    ctx.load_verify_locations("pki/root/ca.pem")           # CA racine pour valider
+    ctx.load_verify_locations("build/x86_64-debug/pki/root/ca.pem")           # CA racine pour valider
     ctx.minimum_version = ssl.TLSVersion.TLSv1_3           # (ou TLSv1_3 si supporté)
-    ctx.set_ciphers("ECDHE+AESGCM:ECDHE+CHACHA20")         # ciphers modernes, optionnel
+    ctx.set_ciphers("ECDHE+CHACHA20")         # ciphers modernes, optionnel
 
     # --- Mutual TLS (facultatif) --------------------------------------------
     # Décommentez si le serveur exige un certificat client :
-    ctx.load_cert_chain(certfile="pki/client/fullchain.pem",
-                         keyfile="pki/client/client.key")
+    ctx.load_cert_chain(certfile="build/x86_64-debug/pki/client/fullchain.pem",
+                         keyfile="build/x86_64-debug/pki/client/client.key")
 
     # --- 2. Connexion socket + handshake ------------------------------------
     try:

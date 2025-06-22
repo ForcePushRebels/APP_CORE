@@ -1,0 +1,14 @@
+name = "app_core_explo"
+description = "programme for robot exploration control "
+version = "0.1.0-dev"
+
+authors = ["Christophe"]
+maintainers = ["Christophe <christophe.benedetti15@gmail.com>"]
+licenses = "MIT OR Apache-2.0 WITH LLVM-exception"
+website = ""
+tags = []
+
+executables = ["app_core_explo"]
+
+[[depends-on]]
+wolfssl = "^5.8.0"

@@ -1,0 +1,36 @@
+with "config/app_core_explo_config.gpr";
+project App_Core_Explo is
+
+   for Source_Dirs use ("src/", "config/");
+   for Object_Dir use "obj/" & App_Core_Explo_Config.Build_Profile;
+   for Create_Missing_Dirs use "True";
+   for Exec_Dir use "bin";
+   for Main use ("app_core_explo.adb");
+
+   -- Chemins vers les bibliothèques C
+   Lumpiz_Lib_Dir := "libs/lib_lumpiz-x86_64-v0.1.1";
+   Mrpiz_Lib_Dir := "libs/lib_mrpiz-x86_64-v0.6.1";
+
+   package Compiler is
+      for Default_Switches ("Ada") use App_Core_Explo_Config.Ada_Compiler_Switches &
+         ("-I" & Lumpiz_Lib_Dir & "/include",
+          "-I" & Mrpiz_Lib_Dir & "/include");
+   end Compiler;
+
+   package Linker is
+      for Switches ("Ada") use 
+         ("-L" & Lumpiz_Lib_Dir & "/lib",
+          "-L" & Mrpiz_Lib_Dir & "/lib",
+          "-llumpiz", "-lintoxlumpiz",
+          "-lmrpiz", "-lintoxmrpiz", "-lintox");
+   end Linker;
+
+   package Binder is
+      for Switches ("Ada") use ("-Es"); --  Symbolic traceback
+   end Binder;
+
+   package Install is
+      for Artifacts (".") use ("share");
+   end Install;
+
+end App_Core_Explo;

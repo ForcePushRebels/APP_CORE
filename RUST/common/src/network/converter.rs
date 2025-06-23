@@ -11,6 +11,7 @@ use crate::x_log::write_log;
 use crate::x_assert::x_assert;
 use crate::network::server::SERVER_BUFFER_ERROR;
 
+#[derive(Debug)]
 pub struct Converter {
     pub length: u16,
     pub idx: u8, 
@@ -18,7 +19,7 @@ pub struct Converter {
 }
 
 #[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum NetworkMessageType {
     //====== SEND BY ANDROID ======
     IdSetMovement = 0x01,

@@ -18,11 +18,13 @@ project App_Core_Explo is
    end Compiler;
 
    package Linker is
+      -- Utilisation des bibliothèques intox pour la simulation
       for Switches ("Ada") use 
          ("-L" & Lumpiz_Lib_Dir & "/lib",
           "-L" & Mrpiz_Lib_Dir & "/lib",
-          "-llumpiz", "-lintoxlumpiz",
-          "-lmrpiz", "-lintoxmrpiz", "-lintox");
+          "-lintoxlumpiz",     -- Version simulée de lumpiz
+          "-lintoxmrpiz",      -- Version simulée de mrpiz
+          "-lintox");          -- Bibliothèque de base pour la simulation
    end Linker;
 
    package Binder is

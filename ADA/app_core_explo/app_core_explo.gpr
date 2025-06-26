@@ -1,7 +1,7 @@
 with "config/app_core_explo_config.gpr";
 project App_Core_Explo is
 
-   for Source_Dirs use ("src/", "src/timer/", "config/");
+   for Source_Dirs use ("src/", "src/timer/", "config/", "src/hardware_abstraction/", "src/sensor_manager/");
    for Object_Dir use "obj/" & App_Core_Explo_Config.Build_Profile;
    for Create_Missing_Dirs use "True";
    for Exec_Dir use "bin";
@@ -14,7 +14,9 @@ project App_Core_Explo is
    package Compiler is
       for Default_Switches ("Ada") use App_Core_Explo_Config.Ada_Compiler_Switches &
          ("-I" & Lumpiz_Lib_Dir & "/include",
-          "-I" & Mrpiz_Lib_Dir & "/include");
+          "-I" & Mrpiz_Lib_Dir & "/include",
+          "-DINTOX",
+          "-DSIMULATION_2D");
    end Compiler;
 
    package Linker is

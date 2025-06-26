@@ -15,7 +15,6 @@
 --  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ----------------------------------------------------------------------
 
-with Ada.Finalization;
 with Ada.Real_Time;
 
 package Timer is

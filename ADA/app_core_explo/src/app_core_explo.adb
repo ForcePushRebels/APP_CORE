@@ -15,13 +15,12 @@
 --  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ----------------------------------------------------------------------
 
-
-
 with Ada.Text_IO;
 with Ada.Exceptions;
 with Interfaces.C;
 with Lumpiz_Binding;
 with Mrpiz_Binding;
+with Sensor_Manager;
 
 procedure App_Core_Explo is
    use Ada.Text_IO;
@@ -29,20 +28,21 @@ procedure App_Core_Explo is
    use Interfaces.C;
    use Lumpiz_Binding;
    use Mrpiz_Binding;
+   use Sensor_Manager;
 
-   Result : int;
-   Luminosity : int;
-   Proximity : Sensor_Value;
-   Battery_Level : Battery_Level_Percent;
+   My_Sensor_Manager : Sensor_Manager_T;
+   My_Sensor_Data : Sensor_Data_T;
+   Luminosity : Float;
+   Battery_Level : Integer;
    Battery_Voltage : Float;
 
 begin
    Put_Line ("=== Démarrage du système d'exploration ===");
 
    begin
-      -- Initialisation du robot MRPiZ
-      Put_Line ("Initialisation du robot MRPiZ...");
-      Mrpiz_Init;
+      -- Initialisation du robot MRPiZ avec le simulateur Intox
+      Put_Line ("Initialisation du robot MRPiZ (Intox)...");
+      Mrpiz_Init_Intox ("127.0.0.1", 12345);
       Put_Line ("Robot MRPiZ initialisé avec succès");
 
    exception
@@ -52,48 +52,34 @@ begin
    end;
 
    begin
-      -- Initialisation du capteur de luminosité
-      Put_Line ("Initialisation du capteur de luminosité...");
-      Result := Lumpiz_Luminosity_Init;
-      if Result /= 0 then
-         Put_Line ("Erreur lors de l'initialisation du capteur de luminosité");
-         Mrpiz_Close;
-         return;
-      end if;
-      Put_Line ("Capteur de luminosité initialisé avec succès");
+      -- Initialisation du gestionnaire de capteurs
+      Put_Line ("Initialisation du gestionnaire de capteurs...");
+      My_Sensor_Manager.Initialize;
+      Put_Line ("Gestionnaire de capteurs initialisé");
 
-      -- Allumer le capteur de luminosité
-      Put_Line ("Allumage du capteur de luminosité...");
-      Result := Lumpiz_Luminosity_Light_Set (LUMPIZ_LUMINOSITY_ON);
-      if Result /= 0 then
-         Put_Line ("Erreur lors de l'allumage du capteur");
-      end if;
+      -- Démarrage du gestionnaire de capteurs
+      Put_Line ("Démarrage du gestionnaire de capteurs...");
+      My_Sensor_Manager.Start_Sensor_Manager;
+      Put_Line ("Gestionnaire de capteurs démarré");
 
       -- Allumer la LED en vert pour indiquer que le système est prêt
       Put_Line ("Allumage de la LED en vert...");
       Mrpiz_Led_Rgb_Set (MRPIZ_LED_GREEN);
       Put_Line ("LED allumée en vert");
 
-      -- Exemple de lecture des capteurs
-      Put_Line ("=== Lecture des capteurs ===");
+      -- Lecture des capteurs via le gestionnaire
+      Put_Line ("=== Lecture des capteurs via le gestionnaire ===");
+      My_Sensor_Manager.Get_Sensor_Data (My_Sensor_Data);
+      Put_Line ("Données des capteurs récupérées");
 
-      -- Lecture de la luminosité
-      Luminosity := Lumpiz_Luminosity_Get;
-      if Luminosity >= 0 then
-         Put_Line ("Luminosité actuelle :" & int'Image (Luminosity));
-      else
-         Put_Line ("Erreur de lecture du capteur de luminosité");
-      end if;
+      -- Affichage des données de luminosité
+      My_Sensor_Manager.Get_Luminosity (Luminosity);
+      Put_Line ("Luminosité :" & Float'Image (Luminosity));
 
-      -- Lecture du capteur de proximité central
-      Proximity := Mrpiz_Proxy_Sensor_Get (MRPIZ_PROXY_SENSOR_FRONT_CENTER);
-      Put_Line ("Proximité centrale :" & Sensor_Value'Image (Proximity));
-
-      -- Lecture du niveau de batterie
-      Battery_Level := Mrpiz_Battery_Level;
-      Put_Line ("Niveau de batterie :" & Battery_Level_Percent'Image (Battery_Level) & "%");
-
-      Battery_Voltage := Mrpiz_Battery_Voltage;
+      -- Affichage de la batterie
+      My_Sensor_Manager.Get_Battery_Level (Battery_Level);
+      My_Sensor_Manager.Get_Battery_Voltage (Battery_Voltage);
+      Put_Line ("Niveau de batterie :" & Integer'Image (Battery_Level) & "%");
       Put_Line ("Tension de batterie :" & Float'Image (Battery_Voltage) & "V");
 
       -- Test de détection d'obstacle
@@ -120,11 +106,13 @@ begin
       Put_Line ("Extinction de la LED...");
       Mrpiz_Led_Rgb_Set (MRPIZ_LED_OFF);
 
-      -- Éteindre le capteur de luminosité
-      Put_Line ("Extinction du capteur de luminosité...");
-      Result := Lumpiz_Luminosity_Light_Set (LUMPIZ_LUMINOSITY_OFF);
+      -- Arrêt du gestionnaire de capteurs
+      Put_Line ("Arrêt du gestionnaire de capteurs...");
+      My_Sensor_Manager.Stop_Sensor_Manager;
 
    exception
+      when E : Sensor_Manager_Error =>
+         Put_Line ("Erreur du gestionnaire de capteurs : " & Exception_Message (E));
       when E : Mrpiz_Motor_Error =>
          Put_Line ("Erreur moteur : " & Exception_Message (E));
       when E : Mrpiz_Sensor_Error =>

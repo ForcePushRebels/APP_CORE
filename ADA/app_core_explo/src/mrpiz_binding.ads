@@ -16,6 +16,7 @@
 ----------------------------------------------------------------------
 
 with Interfaces.C;
+with Interfaces.C.Strings;
 
 package Mrpiz_Binding is
 
@@ -45,16 +46,16 @@ package Mrpiz_Binding is
 
    type Mrpiz_Proxy_Sensor_Id is (
       MRPIZ_PROXY_SENSOR_FRONT_LEFT,
-      MRPIZ_PROXY_SENSOR_FRONT_CENTER_LEFT,
+      --MRPIZ_PROXY_SENSOR_FRONT_CENTER_LEFT,
       MRPIZ_PROXY_SENSOR_FRONT_CENTER,
-      MRPIZ_PROXY_SENSOR_FRONT_CENTER_RIGHT,
+      --MRPIZ_PROXY_SENSOR_FRONT_CENTER_RIGHT,
       MRPIZ_PROXY_SENSOR_FRONT_RIGHT
    );
    for Mrpiz_Proxy_Sensor_Id use (
       MRPIZ_PROXY_SENSOR_FRONT_LEFT         => 1,
-      MRPIZ_PROXY_SENSOR_FRONT_CENTER_LEFT  => 2,
+      --MRPIZ_PROXY_SENSOR_FRONT_CENTER_LEFT  => 2,
       MRPIZ_PROXY_SENSOR_FRONT_CENTER       => 3,
-      MRPIZ_PROXY_SENSOR_FRONT_CENTER_RIGHT => 4,
+      --MRPIZ_PROXY_SENSOR_FRONT_CENTER_RIGHT => 4,
       MRPIZ_PROXY_SENSOR_FRONT_RIGHT        => 5
    );
    pragma Convention (C, Mrpiz_Proxy_Sensor_Id);
@@ -81,6 +82,9 @@ package Mrpiz_Binding is
    -- Fonctions d'initialisation et fermeture (niveau bas)
    function Mrpiz_Init_Raw return int;
    pragma Import (C, Mrpiz_Init_Raw, "mrpiz_init");
+
+   function Mrpiz_Init_Intox_Raw (Address : Interfaces.C.Strings.chars_ptr; Port : int) return int;
+   pragma Import (C, Mrpiz_Init_Intox_Raw, "mrpiz_init_intox");
 
    procedure Mrpiz_Close_Raw;
    pragma Import (C, Mrpiz_Close_Raw, "mrpiz_close");
@@ -114,6 +118,7 @@ package Mrpiz_Binding is
    
    -- Initialisation et fermeture
    procedure Mrpiz_Init;
+   procedure Mrpiz_Init_Intox (Address : String; Port : Natural);
    procedure Mrpiz_Close;
 
    -- Moteurs

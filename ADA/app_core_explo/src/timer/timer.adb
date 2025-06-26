@@ -25,14 +25,14 @@ package body Timer is
    -- Conversion millisecondes vers Time_Span
    function Ms_To_Time_Span (Ms : Milliseconds) return Time_Span is
    begin
-      return Milliseconds (Ms) * Milliseconds (1_000_000);
+      return Ada.Real_Time.Milliseconds (Integer (Ms));
    end Ms_To_Time_Span;
 
    -- Implémentation de la tâche timer
    task body Timer_Task_T is
       Timer_Interval : Time_Span;
       Timer_Callback : Callback_Access;
-      Timer_Mode     : Timer_Mode;
+      Timer_Mode     : Timer.Timer_Mode;
       Running        : Boolean := False;
       Next_Time      : Time;
    begin
@@ -41,7 +41,7 @@ package body Timer is
             -- Démarrer le timer
             accept Start (Interval : Time_Span; 
                          Callback : Callback_Access; 
-                         Mode : Timer_Mode) do
+                         Mode : Timer.Timer_Mode) do
                Timer_Interval := Interval;
                Timer_Callback := Callback;
                Timer_Mode := Mode;
@@ -60,8 +60,8 @@ package body Timer is
                   -- Terminer la tâche
                   accept Terminate_Task do
                      Running := False;
-                     exit;
                   end Terminate_Task;
+                  exit;
                or
                   -- Attendre l'expiration du timer
                   delay until Next_Time;
@@ -92,8 +92,8 @@ package body Timer is
             -- Terminer la tâche
             accept Terminate_Task do
                Running := False;
-               exit;
             end Terminate_Task;
+            exit;
          end select;
       end loop;
    end Timer_Task_T;
@@ -187,6 +187,7 @@ package body Timer is
         (Timer_Record_T, Timer_Id_T);
       procedure Free_Timer_Task is new Ada.Unchecked_Deallocation 
         (Timer_Task_T, Timer_Task_Access);
+      Timer_Id_Copy : Timer_Id_T := Timer_Id;
    begin
       if Timer_Id = null or else not Timer_Id.Is_Created then
          raise Invalid_Timer_Id;
@@ -201,9 +202,9 @@ package body Timer is
       Timer_Id.Task_Access.Terminate_Task;
 
       -- Libérer la mémoire
-      Free_Timer_Task (Timer_Id.Task_Access);
-      Timer_Id.Is_Created := False;
-      Free_Timer_Record (Timer_Id);
+      Free_Timer_Task (Timer_Id_Copy.Task_Access);
+      Timer_Id_Copy.Is_Created := False;
+      Free_Timer_Record (Timer_Id_Copy);
    end Destroy_Timer;
 
 end Timer;

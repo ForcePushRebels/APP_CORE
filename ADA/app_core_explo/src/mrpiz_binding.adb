@@ -43,6 +43,21 @@ package body Mrpiz_Binding is
       Is_Initialized := True;
    end Mrpiz_Init;
 
+   -- Initialisation Intox avec adresse et port personnalisés
+   procedure Mrpiz_Init_Intox (Address : String; Port : Natural) is
+      Result : int;
+      C_Address : Interfaces.C.Strings.chars_ptr;
+   begin
+      C_Address := Interfaces.C.Strings.New_String (Address);
+      Result := Mrpiz_Init_Intox_Raw (C_Address, int (Port));
+      Interfaces.C.Strings.Free (C_Address);
+      
+      if Result /= 0 then
+         raise Mrpiz_Init_Error with "Échec de l'initialisation du robot MRPiZ Intox (adresse: " & Address & ", port:" & Natural'Image (Port) & ")";
+      end if;
+      Is_Initialized := True;
+   end Mrpiz_Init_Intox;
+
    -- Fermeture propre
    procedure Mrpiz_Close is
    begin
@@ -137,11 +152,9 @@ package body Mrpiz_Binding is
 
    -- Détection d'obstacle basée sur tous les capteurs avant
    function Is_Obstacle_Detected (Threshold : Sensor_Value := 100) return Boolean is
-      Sensors : constant array (1 .. 5) of Mrpiz_Proxy_Sensor_Id :=
+      Sensors : constant array (1 .. 3) of Mrpiz_Proxy_Sensor_Id :=
         (MRPIZ_PROXY_SENSOR_FRONT_LEFT,
-         MRPIZ_PROXY_SENSOR_FRONT_CENTER_LEFT,
          MRPIZ_PROXY_SENSOR_FRONT_CENTER,
-         MRPIZ_PROXY_SENSOR_FRONT_CENTER_RIGHT,
          MRPIZ_PROXY_SENSOR_FRONT_RIGHT);
    begin
       for Sensor of Sensors loop

@@ -1,0 +1,53 @@
+# THIS FILE IS GENERATED. DO NOT EDIT.
+
+[solution]
+[solution.context]
+solved = true
+[[solution.state]]
+crate = "wolfssl"
+fulfilment = "solved"
+pinned = false
+transitivity = "direct"
+versions = "^5.8.0"
+[solution.state.release]
+authors = [
+"WolfSSL Team <support@wolfssl.com>",
+]
+description = "WolfSSL encryption library and its Ada bindings"
+licenses = "GPL-2.0-only"
+maintainers = [
+"Fernando Oleo Blanco <irvise@irvise.xyz>",
+"Manuel Gomez <mgrojo@gmail.com>",
+]
+maintainers-logins = [
+"Irvise",
+"mgrojo",
+]
+name = "wolfssl"
+project-files = [
+"wolfssl.gpr",
+]
+tags = [
+"ssl",
+"tls",
+"embedded",
+"spark",
+]
+version = "5.8.0"
+website = "https://www.wolfssl.com/"
+[solution.state.release.configuration]
+auto_gpr_with = true
+disabled = false
+generate_ada = true
+generate_c = true
+generate_gpr = true
+output_dir = "config"
+[solution.state.release.configuration.variables]
+[solution.state.release.configuration.variables.STATIC_PSK]
+default = false
+type = "Boolean"
+[solution.state.release.origin]
+commit = "e6e64515c7e844e36916559ce560ab80993bb9dd"
+subdir = "./wrapper/Ada/"
+url = "git+https://github.com/wolfSSL/wolfssl.git"
+

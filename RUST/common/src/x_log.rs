@@ -126,6 +126,9 @@ pub fn write_log(message: &str)
     let caller_line = location.line();
     let caller_file = location.file();
 
+    // extract the filename from the caller_file
+    let filename = caller_file.split("/").last().unwrap();
+
     // Direct access to the instance without using get()
     if let Some(mut log) = INSTANCE.try_lock() 
     {
@@ -138,7 +141,7 @@ pub fn write_log(message: &str)
                 println!(
                     "{} | {}:{} | {}",
                     chrono::Local::now().format("%Y-%m-%d %H:%M:%S.%f"),
-                    caller_file,
+                    filename,
                     caller_line,
                     message
                 );
@@ -156,7 +159,7 @@ pub fn write_log(message: &str)
                     file_log,
                     "{} | {}:{} | {}",
                     chrono::Local::now().format("%Y-%m-%d %H:%M:%S.%f"),
-                    caller_file,
+                    filename,
                     caller_line,
                     message
                 );

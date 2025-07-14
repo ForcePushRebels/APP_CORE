@@ -1,0 +1,5 @@
+dependency:wolfssl=5.8.0=329b012fe38c2afa5285d8864ff15417fe8d3bfc539354373dce332757978eef
+external:APP_CORE_EXPLO_LIBRARY_TYPE=default
+external:LIBRARY_TYPE=default
+profile:app_core_explo=DEVELOPMENT
+switches:app_core_explo=-Og,-fdata-sections,-ffunction-sections,-g,-gnatVa,-gnatW8,-gnatw.X,-gnatwa,-gnaty-d,-gnaty3,-gnatyA,-gnatyB,-gnatyI,-gnatyO,-gnatyS,-gnatya,-gnatyb,-gnatyc,-gnatye,-gnatyf,-gnatyh,-gnatyi,-gnatyk,-gnatyl,-gnatym,-gnatyn,-gnatyp,-gnatyr,-gnatyt,-gnatyu,-gnatyx

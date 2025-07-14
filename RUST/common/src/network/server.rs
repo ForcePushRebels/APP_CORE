@@ -28,33 +28,33 @@ pub const SERVER_THREAD_ERROR: u32 = 0xE3452104;
 pub const SERVER_BUFFER_ERROR: u32 = 0xE3452105;
 pub const SERVER_SHUTDOWN_ERROR: u32 = 0xE3452106;
 
-/// Configuration du serveur
+/// Server configuration
 #[derive(Clone)]
 pub struct ServerConfig {
     pub port: u16,
     pub max_clients: u32,
     pub max_connections: u32,
-    pub thread_pool_size: u32,  // Remplace max_threads
+    pub thread_pool_size: u32,  // Replaces max_threads
     pub max_buffer_size: u32,
     pub max_packet_size: u32,
     pub ip_addr: String,
-    pub socket_timeout_ms: u64,  // Nouveau: timeout des sockets
-    pub shutdown_timeout_ms: u64, // Nouveau: timeout pour l'arrêt
+    pub socket_timeout_ms: u64,  // New: socket timeout
+    pub shutdown_timeout_ms: u64, // New: shutdown timeout
 }
 
 impl ServerConfig {
-    /// Crée une nouvelle configuration de serveur avec des valeurs par défaut
+    /// Creates a new server configuration with default values
     pub fn new(ip_addr: String, port: u16) -> Self {
         Self {
             port,
             max_clients: 10,
             max_connections: 100,
-            thread_pool_size: 4,  // Pool fixe de threads
+            thread_pool_size: 4,  // Fixed thread pool
             max_buffer_size: 4096,
             max_packet_size: 1024,
             ip_addr,
-            socket_timeout_ms: 30000,  // 30 secondes
-            shutdown_timeout_ms: 5000,  // 5 secondes pour l'arrêt
+            socket_timeout_ms: 30000,  // 30 seconds
+            shutdown_timeout_ms: 5000,  // 5 seconds for shutdown
         }
     }
 }
@@ -94,35 +94,35 @@ impl Server {
         })
     }
 
-    // Gestion des mutex empoisonnés
+    // Handle poisoned mutexes
     fn handle_poison_lock<T>(result: Result<T, PoisonError<T>>) -> Option<T> {
         match result {
             Ok(guard) => Some(guard),
             Err(poisoned) => {
-                write_log("Mutex empoisonné détecté, récupération du guard");
+                write_log("Poisoned mutex detected, recovering guard");
                 Some(poisoned.into_inner())
             }
         }
     }
 
-    // Configure les timeouts sur un socket
+    // Configure timeouts on a socket
     fn configure_socket_timeouts(stream: &TcpStream, timeout_ms: u64) -> Result<(), u32> {
         let timeout = Duration::from_millis(timeout_ms);
         
         if let Err(_) = stream.set_read_timeout(Some(timeout)) {
-            write_log("Erreur lors de la configuration du timeout de lecture");
+            write_log("Error configuring read timeout");
             return Err(SERVER_ERROR);
         }
         
         if let Err(_) = stream.set_write_timeout(Some(timeout)) {
-            write_log("Erreur lors de la configuration du timeout d'écriture");
+            write_log("Error configuring write timeout");
             return Err(SERVER_ERROR);
         }
         
         Ok(())
     }
 
-    // Crée le pool de threads workers
+    // Create worker thread pool
     fn create_worker_pool(&mut self, job_receiver: mpsc::Receiver<ClientJob>) {
         let job_receiver = Arc::new(Mutex::new(job_receiver));
         
@@ -131,10 +131,10 @@ impl Server {
             let running = self.running.clone();
             
             let handle = thread::spawn(move || {
-                write_log(&format!("Worker {} démarré", worker_id));
+                write_log(&format!("Worker {} started", worker_id));
                 
                 while running.load(Ordering::Relaxed) {
-                    // Utiliser try_recv avec un petit délai pour pouvoir vérifier running
+                    // Use try_recv with small delay to check running status
                     let job = {
                         let guard_opt = Self::handle_poison_lock(receiver.lock());
                         if let Some(guard) = guard_opt {
@@ -146,24 +146,24 @@ impl Server {
                                     continue;
                                 }
                                 Err(mpsc::TryRecvError::Disconnected) => {
-                                    write_log(&format!("Worker {} : canal fermé", worker_id));
+                                    write_log(&format!("Worker {}: channel closed", worker_id));
                                     break;
                                 }
                             }
                         } else {
-                            write_log(&format!("Worker {} : impossible de verrouiller le récepteur", worker_id));
+                            write_log(&format!("Worker {}: unable to lock receiver", worker_id));
                             thread::sleep(Duration::from_millis(100));
                             continue;
                         }
                     };
                     
                     if let Some(job) = job {
-                        write_log(&format!("Worker {} traite une connexion", worker_id));
+                        write_log(&format!("Worker {} handling connection", worker_id));
                         Server::handle_client(job.stream, job.config);
                     }
                 }
                 
-                write_log(&format!("Worker {} terminé", worker_id));
+                write_log(&format!("Worker {} finished", worker_id));
             });
             
             self.worker_threads.push(handle);
@@ -173,85 +173,85 @@ impl Server {
     // Start the server in its own thread
     pub fn start(&mut self) -> Result<(), u32> {
         if self.server_thread.is_some() {
-            write_log("Serveur déjà démarré");
+            write_log("Server already started");
             return Ok(());
         }
 
-        // Créer le listener
+        // Create listener
         let bind_addr = format!("{}:{}", self.config.ip_addr, self.config.port);
         let listener = match TcpListener::bind(&bind_addr) {
             Ok(listener) => Arc::new(listener),
             Err(_) => {
-                write_log("Erreur lors de la création du listener");
+                write_log("Error creating listener");
                 return Err(SERVER_ERROR);
             }
         };
 
-        // Créer le canal pour les jobs
+        // Create job channel
         let (job_sender, job_receiver) = mpsc::channel();
         self.job_sender = Some(job_sender.clone());
 
         self.running.store(true, Ordering::Relaxed);
         
-        // Créer le pool de workers
+        // Create worker pool
         self.create_worker_pool(job_receiver);
         
-        // Cloner les données nécessaires pour le thread principal
+        // Clone necessary data for main thread
         let config = self.config.clone();
         let running = self.running.clone();
         let listener_clone = listener.clone();
         self.listener = Some(listener);
         
-        // Thread principal d'acceptation des connexions
+        // Main connection acceptance thread
         self.server_thread = Some(thread::spawn(move || {
-            write_log(&format!("Serveur démarré sur {}:{}", config.ip_addr, config.port));
+            write_log(&format!("Server started on {}:{}", config.ip_addr, config.port));
             
-            // Configurer le listener pour être non-bloquant avec timeout
+            // Configure listener to be non-blocking with timeout
             if let Err(_) = listener_clone.set_nonblocking(false) {
-                write_log("Erreur lors de la configuration du listener");
+                write_log("Error configuring listener");
                 return;
             }
 
             for stream in listener_clone.incoming() {
                 if !running.load(Ordering::Relaxed) {
-                    write_log("Arrêt du serveur demandé");
+                    write_log("Server shutdown requested");
                     break;
                 }
 
                 match stream {
                     Ok(stream) => {
-                        write_log("Nouvelle connexion établie");
+                        write_log("New connection established");
                         
-                        // Configurer les timeouts du socket
+                        // Configure socket timeouts
                         if let Err(_) = Server::configure_socket_timeouts(&stream, config.socket_timeout_ms) {
-                            write_log("Erreur configuration timeouts socket");
+                            write_log("Error configuring socket timeouts");
                             continue;
                         }
                         
-                        // Envoyer le job au pool de workers
+                        // Send job to worker pool
                         let job = ClientJob {
                             stream,
                             config: config.clone(),
                         };
                         
                         if let Err(_) = job_sender.send(job) {
-                            write_log("Erreur envoi job aux workers");
+                            write_log("Error sending job to workers");
                             break;
                         }
                     }
                     Err(e) => {
                         if running.load(Ordering::Relaxed) {
-                            write_log(&format!("Erreur de connexion: {}", e));
+                            write_log(&format!("Connection error: {}", e));
                         }
-                        // Ne pas retourner d'erreur ici, continuer à écouter
+                        // Don't return error here, continue listening
                     }
                 }
             }
             
-            write_log("Thread serveur principal terminé");
+            write_log("Main server thread finished");
         }));
 
-        write_log("Serveur démarré avec succès");
+        write_log("Server started successfully");
         Ok(())
     }
     
@@ -263,34 +263,34 @@ impl Server {
         loop {
             match stream.read(&mut buffer) {
                 Ok(0) => {
-                    write_log("Client déconnecté");
+                    write_log("Client disconnected");
                     break;
                 }
                 Ok(bytes_read) => {
-                    write_log(&format!("Reçu {} bytes du client", bytes_read));
+                    write_log(&format!("Received {} bytes from client", bytes_read));
                     
-                    // Traiter le message avec le gestionnaire de réseau
+                    // Process message with network handler
                     let result = handle_incoming_message(&buffer, bytes_read);
                     
                     if result.status_code != SERVER_OK {
-                        write_log(&format!("Erreur traitement message: 0x{:08X}", result.status_code));
+                        write_log(&format!("Message processing error: 0x{:08X}", result.status_code));
                     }
                     
-                    // Créer une réponse simple
+                    // Create simple response
                     let response = match result.status_code {
                         SERVER_OK => {
                             if let Some(response_msg) = result.response_message {
-                                // Convertir le message de réponse en bytes et l'envoyer
+                                // Convert response message to bytes and send
                                 response_msg.convert_to_bytes()
                             } else {
-                                "HTTP/1.1 200 OK\r\n\r\nMessage traite avec succes".as_bytes().to_vec()
+                                "HTTP/1.1 200 OK\r\n\r\nMessage processed successfully".as_bytes().to_vec()
                             }
                         },
-                        _ => "HTTP/1.1 400 Bad Request\r\n\r\nErreur dans le traitement du message".as_bytes().to_vec(),
+                        _ => "HTTP/1.1 400 Bad Request\r\n\r\nError processing message".as_bytes().to_vec(),
                     };
                     
                     if let Err(e) = stream.write_all(&response) {
-                        write_log(&format!("Erreur d'écriture de la réponse: {}", e));
+                        write_log(&format!("Response write error: {}", e));
                         break;
                     }
                     
@@ -324,29 +324,29 @@ impl Server {
     }
 
     pub fn stop(&mut self) -> u32 {
-        write_log("Arrêt du serveur...");
+        write_log("Stopping server...");
         
-        // Signaler l'arrêt
+        // Signal shutdown
         self.running.store(false, Ordering::Relaxed);
         
-        // Fermer le canal des jobs pour signaler aux workers de s'arrêter
+        // Close job channel to signal workers to stop
         self.job_sender.take();
         
-        // Fermer explicitement le listener pour débloquer accept()
+        // Explicitly close listener to unblock accept()
         if let Some(_listener) = &self.listener {
-            // On ne peut pas fermer directement le TcpListener, mais on peut
-            // utiliser un socket factice pour débloquer accept()
+            // We can't close TcpListener directly, but we can
+            // use a dummy socket to unblock accept()
             let dummy_addr = format!("{}:{}", self.config.ip_addr, self.config.port);
             if let Ok(_) = std::net::TcpStream::connect(&dummy_addr) {
-                write_log("Signal d'arrêt envoyé au listener");
+                write_log("Shutdown signal sent to listener");
             }
         }
         
-        // Attendre que le thread principal se termine avec timeout
+        // Wait for main thread to finish with timeout
         if let Some(handle) = self.server_thread.take() {
             let timeout = Duration::from_millis(self.config.shutdown_timeout_ms);
             
-            // Simuler un join avec timeout en utilisant un thread auxiliaire
+            // Simulate join with timeout using auxiliary thread
             let (sender, receiver) = mpsc::channel();
             thread::spawn(move || {
                 let result = handle.join();
@@ -355,20 +355,20 @@ impl Server {
             
             match receiver.recv_timeout(timeout) {
                 Ok(Ok(())) => {
-                    write_log("Thread serveur principal arrêté");
+                    write_log("Main server thread stopped");
                 }
                 Ok(Err(_)) => {
-                    write_log("Erreur lors de l'arrêt du thread serveur principal");
+                    write_log("Error stopping main server thread");
                     return SERVER_THREAD_ERROR;
                 }
                 Err(_) => {
-                    write_log("Timeout lors de l'arrêt du thread serveur principal");
+                    write_log("Timeout stopping main server thread");
                     return SERVER_SHUTDOWN_ERROR;
                 }
             }
         }
         
-        // Attendre que tous les workers se terminent
+        // Wait for all workers to finish
         let mut failed_workers = 0;
         for (i, handle) in self.worker_threads.drain(..).enumerate() {
             let timeout = Duration::from_millis(self.config.shutdown_timeout_ms / self.config.thread_pool_size as u64);
@@ -381,25 +381,25 @@ impl Server {
             
             match receiver.recv_timeout(timeout) {
                 Ok(Ok(())) => {
-                    write_log(&format!("Worker {} arrêté", i));
+                    write_log(&format!("Worker {} stopped", i));
                 }
                 Ok(Err(_)) => {
-                    write_log(&format!("Erreur lors de l'arrêt du worker {}", i));
+                    write_log(&format!("Error stopping worker {}", i));
                     failed_workers += 1;
                 }
                 Err(_) => {
-                    write_log(&format!("Timeout lors de l'arrêt du worker {}", i));
+                    write_log(&format!("Timeout stopping worker {}", i));
                     failed_workers += 1;
                 }
             }
         }
         
         if failed_workers > 0 {
-            write_log(&format!("{} workers n'ont pas pu être arrêtés proprement", failed_workers));
+            write_log(&format!("{} workers could not be stopped cleanly", failed_workers));
             return SERVER_THREAD_ERROR;
         }
         
-        write_log("Serveur arrêté avec succès");
+        write_log("Server stopped successfully");
         SERVER_OK
     }
 

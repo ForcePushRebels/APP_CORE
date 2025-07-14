@@ -13,10 +13,10 @@ use crate::network::converter::{Converter, NetworkMessageType, convert_to_struct
 use crate::network::server::SERVER_OK;
 use std::sync::{Arc, Mutex};
 
-/// Type pour les callbacks de gestion de messages
+/// Type for message handling callbacks
 pub type MessageCallback = dyn Fn(NetworkMessageType, &Converter) -> Option<Converter> + Send + Sync;
 
-/// Structure pour gérer les callbacks et les réponses
+/// Structure to manage callbacks and responses
 pub struct NetworkHandler {
     callbacks: Arc<Mutex<std::collections::HashMap<NetworkMessageType, Box<MessageCallback>>>>,
 }
@@ -28,32 +28,32 @@ impl NetworkHandler {
         }
     }
 
-    /// Enregistre un callback pour un type de message spécifique
+    /// Registers a callback for a specific message type
     pub fn register_callback<F>(&self, msg_type: NetworkMessageType, callback: F)
     where
         F: Fn(NetworkMessageType, &Converter) -> Option<Converter> + Send + Sync + 'static,
     {
         if let Ok(mut callbacks) = self.callbacks.lock() {
             callbacks.insert(msg_type, Box::new(callback));
-            write_log(&format!("Callback enregistré pour le type de message: {:?}", msg_type));
+            write_log(&format!("Callback registered for message type: {:?}", msg_type));
         } else {
-            write_log("Erreur lors de l'enregistrement du callback: mutex empoisonné");
+            write_log("Error registering callback: poisoned mutex");
         }
     }
 
-    /// Traite un message avec le callback approprié
+    /// Processes a message with the appropriate callback
     pub fn handle_message(&self, msg_type: NetworkMessageType, message: &Converter) -> Option<Converter> {
         match self.callbacks.lock() {
             Ok(callbacks) => {
                 if let Some(callback) = callbacks.get(&msg_type) {
                     callback(msg_type, message)
                 } else {
-                    write_log(&format!("Aucun callback enregistré pour le type: {:?}", msg_type));
+                    write_log(&format!("No callback registered for type: {:?}", msg_type));
                     None
                 }
             }
             Err(poisoned) => {
-                write_log("Mutex des callbacks empoisonné, récupération...");
+                write_log("Callbacks mutex poisoned, recovering...");
                 let callbacks = poisoned.into_inner();
                 if let Some(callback) = callbacks.get(&msg_type) {
                     callback(msg_type, message)
@@ -65,11 +65,11 @@ impl NetworkHandler {
     }
 }
 
-/// Instance globale du gestionnaire de réseau
+/// Global network handler instance
 static mut NETWORK_HANDLER: Option<NetworkHandler> = None;
 static INIT: std::sync::Once = std::sync::Once::new();
 
-/// Initialise le gestionnaire de réseau global
+/// Initializes the global network handler
 pub fn init_network_handler() -> &'static NetworkHandler {
     unsafe {
         INIT.call_once(|| {
@@ -79,14 +79,14 @@ pub fn init_network_handler() -> &'static NetworkHandler {
     }
 }
 
-/// Obtient une référence au gestionnaire de réseau global
+/// Gets a reference to the global network handler
 pub fn get_network_handler() -> &'static NetworkHandler {
     unsafe {
-        NETWORK_HANDLER.as_ref().expect("Network handler non initialisé - appelez init_network_handler() d'abord")
+        NETWORK_HANDLER.as_ref().expect("Network handler not initialized - call init_network_handler() first")
     }
 }
 
-/// Structure pour encapsuler une réponse réseau
+/// Structure to encapsulate a network response
 #[derive(Debug)]
 pub struct NetworkResponse {
     pub response_message: Option<Converter>,
@@ -109,19 +109,19 @@ impl NetworkResponse {
     }
 }
 
-/// Traite un message réseau reçu et retourne une réponse optionnelle
+/// Processes a received network message and returns an optional response
 pub fn handle_incoming_message(buffer: &[u8], bytes_received: usize) -> NetworkResponse {
-    write_log(&format!("Traitement d'un message de {} bytes", bytes_received));
+    write_log(&format!("Processing message of {} bytes", bytes_received));
     
-    // Convertir le buffer en structure
+    // Convert buffer to structure
     match convert_to_struct(&buffer[..bytes_received]) {
         Ok(message) => {
             write_log(&format!(
-                "Message décodé - Longueur: {}, ID: 0x{:02X}, Data: {} bytes",
+                "Message decoded - Length: {}, ID: 0x{:02X}, Data: {} bytes",
                 message.length, message.idx, message.data.len()
             ));
             
-            // Traiter selon le type de message
+            // Process according to message type
             match message.get_message_type() {
                 Some(msg_type) => {
                     let handler = get_network_handler();
@@ -129,130 +129,130 @@ pub fn handle_incoming_message(buffer: &[u8], bytes_received: usize) -> NetworkR
                     NetworkResponse::success(response_message)
                 },
                 None => {
-                    write_log(&format!("Type de message inconnu: 0x{:02X}", message.idx));
+                    write_log(&format!("Unknown message type: 0x{:02X}", message.idx));
                     NetworkResponse::success(None)
                 }
             }
         },
         Err(error) => {
-            write_log(&format!("Erreur lors du décodage du message: 0x{:08X}", error));
+            write_log(&format!("Error decoding message: 0x{:08X}", error));
             NetworkResponse::error(error)
         }
     }
 }
 
-/// Fonctions de callback par défaut pour les différents types de messages
+/// Default callback functions for different message types
 
-/// Callback par défaut pour les commandes de mouvement
+/// Default callback for movement commands
 pub fn default_movement_callback(_msg_type: NetworkMessageType, message: &Converter) -> Option<Converter> {
     if message.data.len() < 2 {
-        write_log("Commande de mouvement invalide: données insuffisantes");
+        write_log("Invalid movement command: insufficient data");
         return None;
     }
     
     let direction = message.data[0];
     let speed = message.data[1];
     
-    write_log(&format!("Mouvement - Direction: {}, Vitesse: {}", direction, speed));
+    write_log(&format!("Movement - Direction: {}, Speed: {}", direction, speed));
     
-    // Ici vous pouvez appeler les fonctions du module hardware
-    // Exemple :
+    // Here you can call hardware module functions
+    // Example:
     // match direction {
     //     1 => motors::move_forward(speed),
     //     2 => motors::move_backward(speed),
     //     3 => motors::turn_left(speed),
     //     4 => motors::turn_right(speed),
     //     0 => motors::stop(),
-    //     _ => { write_log("Direction inconnue"); }
+    //     _ => { write_log("Unknown direction"); }
     // }
     
-    // Retourner un message de confirmation
-    Some(create_status_info_message(1)) // 1 = mouvement en cours
+    // Return confirmation message
+    Some(create_status_info_message(1)) // 1 = movement in progress
 }
 
-/// Callback par défaut pour le contrôle de mission
+/// Default callback for mission control
 pub fn default_mission_control_callback(_msg_type: NetworkMessageType, message: &Converter) -> Option<Converter> {
     if message.data.is_empty() {
-        write_log("Commande de mission invalide: aucune donnée");
+        write_log("Invalid mission command: no data");
         return None;
     }
     
     let command = message.data[0];
-    write_log(&format!("Contrôle de mission - Commande: {}", command));
+    write_log(&format!("Mission control - Command: {}", command));
     
-    // Traiter selon la commande
+    // Process according to command
     let status = match command {
-        1 => { write_log("Démarrage de mission"); 2 }, // mission active
-        2 => { write_log("Arrêt de mission"); 0 },     // mission arrêtée
-        3 => { write_log("Pause de mission"); 3 },     // mission en pause
-        4 => { write_log("Reprise de mission"); 2 },   // mission active
-        _ => { write_log("Commande de mission inconnue"); 255 }, // erreur
+        1 => { write_log("Mission start"); 2 }, // mission active
+        2 => { write_log("Mission stop"); 0 },     // mission stopped
+        3 => { write_log("Mission pause"); 3 },     // mission paused
+        4 => { write_log("Mission resume"); 2 },   // mission active
+        _ => { write_log("Unknown mission command"); 255 }, // error
     };
     
     Some(create_status_info_message(status))
 }
 
-/// Callback par défaut pour les points sélectionnés
+/// Default callback for selected points
 pub fn default_selected_points_callback(_msg_type: NetworkMessageType, message: &Converter) -> Option<Converter> {
-    write_log(&format!("Points sélectionnés reçus: {} bytes de données", message.data.len()));
+    write_log(&format!("Selected points received: {} bytes of data", message.data.len()));
     
-    // Les points sont généralement encodés comme des coordonnées (x,y)
+    // Points are generally encoded as coordinates (x,y)
     let num_points = if message.data.len() % 4 == 0 {
         let num = message.data.len() / 4;
-        write_log(&format!("Nombre de points (u16): {}", num));
+        write_log(&format!("Number of points (u16): {}", num));
         num
     } else if message.data.len() % 8 == 0 {
         let num = message.data.len() / 8;
-        write_log(&format!("Nombre de points (u32): {}", num));
+        write_log(&format!("Number of points (u32): {}", num));
         num
     } else {
-        write_log("Format de points non reconnu");
+        write_log("Unrecognized point format");
         0
     };
     
-    // Retourner un message de confirmation avec le nombre de points traités
+    // Return confirmation message with number of processed points
     if num_points > 0 {
-        Some(create_status_info_message(4)) // 4 = points reçus et traités
+        Some(create_status_info_message(4)) // 4 = points received and processed
     } else {
         None
     }
 }
 
-/// Callback par défaut pour l'upload de carte
+/// Default callback for map upload
 pub fn default_upload_map_callback(_msg_type: NetworkMessageType, message: &Converter) -> Option<Converter> {
-    write_log(&format!("Données de carte reçues: {} bytes", message.data.len()));
+    write_log(&format!("Map data received: {} bytes", message.data.len()));
     
-    // Ici vous pourriez sauvegarder les données de carte
-    // ou les traiter selon votre format de carte
+    // Here you could save the map data
+    // or process it according to your map format
     
-    // Retourner un message de confirmation
-    Some(create_status_info_message(5)) // 5 = carte reçue et traitée
+    // Return confirmation message
+    Some(create_status_info_message(5)) // 5 = map received and processed
 }
 
-/// Callback par défaut pour la découverte de robot
+/// Default callback for robot discovery
 pub fn default_robot_discovery_callback(_msg_type: NetworkMessageType, _message: &Converter) -> Option<Converter> {
-    write_log("Réponse à la découverte de robot - Envoi du manifeste");
+    write_log("Robot discovery response - Sending manifest");
     
-    // Créer un message de manifeste simple
+    // Create simple manifest message
     let manifest_data = b"Robot-MRPiZ-v1.0".to_vec();
     let length = 1 + manifest_data.len() as u16;
     
     Some(Converter::new(length, NetworkMessageType::IdManifest as u8, manifest_data))
 }
 
-/// Callback par défaut pour le manifeste
+/// Default callback for manifest
 pub fn default_manifest_callback(_msg_type: NetworkMessageType, message: &Converter) -> Option<Converter> {
-    write_log(&format!("Manifeste reçu: {} bytes", message.data.len()));
+    write_log(&format!("Manifest received: {} bytes", message.data.len()));
     
-    // Parser le manifeste selon votre format
+    // Parse manifest according to your format
     if let Ok(manifest_str) = std::str::from_utf8(&message.data) {
-        write_log(&format!("Manifeste: {}", manifest_str));
+        write_log(&format!("Manifest: {}", manifest_str));
     }
     
-    None // Pas de réponse nécessaire pour le manifeste
+    None // No response needed for manifest
 }
 
-/// Initialise les callbacks par défaut
+/// Initialize default callbacks
 pub fn setup_default_callbacks() {
     let handler = init_network_handler();
     
@@ -263,10 +263,10 @@ pub fn setup_default_callbacks() {
     handler.register_callback(NetworkMessageType::IdIsAnyRobotHere, default_robot_discovery_callback);
     handler.register_callback(NetworkMessageType::IdManifest, default_manifest_callback);
     
-    write_log("Callbacks par défaut configurés");
+    write_log("Default callbacks configured");
 }
 
-/// Crée un message de réponse pour l'information de batterie
+/// Creates a response message for battery information
 pub fn create_battery_info_message(level: u8, voltage: f32) -> Converter {
     let mut data = Vec::with_capacity(5);
     data.push(level);
@@ -277,7 +277,7 @@ pub fn create_battery_info_message(level: u8, voltage: f32) -> Converter {
     Converter::new(length, NetworkMessageType::IdInfBattery as u8, data)
 }
 
-/// Crée un message de réponse pour le statut
+/// Creates a response message for status
 pub fn create_status_info_message(status: u8) -> Converter {
     let data = vec![status];
     let length = 1 + data.len() as u16; // idx + data
@@ -285,7 +285,7 @@ pub fn create_status_info_message(status: u8) -> Converter {
     Converter::new(length, NetworkMessageType::IdInfStatus as u8, data)
 }
 
-/// Crée un message de réponse pour la position
+/// Creates a response message for position
 pub fn create_position_info_message(x: f32, y: f32, theta: f32) -> Converter {
     let mut data = Vec::with_capacity(12);
     data.extend_from_slice(&x.to_le_bytes());
@@ -297,7 +297,7 @@ pub fn create_position_info_message(x: f32, y: f32, theta: f32) -> Converter {
     Converter::new(length, NetworkMessageType::IdInfPos as u8, data)
 }
 
-/// Crée un message de réponse pour le temps
+/// Creates a response message for time
 pub fn create_time_info_message(timestamp: u64) -> Converter {
     let data = timestamp.to_le_bytes().to_vec();
     let length = 1 + data.len() as u16; // idx + data

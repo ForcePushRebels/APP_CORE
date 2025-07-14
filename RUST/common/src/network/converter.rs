@@ -103,29 +103,29 @@ impl Converter {
 /// Byte 2 : idx (u8)
 /// Bytes 3+ : data (Vec<u8>)
 pub fn convert_to_struct(bytes: &[u8]) -> Result<Converter, u32> {
-    // Vérifier qu'on a au moins 3 bytes (length + idx)
+    // Check that we have at least 3 bytes (length + idx)
     if bytes.len() < 3 {
-        write_log("Erreur: buffer trop petit pour contenir un message valide (minimum 3 bytes)");
+        write_log("Error: buffer too small to contain valid message (minimum 3 bytes)");
         return Err(SERVER_BUFFER_ERROR);
     }
 
-    // Bytes 0-1 : length (u16, little-endian)
+    // Bytes 0-1: length (u16, little-endian)
     let length_bytes: [u8; 2] = bytes[0..2].try_into()
         .map_err(|_| SERVER_BUFFER_ERROR)?;
     let length = u16::from_le_bytes(length_bytes);
 
-    // Byte 2 : idx (u8)
+    // Byte 2: idx (u8)
     let idx = bytes[2];
     
-    // Bytes 3+ : data
+    // Bytes 3+: data
     let data = bytes[3..].to_vec();
 
-    // Validation : la longueur doit correspondre à la taille totale du message
+    // Validation: length must match total message size
     // length = 1 (idx) + data.len()
     let expected_length = 1 + data.len() as u16;
     if length != expected_length {
         write_log(&format!(
-            "Erreur: longueur incohérente - reçu: {}, attendu: {} (1 + {} bytes de data)",
+            "Error: inconsistent length - received: {}, expected: {} (1 + {} bytes of data)",
             length, expected_length, data.len()
         ));
         return Err(SERVER_BUFFER_ERROR);

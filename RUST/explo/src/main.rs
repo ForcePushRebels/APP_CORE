@@ -23,59 +23,59 @@ use common::{
     sensor_manager::SensorManager,
 };
 
-// Exemple de callback personnalisé pour les commandes de mouvement
+// Example of custom callback for movement commands
 fn custom_movement_callback(msg_type: NetworkMessageType, message: &Converter) -> Option<Converter> {
-    write_log("=== Callback personnalisé de mouvement appelé ===");
+    write_log("=== Custom movement callback called ===");
     
     if message.data.len() < 2 {
-        write_log("Commande de mouvement invalide: données insuffisantes");
+        write_log("Invalid movement command: insufficient data");
         return None;
     }
     
     let direction = message.data[0];
     let speed = message.data[1];
     
-    write_log(&format!("Mouvement personnalisé - Direction: {}, Vitesse: {}", direction, speed));
+    write_log(&format!("Custom movement - Direction: {}, Speed: {}", direction, speed));
     
-    // Ici vous pouvez appeler vos fonctions hardware spécifiques
+    // Here you can call your specific hardware functions
     match direction {
-        1 => write_log("Avancer !"),
-        2 => write_log("Reculer !"),
-        3 => write_log("Tourner à gauche !"),
-        4 => write_log("Tourner à droite !"),
-        0 => write_log("Arrêt !"),
-        _ => write_log("Direction inconnue"),
+        1 => write_log("Move forward!"),
+        2 => write_log("Move backward!"),
+        3 => write_log("Turn left!"),
+        4 => write_log("Turn right!"),
+        0 => write_log("Stop!"),
+        _ => write_log("Unknown direction"),
     }
     
-    // Retourner un message de statut personnalisé
-    let status_data = vec![direction, speed]; // Echo des commandes
+    // Return a custom status message
+    let status_data = vec![direction, speed]; // Echo of commands
     let length = 1 + status_data.len() as u16;
     Some(Converter::new(length, NetworkMessageType::IdInfStatus as u8, status_data))
 }
 
 fn main() {
-    // Initialisation du système de logs
+    // Initialize logging system
     let log_config = LogConfig::new("explo.log");
     let log_result = initialize(log_config);
     x_assert(log_result == XOS_LOG_OK);
     
-    write_log("=== Démarrage du programme d'exploration ===");
+    write_log("=== Starting exploration program ===");
     
-    // Initialiser le système de callbacks réseau
-    write_log("Configuration des callbacks réseau...");
+    // Initialize network callback system
+    write_log("Configuring network callbacks...");
     
-    // 1. Configurer les callbacks par défaut
+    // 1. Configure default callbacks
     setup_default_callbacks();
     
-    // 2. Remplacer le callback de mouvement par notre version personnalisée
+    // 2. Replace movement callback with our custom version
     let handler = get_network_handler();
     handler.register_callback(NetworkMessageType::IdSetMovement, custom_movement_callback);
     
-    // 3. Ajouter un callback personnalisé pour la découverte de robots
+    // 3. Add custom callback for robot discovery
     handler.register_callback(NetworkMessageType::IdIsAnyRobotHere, |_msg_type, _message| {
-        write_log("Robot découvert ! Envoi des informations...");
+        write_log("Robot discovered! Sending information...");
         
-        // Créer un manifeste personnalisé
+        // Create a custom manifest
         let manifest_data = format!("Robot-MRPiZ-ExplorBot-v1.0-ID:{}", 
                                     std::process::id()).into_bytes();
         let length = 1 + manifest_data.len() as u16;
@@ -83,69 +83,69 @@ fn main() {
         Some(Converter::new(length, NetworkMessageType::IdManifest as u8, manifest_data))
     });
     
-    write_log("Callbacks réseau configurés !");
+    write_log("Network callbacks configured!");
     
-    // Création et initialisation du robot
+    // Create and initialize robot
     let mut robot = Robot::new();
     
     match robot.init() 
     {
         Ok(()) => {
-            write_log("Robot initialisé avec succès");
+            write_log("Robot initialized successfully");
             
-            // Initialiser le capteur de luminosité
+            // Initialize luminosity sensor
             if let Err(e) = luminosity::init() 
             {
-                write_log(&format!("Erreur init capteur luminosité: {}", e));
+                write_log(&format!("Luminosity sensor init error: {}", e));
             }
             
         },
         Err(e) => 
         {
-            write_log(&format!("Erreur d'initialisation du robot: {}", e));
-            x_assert(false); // Force l'arrêt si le robot ne peut pas être initialisé
+            write_log(&format!("Robot initialization error: {}", e));
+            x_assert(false); // Force stop if robot cannot be initialized
         }
     }
 
-    // Démarrage du watchdog avec handler personnalisé
+    // Start watchdog with custom handler
     let mut watchdog = Watchdog::new(300); 
     watchdog.set_expiry_handler(|| {
-        write_log("Watchdog expiré - Le système ne répond plus !");
+        write_log("Watchdog expired - System not responding!");
     });
     
     if let Err(e) = init_watchdog(watchdog) {
-        write_log(&format!("Erreur init watchdog: {}", e));
+        write_log(&format!("Watchdog init error: {}", e));
     }
 
-    //demarrer le gestionnaire de capteurs
+    // Start sensor manager
     let mut sensor_manager = SensorManager::new();
     x_assert(sensor_manager.start().is_ok());
 
-    //start the server sur un thread dédié
+    // Start server on dedicated thread
     let mut server = Server::new(ServerConfig::new("0.0.0.0".to_string(), 8080)).unwrap();
     x_assert(server.start().is_ok());
 
-    write_log("Serveur réseau démarré sur le port 8080");
-    write_log("Le robot est prêt à recevoir des commandes !");
+    write_log("Network server started on port 8080");
+    write_log("Robot is ready to receive commands!");
 
     let mut result: Result<(), &'static str>;
     loop 
     {
         result = refresh_watchdog();
         if result.is_err() {
-            write_log("Watchdog expiré - Le système ne répond plus !");
+            write_log("Watchdog expired - System not responding!");
             break;
         }
         
-        // Petite pause pour éviter de surcharger le CPU
+        // Small pause to avoid CPU overload
         std::thread::sleep(std::time::Duration::from_millis(100));
     }
     
-    write_log("=== Fin du programme d'exploration ===");
+    write_log("=== End of exploration program ===");
     
-    // Arrêt propre du serveur
+    // Clean server shutdown
     if server.stop() != common::network::server::SERVER_OK {
-        write_log("Erreur lors de l'arrêt du serveur");
+        write_log("Error during server shutdown");
     }
 }
 

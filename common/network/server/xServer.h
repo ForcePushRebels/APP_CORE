@@ -15,7 +15,11 @@
 #include "xProtocol.h"
 #include "xTask.h"
 #include "xOsMutex.h"
+#ifdef USE_RUST_TLS_ENGINE
+#include "rust_tls_engine.h"
+#else
 #include "tlsEngine.h"
+#endif
 #include <stdbool.h>
 #include <stdint.h>
 

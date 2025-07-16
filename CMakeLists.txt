@@ -25,7 +25,7 @@ message(STATUS "Detected architecture: ${TARGET_ARCH}")
 option(TARGET_RASPI_ZERO_W "Build for Raspberry Pi Zero W target (cross-compile)" OFF)
 option(DEBUG "Enable debug build" OFF)
 option(USE_3D_SIMULATION "Use 3D simulation instead of 2D (changes Intox port from 12345 to 12348)" OFF)
-option(USE_RUST_TLS_ENGINE "Use Rust TLS implementation for memory safety" OFF)
+option(USE_RUST_TLS_ENGINE "Use Rust TLS implementation for memory safety" ON)
 
 # Rust TLS system integration if available
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/rust/tls/integration.cmake")

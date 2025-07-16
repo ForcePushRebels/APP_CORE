@@ -25,6 +25,15 @@ message(STATUS "Detected architecture: ${TARGET_ARCH}")
 option(TARGET_RASPI_ZERO_W "Build for Raspberry Pi Zero W target (cross-compile)" OFF)
 option(DEBUG "Enable debug build" OFF)
 option(USE_3D_SIMULATION "Use 3D simulation instead of 2D (changes Intox port from 12345 to 12348)" OFF)
+option(USE_RUST_TLS_ENGINE "Use Rust TLS implementation for memory safety" OFF)
+
+# Rust TLS system integration if available
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/rust/tls/integration.cmake")
+    include(rust/tls/integration.cmake)
+    message(STATUS "TLS Rust integration available")
+else()
+    message(STATUS "TLS Rust integration not found - using C implementation only")
+endif()
 
 # Auto-detect and choose compiler: prefer Clang, fallback to GCC
 set(COMPILER_DETECTED "UNKNOWN")
@@ -318,8 +327,13 @@ endforeach()
 list(REMOVE_DUPLICATES INCLUDE_DIRS)
 include_directories(${INCLUDE_DIRS})
 
-# Common source files (TLS always included)
+# Common source files 
 file(GLOB_RECURSE COMMON_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/common/*.c")
+
+# Exclure les sources TLS C si l'implémentation Rust est utilisée
+if(COMMAND exclude_c_tls_sources)
+    exclude_c_tls_sources(COMMON_SOURCES)
+endif()
 
 message(STATUS "Common source files:")
 set(COMMON_SOURCES_COUNT 0)
@@ -422,10 +436,16 @@ if(EXTRA_LIBS)
     target_link_libraries(inter ${EXTRA_LIBS})
 endif()
 
-# Add TLS libraries (always enabled)
-target_link_libraries(explo ${WOLFSSL_LIBRARIES})
-target_link_libraries(inter ${WOLFSSL_LIBRARIES})
-message(STATUS "Linking with wolfSSL libraries: ${WOLFSSL_LIBRARIES}")
+# Configuration TLS Engine (C ou Rust selon l'option)
+if(COMMAND setup_tls_engine)
+    setup_tls_engine(explo)
+    setup_tls_engine(inter)
+else()
+    # Fallback: utilisation directe de WolfSSL (comportement original)
+    target_link_libraries(explo ${WOLFSSL_LIBRARIES})
+    target_link_libraries(inter ${WOLFSSL_LIBRARIES})
+    message(STATUS "Linking with wolfSSL libraries (fallback): ${WOLFSSL_LIBRARIES}")
+endif()
 
 # Add build type definitions
 target_compile_definitions(explo PRIVATE EXPLO_BUILD)
@@ -447,6 +467,11 @@ else()
     message(STATUS "  Compiler: ${COMPILER_DETECTED}")
 endif()
 message(STATUS "  TLS Support: Always Enabled")
+if(USE_RUST_TLS_ENGINE)
+    message(STATUS "  Rust Bindings: Enabled")
+else()
+    message(STATUS "  Rust Bindings: Disabled")
+endif()
 message(STATUS "  Debug Build: ${DEBUG}")
 message(STATUS "  ZLIB: ${ZLIB_LIBRARIES}")
 message(STATUS "----------------------------------------")

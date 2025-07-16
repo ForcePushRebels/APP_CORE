@@ -403,3 +403,6 @@ FodyWeavers.xsd
 # Build folder
 build/
 pki/
+
+rust/tls/target/
+rust/tls/build/

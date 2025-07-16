@@ -1,0 +1,23 @@
+[package]
+name = "tls-engine-rust"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "tls_engine_rust"
+crate-type = ["staticlib"]
+
+[dependencies]
+libc = "0.2"
+# On utilisera FFI directement vers WolfSSL existant
+
+[build-dependencies]
+cbindgen = "0.27"
+
+[profile.release]
+panic = "abort"
+lto = true
+codegen-units = 1
+
+[profile.dev]
+panic = "abort" 

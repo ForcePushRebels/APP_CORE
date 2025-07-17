@@ -29,7 +29,7 @@ INCLUDE_DIR = $(INSTALL_DIR)/include
 LIB_DIR = $(INSTALL_DIR)/lib
 
 # Noms des fichiers de sortie
-RUST_LIB_NAME = libtls_engine_rust.a
+RUST_LIB_NAME = libtls_engine.a
 RUST_LIB_PATH = $(CARGO_TARGET_DIR)/$(TARGET)/$(PROFILE)/$(RUST_LIB_NAME)
 INSTALLED_LIB = $(LIB_DIR)/$(RUST_LIB_NAME)
 INSTALLED_HEADER = $(INCLUDE_DIR)/tls_engine.h
@@ -118,41 +118,6 @@ test:
 	@echo "Exécution des tests Rust..."
 	cargo test $(CARGO_FLAGS)
 
-# Exemple d'utilisation
-example: c_compatible
-	@echo "Compilation de l'exemple d'intégration..."
-	@mkdir -p $(BUILD_DIR)/examples
-	
-	# Crée un exemple simple
-	@echo '#include <stdio.h>' > $(BUILD_DIR)/examples/test_integration.c
-	@echo '#include "tls_engine.h"' >> $(BUILD_DIR)/examples/test_integration.c
-	@echo '' >> $(BUILD_DIR)/examples/test_integration.c
-	@echo 'int main() {' >> $(BUILD_DIR)/examples/test_integration.c
-	@echo '    printf("TLS Engine: %s\\n", tlsEngineGetImplementation());' >> $(BUILD_DIR)/examples/test_integration.c
-	@echo '    printf("Version: %s\\n", tlsEngineGetVersion());' >> $(BUILD_DIR)/examples/test_integration.c
-	@echo '    ' >> $(BUILD_DIR)/examples/test_integration.c
-	@echo '    // Test initialisation certificats' >> $(BUILD_DIR)/examples/test_integration.c
-	@echo '    int result = xCertificateInit();' >> $(BUILD_DIR)/examples/test_integration.c
-	@echo '    if (result == CERT_OK) {' >> $(BUILD_DIR)/examples/test_integration.c
-	@echo '        printf("✓ Système de certificats initialisé\\n");' >> $(BUILD_DIR)/examples/test_integration.c
-	@echo '        xCertificateCleanup();' >> $(BUILD_DIR)/examples/test_integration.c
-	@echo '    } else {' >> $(BUILD_DIR)/examples/test_integration.c
-	@echo '        printf("✗ Erreur initialisation: 0x%x\\n", result);' >> $(BUILD_DIR)/examples/test_integration.c
-	@echo '    }' >> $(BUILD_DIR)/examples/test_integration.c
-	@echo '    return 0;' >> $(BUILD_DIR)/examples/test_integration.c
-	@echo '}' >> $(BUILD_DIR)/examples/test_integration.c
-	
-	# Compile l'exemple avec l'implémentation Rust
-	gcc -DUSE_RUST_TLS_ENGINE \
-		-I$(INCLUDE_DIR) \
-		$(BUILD_DIR)/examples/test_integration.c \
-		$(INSTALLED_LIB) \
-		-lwolfssl -lpthread -ldl \
-		-o $(BUILD_DIR)/examples/test_integration_rust
-	
-	@echo "✓ Exemple compilé: $(BUILD_DIR)/examples/test_integration_rust"
-	@echo "Exécution de l'exemple:"
-	$(BUILD_DIR)/examples/test_integration_rust
 
 # Nettoyage
 clean:

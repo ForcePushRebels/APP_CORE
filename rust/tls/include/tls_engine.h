@@ -10,33 +10,22 @@
 #define CERT_OK 2092957696
 
 #define CERT_ERROR_INVALID_PARAM 2092957697
-
 #define CERT_ERROR_MEMORY_ALLOC 2092957698
-
 #define CERT_ERROR_INVALID_CERT 2092957699
-
 #define CERT_ERROR_CERT_EXPIRED 2092957702
-
 #define CERT_ERROR_NOT_YET_VALID 2092957703
-
 #define CERT_ERROR_WOLFSSL_ERROR 2092957706
 
 #define WOLFSSL_SUCCESS 1
-
 #define WOLFSSL_FAILURE 0
-
 #define WOLFSSL_SHUTDOWN_NOT_DONE 2
-
 #define WOLFSSL_ERROR_WANT_READ -2
-
 #define WOLFSSL_ERROR_WANT_WRITE -3
-
 #define WOLFSSL_FILETYPE_ASN1 2
-
 #define WOLFSSL_FILETYPE_PEM 1
 
 /**
- * Mode TLS - identique à l'enum C xTlsMode_t
+ * TLS mode - enum xTlsMode_t available
  */
 typedef enum XTlsMode {
   TLS_MODE_CLIENT = 0,
@@ -44,14 +33,14 @@ typedef enum XTlsMode {
 } XTlsMode;
 
 /**
- * Contexte WolfSSL - structure opaque
+ * WolfSSL context - opaque structure
  */
 typedef struct WOLFSSL_CTX {
   uint8_t _private[0];
 } WOLFSSL_CTX;
 
 /**
- * Structure TLS Engine - doit correspondre exactement à xTlsEngine_t
+ * TLS Engine structure - must match xTlsEngine_t exactly
  */
 typedef struct xTlsEngine_t {
   struct WOLFSSL_CTX *p_ctx;
@@ -59,16 +48,16 @@ typedef struct xTlsEngine_t {
 } xTlsEngine_t;
 
 /**
- * Session WolfSSL - structure opaque
+ * WolfSSL session - opaque structure
  */
 typedef struct WOLFSSL {
   uint8_t _private[0];
 } WOLFSSL;
 
 /**
- * Structure Certificate - version simplifiée pour l'interface C
+ * Certificate structure 
  */
-typedef struct xCertificate_t {
+typedef struct CryptoParam {
   uint8_t *cert_data;
   uint32_t cert_size;
   uint8_t *der_data;
@@ -83,28 +72,41 @@ typedef struct xCertificate_t {
 } xCertificate_t;
 
 /**
- * Méthode WolfSSL - structure opaque
+ * WolfSSL method - opaque structure
  */
 typedef struct WOLFSSL_METHOD {
   uint8_t _private[0];
 } WOLFSSL_METHOD;
 
-/**
- * Initialise le système de gestion des certificats
- * NOM IDENTIQUE: xCertificateInit
- */
+
+///////////////////////////////////////////
+/// @brief Initializes the certificate management system
+/// @param none 
+/// @return error code or WOLFSSL_SUCCESS
+///////////////////////////////////////////
 int xCertificateInit(void);
 
-/**
- * Nettoie le système de gestion des certificats
- * NOM IDENTIQUE: xCertificateCleanup
- */
+
+///////////////////////////////////////////
+/// @brief Cleans up the certificate management system
+/// @param none 
+/// @return error code or WOLFSSL_SUCCESS
+///////////////////////////////////////////
 int xCertificateCleanup(void);
 
 /**
- * Crée un moteur TLS
- * NOM IDENTIQUE: tlsEngineCreate
+ * Creates a TLS engine
  */
+///////////////////////////////////////////
+/// @brief Creates a TLS engine
+/// @param p_pptCryptoEngine : pointer to cryptoEngine 
+/// @param p_eMode : tls Mode (client or server)
+/// @param p_ptcCertFile : Contain the certificate for the key negociation 
+/// @param p_ptcKeyFile : contain the private key for key negociation process
+/// @param p_ptcCADir : path to the directory with root CA certificate
+/// @param _p_bIsPEM : PEM fil eor DER File 
+/// @return error code or WOLFSSL_SUCCESS
+///////////////////////////////////////////
 int tlsEngineCreate(struct xTlsEngine_t **p_pptCryptoEngine,
                     enum XTlsMode p_eMode,
                     const char *p_ptcCertFile,
@@ -112,150 +114,164 @@ int tlsEngineCreate(struct xTlsEngine_t **p_pptCryptoEngine,
                     const char *p_ptcCADir,
                     bool _p_bIsPEM);
 
-/**
- * Attache un socket au moteur TLS et effectue le handshake
- * NOM IDENTIQUE: tlsEngineAttachSocket
- */
+///////////////////////////////////////////
+/// @brief Attaches a socket to the TLS engine and performs the handshake
+/// @param p_pptCryptoEngine : pointer to cryptoEngine 
+/// @param p_iSocketFd : socket fd 
+/// @param p_pptSslCtx : wolfssl tls structure
+/// @return error code or WOLFSSL_SUCCESS
+///////////////////////////////////////////
 int tlsEngineAttachSocket(struct xTlsEngine_t *p_ptEngine,
                           int p_iSocketFd,
                           struct WOLFSSL **p_pptSslCtx);
 
-/**
- * Ferme une session TLS
- * NOM IDENTIQUE: tlsEngineShutdown
- */
+///////////////////////////////////////////
+/// @brief Shuts down a TLS session
+/// @param p_pptSslCtx : wolfssl tls structure
+/// @return error code or WOLFSSL_SUCCESS
+///////////////////////////////////////////
 int tlsEngineShutdown(struct WOLFSSL *p_ptSsl);
 
-/**
- * Détruit un moteur TLS
- * NOM IDENTIQUE: tlsEngineDestroy
- */
+
+///////////////////////////////////////////
+/// @brief Destroys a TLS engine
+/// @param p_ptEngine : pointer to cryptoEngine 
+/// @return error code or WOLFSSL_SUCCESS
+///////////////////////////////////////////
 int tlsEngineDestroy(struct xTlsEngine_t *p_ptEngine);
 
-/**
- * Charge un certificat depuis un fichier
- * NOM IDENTIQUE: xCertificateLoadFromFile
- */
+
+///////////////////////////////////////////
+/// @brief Loads a certificate from a file
+/// @param p_pcFilePath : path to the file to load
+/// @param _p_bIsPEM : PEM fil eor DER File 
+/// @param p_pptCertificate : pointer to the certificate structure
+/// @return error code or WOLFSSL_SUCCESS
+///////////////////////////////////////////
 int xCertificateLoadFromFile(const char *p_pcFilePath,
                              bool _p_bIsPEM,
                              struct xCertificate_t **p_pptCertificate);
 
-/**
- * Libère un certificat
- * NOM IDENTIQUE: xCertificateFree
- */
+
+///////////////////////////////////////////
+/// @brief Frees a certificate
+/// @param p_ptCertificate : pointer to the certificate structure
+/// @return error code or WOLFSSL_SUCCESS
+///////////////////////////////////////////
 int xCertificateFree(struct xCertificate_t *p_ptCertificate);
 
-/**
- * Obtient la description d'une erreur
- * NOM IDENTIQUE: xCertificateGetErrorString
- */
+
+///////////////////////////////////////////
+/// @brief Gets the description of an error
+/// @param p_iError : error code id 
+/// @return the string of the error code
+///////////////////////////////////////////
 const char *xCertificateGetErrorString(int p_iError);
 
 /**
- * Initialise WolfSSL
+ * Initializes WolfSSL
  */
 extern int wolfSSL_Init(void);
 
 /**
- * Nettoie WolfSSL
+ * Cleans up WolfSSL
  */
 extern int wolfSSL_Cleanup(void);
 
 /**
- * Obtient la méthode TLS 1.3 serveur
+ * Gets the TLS 1.3 server method
  */
 extern const struct WOLFSSL_METHOD *wolfTLSv1_3_server_method(void);
 
 /**
- * Obtient la méthode TLS 1.3 client
+ * Gets the TLS 1.3 client method
  */
 extern const struct WOLFSSL_METHOD *wolfTLSv1_3_client_method(void);
 
 /**
- * Crée un nouveau contexte WolfSSL
+ * Creates a new WolfSSL context
  */
 extern struct WOLFSSL_CTX *wolfSSL_CTX_new(const struct WOLFSSL_METHOD *method);
 
 /**
- * Libère un contexte WolfSSL
+ * Frees a WolfSSL context
  */
 extern void wolfSSL_CTX_free(struct WOLFSSL_CTX *ctx);
 
 /**
- * Configure la liste des cipher suites
+ * Configures the cipher suite list
  */
 extern int wolfSSL_CTX_set_cipher_list(struct WOLFSSL_CTX *ctx, const char *list);
 
 /**
- * Charge un certificat depuis un fichier
+ * Loads a certificate from a file
  */
 extern int wolfSSL_CTX_use_certificate_file(struct WOLFSSL_CTX *ctx, const char *file, int format);
 
 /**
- * Charge une chaîne de certificats depuis un fichier (PEM)
+ * Loads a certificate chain from a file (PEM)
  */
 extern int wolfSSL_CTX_use_certificate_chain_file(struct WOLFSSL_CTX *ctx, const char *file);
 
 /**
- * Charge une clé privée depuis un fichier
+ * Loads a private key from a file
  */
 extern int wolfSSL_CTX_use_PrivateKey_file(struct WOLFSSL_CTX *ctx, const char *file, int format);
 
 /**
- * Charge les certificats CA pour la vérification
+ * Loads CA certificates for verification
  */
 extern int wolfSSL_CTX_load_verify_locations(struct WOLFSSL_CTX *ctx,
                                              const char *file,
                                              const char *path);
 
 /**
- * Crée une nouvelle session WolfSSL
+ * Creates a new WolfSSL session
  */
 extern struct WOLFSSL *wolfSSL_new(struct WOLFSSL_CTX *ctx);
 
 /**
- * Libère une session WolfSSL
+ * Frees a WolfSSL session
  */
 extern void wolfSSL_free(struct WOLFSSL *ssl);
 
 /**
- * Associe un socket à une session WolfSSL
+ * Associates a socket with a WolfSSL session
  */
 extern int wolfSSL_set_fd(struct WOLFSSL *ssl, int fd);
 
 /**
- * Obtient le file descriptor associé à une session
+ * Gets the file descriptor associated with a session
  */
 extern int wolfSSL_get_fd(struct WOLFSSL *ssl);
 
 /**
- * Effectue le handshake TLS côté serveur
+ * Performs the TLS handshake on the server side
  */
 extern int wolfSSL_accept(struct WOLFSSL *ssl);
 
 /**
- * Effectue le handshake TLS côté client
+ * Performs the TLS handshake on the client side
  */
 extern int wolfSSL_connect(struct WOLFSSL *ssl);
 
 /**
- * Ferme proprement une session TLS
+ * Shuts down a TLS session cleanly
  */
 extern int wolfSSL_shutdown(struct WOLFSSL *ssl);
 
 /**
- * Obtient le code d'erreur détaillé
+ * Gets the detailed error code
  */
 extern int wolfSSL_get_error(struct WOLFSSL *ssl, int ret);
 
 /**
- * Lit des données depuis une session TLS
+ * Reads data from a TLS session
  */
 extern int wolfSSL_read(struct WOLFSSL *ssl, void *data, int sz);
 
 /**
- * Écrit des données vers une session TLS
+ * Writes data to a TLS session
  */
 extern int wolfSSL_write(struct WOLFSSL *ssl, const void *data, int sz);
 

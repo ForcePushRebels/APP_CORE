@@ -48,14 +48,14 @@ pub enum XTlsMode {
 
 /// Structure TLS Engine - doit correspondre exactement à xTlsEngine_t
 #[repr(C)]
-pub struct XTlsEngineC {
+pub struct xTlsEngine_t {
     p_ctx: *mut WOLFSSL_CTX,
     t_mode: XTlsMode,
 }
 
 /// Structure Certificate - version simplifiée pour l'interface C
 #[repr(C)]
-pub struct XCertificateC {
+pub struct xCertificate_t {
     cert_data: *mut u8,
     cert_size: u32,
     der_data: *mut u8,
@@ -117,14 +117,14 @@ pub extern "C" fn xCertificateCleanup() -> c_int {
 /// NOM IDENTIQUE: tlsEngineCreate
 #[no_mangle]
 pub extern "C" fn tlsEngineCreate(
-    p_ppEngine: *mut *mut XTlsEngineC,
+    p_pptCryptoEngine: *mut *mut xTlsEngine_t,
     p_eMode: XTlsMode,
-    p_pcCertFile: *const c_char,
-    p_pcKeyFile: *const c_char,
-    p_pcCADir: *const c_char,
+    p_ptcCertFile: *const c_char,
+    p_ptcKeyFile: *const c_char,
+    p_ptcCADir: *const c_char,
     _p_bIsPEM: bool,
 ) -> c_int {
-    if p_ppEngine.is_null() || p_pcCADir.is_null() {
+    if p_pptCryptoEngine.is_null() || p_ptcCADir.is_null() {
         return CERT_ERROR_INVALID_PARAM;
     }
 
@@ -156,16 +156,16 @@ pub extern "C" fn tlsEngineCreate(
         wolfssl_ctx_set_cipher_list(ctx, cipher_list.as_ptr());
 
         // Charge le certificat et la clé si fournis (reproduction de loadCertAndKey)
-        if !p_pcCertFile.is_null() {
+        if !p_ptcCertFile.is_null() {
             let file_type = if _p_bIsPEM { WOLFSSL_FILETYPE_PEM } else { WOLFSSL_FILETYPE_ASN1 };
 
             let cert_result = match p_eMode {
                 XTlsMode::TLS_MODE_SERVER => {
                     // Pour serveur, charge la chaîne complète (PEM uniquement)
-                    wolfssl_ctx_use_certificate_chain_file(ctx, p_pcCertFile)
+                    wolfssl_ctx_use_certificate_chain_file(ctx, p_ptcCertFile)
                 },
                 XTlsMode::TLS_MODE_CLIENT => {
-                    wolfssl_ctx_use_certificate_file(ctx, p_pcCertFile, file_type)
+                    wolfssl_ctx_use_certificate_file(ctx, p_ptcCertFile, file_type)
                 }
             };
 
@@ -175,8 +175,8 @@ pub extern "C" fn tlsEngineCreate(
             }
 
             // Charge la clé privée si fournie
-            if !p_pcKeyFile.is_null() {
-                let key_result = wolfssl_ctx_use_privatekey_file(ctx, p_pcKeyFile, WOLFSSL_FILETYPE_PEM);
+            if !p_ptcKeyFile.is_null() {
+                let key_result = wolfssl_ctx_use_privatekey_file(ctx, p_ptcKeyFile, WOLFSSL_FILETYPE_PEM);
                 if key_result != WOLFSSL_SUCCESS {
                     wolfssl_ctx_free(ctx);
                     return CERT_ERROR_INVALID_CERT;
@@ -185,14 +185,14 @@ pub extern "C" fn tlsEngineCreate(
         }
 
         // Charge le CA dans le contexte (reproduction de xCertificateLoadRootCAIntoContext)
-        let ca_result = load_ca_into_context(ctx, p_pcCADir, _p_bIsPEM);
+        let ca_result = load_ca_into_context(ctx, p_ptcCADir, _p_bIsPEM);
         if ca_result != CERT_OK {
             wolfssl_ctx_free(ctx);
             return ca_result;
         }
 
         // Alloue la structure du moteur
-        let engine = malloc(std::mem::size_of::<XTlsEngineC>()) as *mut XTlsEngineC;
+        let engine = malloc(std::mem::size_of::<xTlsEngine_t>()) as *mut xTlsEngine_t;
         if engine.is_null() {
             wolfssl_ctx_free(ctx);
             return CERT_ERROR_MEMORY_ALLOC;
@@ -202,7 +202,7 @@ pub extern "C" fn tlsEngineCreate(
         (*engine).p_ctx = ctx;
         (*engine).t_mode = p_eMode;
 
-        *p_ppEngine = engine;
+        *p_pptCryptoEngine = engine;
         CERT_OK
     }
 }
@@ -211,11 +211,11 @@ pub extern "C" fn tlsEngineCreate(
 /// NOM IDENTIQUE: tlsEngineAttachSocket
 #[no_mangle]
 pub extern "C" fn tlsEngineAttachSocket(
-    p_ptEngine: *mut XTlsEngineC,
+    p_ptEngine: *mut xTlsEngine_t,
     p_iSocketFd: c_int,
-    p_ppSsl: *mut *mut WOLFSSL,
+    p_pptSslCtx: *mut *mut WOLFSSL,
 ) -> c_int {
-    if p_ptEngine.is_null() || p_ppSsl.is_null() {
+    if p_ptEngine.is_null() || p_pptSslCtx.is_null() {
         return CERT_ERROR_INVALID_PARAM;
     }
 
@@ -241,7 +241,7 @@ pub extern "C" fn tlsEngineAttachSocket(
             return CERT_ERROR_WOLFSSL_ERROR;
         }
 
-        *p_ppSsl = ssl;
+        *p_pptSslCtx = ssl;
         CERT_OK
     }
 }
@@ -299,7 +299,7 @@ pub extern "C" fn tlsEngineShutdown(p_ptSsl: *mut WOLFSSL) -> c_int {
 /// Détruit un moteur TLS
 /// NOM IDENTIQUE: tlsEngineDestroy
 #[no_mangle]
-pub extern "C" fn tlsEngineDestroy(p_ptEngine: *mut XTlsEngineC) -> c_int {
+pub extern "C" fn tlsEngineDestroy(p_ptEngine: *mut xTlsEngine_t) -> c_int {
     if p_ptEngine.is_null() {
         return CERT_OK;
     }
@@ -346,7 +346,7 @@ unsafe fn load_ca_into_context(ctx: *mut WOLFSSL_CTX, ca_dir: *const c_char, is_
 pub extern "C" fn xCertificateLoadFromFile(
     p_pcFilePath: *const c_char,
     _p_bIsPEM: bool,
-    p_pptCertificate: *mut *mut XCertificateC,
+    p_pptCertificate: *mut *mut xCertificate_t,
 ) -> c_int {
     if p_pcFilePath.is_null() || p_pptCertificate.is_null() {
         return CERT_ERROR_INVALID_PARAM;
@@ -358,7 +358,7 @@ pub extern "C" fn xCertificateLoadFromFile(
         }
 
         // Implémentation simplifiée - chargement de base d'un certificat
-        let cert = malloc(std::mem::size_of::<XCertificateC>()) as *mut XCertificateC;
+        let cert = malloc(std::mem::size_of::<xCertificate_t>()) as *mut xCertificate_t;
         if cert.is_null() {
             return CERT_ERROR_MEMORY_ALLOC;
         }
@@ -377,7 +377,7 @@ pub extern "C" fn xCertificateLoadFromFile(
 /// Libère un certificat
 /// NOM IDENTIQUE: xCertificateFree
 #[no_mangle]
-pub extern "C" fn xCertificateFree(p_ptCertificate: *mut XCertificateC) -> c_int {
+pub extern "C" fn xCertificateFree(p_ptCertificate: *mut xCertificate_t) -> c_int {
     if p_ptCertificate.is_null() {
         return CERT_OK;
     }

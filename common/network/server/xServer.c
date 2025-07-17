@@ -765,7 +765,7 @@ static int clientSendData(clientCtx *p_ptClient, const void *p_pvData, int p_iSi
         {
             int l_iError = wolfSSL_get_error(p_ptClient->t_ptTlsSession, l_iResult);
             if (l_iError == SOCKET_PEER_CLOSED_E)
-            {
+            {   
                 p_ptClient->t_bConnected = false;
             }
             else

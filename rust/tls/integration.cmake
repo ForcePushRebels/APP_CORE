@@ -42,7 +42,7 @@ function(setup_tls_engine TARGET_NAME)
             set(CARGO_BUILD_FLAGS "--release")
         endif()
         
-        set(RUST_LIB_PATH "${RUST_TARGET_DIR}/${RUST_TARGET}/${RUST_PROFILE}/libtls_engine_rust.a")
+        set(RUST_LIB_PATH "${RUST_TARGET_DIR}/${RUST_TARGET}/${RUST_PROFILE}/libtls_engine.a")
         
         # Build Rust TLS module
         execute_process(

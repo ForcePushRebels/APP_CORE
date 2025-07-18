@@ -5,8 +5,11 @@
  * que l'original C mais avec la sécurité mémoire de Rust.
  */
 
-use std::os::raw::c_int;
-use crate::{CERT_OK, CERT_ERROR_INVALID_PARAM};
+use std::os::raw::{c_char, c_int};
+use std::ffi::CString;
+use crate::wolfssl_ffi::*;
+use crate::{CERT_OK, CERT_ERROR_INVALID_PARAM, CERT_ERROR_WOLFSSL_ERROR};
+use std::ptr;
 
 // ============================================================================
 // Types et énumérations
@@ -64,27 +67,56 @@ impl Certificate {
 
     /// Charge un certificat depuis des données en mémoire
     pub fn load_from_data(data: &[u8], is_pem: bool) -> Result<Self, c_int> {
-        let mut cert = Certificate::new();
-        
-        // Copie les données originales
-        cert.cert_data = data.to_vec();
-        
-        // Pour l'instant, implémentation simplifiée
-        // Dans une implémentation complète, on parserait le certificat avec WolfSSL
-        if is_pem {
-            cert.der_data = data.to_vec(); // Conversion PEM->DER simplifiée
-        } else {
-            cert.der_data = data.to_vec();
+        unsafe {
+            let format = if is_pem { WOLFSSL_FILETYPE_PEM } else { WOLFSSL_FILETYPE_ASN1 };
+            let x509 = wolfSSL_X509_load_certificate_buffer(data.as_ptr(), data.len() as c_int, format);
+            if x509.is_null() {
+                return Err(CERT_ERROR_WOLFSSL_ERROR);
+            }
+
+            let mut cert = Certificate::new();
+            cert.cert_data = data.to_vec();
+            cert.der_data = data.to_vec(); // TODO: Convert if PEM
+
+            // Extract subject
+            let subject_name = wolfSSL_X509_get_subject_name(x509);
+            let mut subject_buf = vec![0u8; 256];
+            if wolfSSL_X509_NAME_oneline(subject_name, subject_buf.as_mut_ptr() as *mut c_char, 256) == ptr::null_mut() {
+                wolfSSL_X509_free(x509);
+                return Err(CERT_ERROR_WOLFSSL_ERROR);
+            }
+            cert.subject = CString::from_vec_unchecked(subject_buf).into_string().unwrap_or_default();
+
+            // Extract issuer
+            let issuer_name = wolfSSL_X509_get_issuer_name(x509);
+            let mut issuer_buf = vec![0u8; 256];
+            if wolfSSL_X509_NAME_oneline(issuer_name, issuer_buf.as_mut_ptr() as *mut c_char, 256) == ptr::null_mut() {
+                wolfSSL_X509_free(x509);
+                return Err(CERT_ERROR_WOLFSSL_ERROR);
+            }
+            cert.issuer = CString::from_vec_unchecked(issuer_buf).into_string().unwrap_or_default();
+
+            cert.is_ca = wolfSSL_X509_get_isCA(x509) == 1;
+            let not_before = wolfSSL_X509_get_notBefore(x509);
+            if not_before.is_null() {
+                wolfSSL_X509_free(x509);
+                return Err(CERT_ERROR_WOLFSSL_ERROR);
+            }
+            cert.not_before = wolfSSL_ASN1_TIME_get_posix(not_before);
+
+            let not_after = wolfSSL_X509_get_notAfter(x509);
+            if not_after.is_null() {
+                wolfSSL_X509_free(x509);
+                return Err(CERT_ERROR_WOLFSSL_ERROR);
+            }
+            cert.not_after = wolfSSL_ASN1_TIME_get_posix(not_after);
+            cert.status = CertificateStatus::Unknown;
+            cert.cert_type = determine_certificate_type(&cert);
+
+            wolfSSL_X509_free(x509);
+
+            Ok(cert)
         }
-        
-        // Extraction simplifiée des informations
-        cert.subject = "CN=Unknown".to_string();
-        cert.issuer = "CN=Unknown Issuer".to_string();
-        cert.is_ca = false;
-        cert.status = CertificateStatus::Valid;
-        cert.cert_type = CertificateType::EndEntity;
-        
-        Ok(cert)
     }
 
     /// Charge un certificat depuis un fichier
@@ -97,21 +129,15 @@ impl Certificate {
 
     /// Vérifie la validité temporelle du certificat
     pub fn check_validity(&mut self) -> c_int {
-        let current_time = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs() as i64;
-        
+        let current_time = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() as i64;
         if current_time < self.not_before {
             self.status = CertificateStatus::NotYetValid;
             return crate::CERT_ERROR_NOT_YET_VALID;
         }
-        
         if current_time > self.not_after {
             self.status = CertificateStatus::Expired;
             return crate::CERT_ERROR_CERT_EXPIRED;
         }
-        
         self.status = CertificateStatus::Valid;
         CERT_OK
     }

@@ -26,7 +26,7 @@ endif
 BUILD_DIR = build
 INSTALL_DIR = $(BUILD_DIR)/install
 INCLUDE_DIR = $(INSTALL_DIR)/include
-LIB_DIR = $(INSTALL_DIR)/lib
+LIB_DIR = $(INSTALL_DIR)/lib          
 
 # Noms des fichiers de sortie
 RUST_LIB_NAME = libtls_engine.a
@@ -100,7 +100,7 @@ install_headers: rust_library
 	cp $(RUST_LIB_PATH) $(INSTALLED_LIB)
 	
 	# Copie du header unifié
-	cp include/rust_tls_engine.h $(INSTALLED_HEADER)
+	cp include/tls_engine.h $(INSTALLED_HEADER)
 	
 	@echo "✓ Installation terminée"
 	@echo "  Header: $(INSTALLED_HEADER)"
@@ -110,8 +110,8 @@ install_headers: rust_library
 generate_header:
 	@echo "Génération du header depuis le code Rust..."
 	cargo build
-	cbindgen --config cbindgen.toml --crate rust-tls-engine --output include/rust_tls_engine.h.tmp
-	@echo "Header généré dans include/rust_tls_engine.h.tmp"
+	cbindgen --config cbindgen.toml --crate rust-tls-engine --output include/tls_engine.h.tmp
+	@echo "Header généré dans include/tls_engine.h.tmp"
 
 # Tests
 test:
@@ -124,7 +124,7 @@ clean:
 	@echo "Nettoyage des artefacts..."
 	cargo clean
 	rm -rf $(BUILD_DIR)
-	rm -f include/rust_tls_engine.h.tmp
+	rm -f include/tls_engine.h.tmp
 	@echo "✓ Nettoyage terminé"
 
 # Documentation et aide

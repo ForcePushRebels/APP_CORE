@@ -30,6 +30,18 @@ pub struct WOLFSSL_METHOD {
     _private: [u8; 0],
 }
 
+/// X509 Certificate - opaque structure
+#[repr(C)]
+pub struct WOLFSSL_X509 {
+    _private: [u8; 0],
+}
+
+/// X509 Name - opaque structure
+#[repr(C)]
+pub struct WOLFSSL_X509_NAME {
+    _private: [u8; 0],
+}
+
 // ============================================================================
 // Constantes WolfSSL (doivent correspondre aux headers C)
 // ============================================================================
@@ -125,6 +137,15 @@ extern "C" {
     
     /// Écrit des données vers une session TLS
     pub fn wolfSSL_write(ssl: *mut WOLFSSL, data: *const c_void, sz: c_int) -> c_int;
+
+    pub fn wolfSSL_X509_load_certificate_file(file: *const c_char, format: c_int) -> *mut WOLFSSL_X509;
+    pub fn wolfSSL_X509_free(x509: *mut WOLFSSL_X509);
+    pub fn wolfSSL_X509_get_subject_name(x509: *mut WOLFSSL_X509) -> *mut WOLFSSL_X509_NAME;
+    pub fn wolfSSL_X509_get_issuer_name(x509: *mut WOLFSSL_X509) -> *mut WOLFSSL_X509_NAME;
+    pub fn wolfSSL_X509_NAME_oneline(name: *mut WOLFSSL_X509_NAME, buf: *mut c_char, size: c_int) -> *mut c_char;
+    pub fn wolfSSL_X509_get_isCA(x509: *mut WOLFSSL_X509) -> c_int;
+    pub fn wolfSSL_X509_get_notBefore(x509: *mut WOLFSSL_X509) -> *mut ASN1_TIME;
+    pub fn wolfSSL_X509_get_notAfter(x509: *mut WOLFSSL_X509) -> *mut ASN1_TIME;
 }
 
 // ============================================================================
@@ -249,4 +270,15 @@ pub fn wolfssl_read(ssl: *mut WOLFSSL, data: *mut c_void, sz: c_int) -> c_int {
 /// Wrapper Rust pour wolfSSL_write  
 pub fn wolfssl_write(ssl: *mut WOLFSSL, data: *const c_void, sz: c_int) -> c_int {
     unsafe { wolfSSL_write(ssl, data, sz) }
+} 
+
+#[repr(C)]
+pub struct ASN1_TIME {
+    _private: [u8; 0],
+}
+
+extern "C" {
+    pub fn wolfSSL_X509_load_certificate_buffer(buf: *const u8, sz: c_int, format: c_int) -> *mut WOLFSSL_X509;
+    pub fn wolfSSL_ASN1_TIME_to_string(time: *mut ASN1_TIME, buf: *mut c_char, len: c_int) -> c_int;
+    pub fn wolfSSL_ASN1_TIME_get_posix(time: *mut ASN1_TIME) -> i64;
 } 

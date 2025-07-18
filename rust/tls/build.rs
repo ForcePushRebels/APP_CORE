@@ -16,7 +16,7 @@ fn main() {
         .with_sys_include("stddef.h")
         .generate()
         .expect("Unable to generate bindings")
-        .write_to_file("include/rust_tls_engine.h");
+        .write_to_file("include/tls_engine.h");
 
     // Lie avec WolfSSL (assuming it's available on the system)
     println!("cargo:rustc-link-lib=wolfssl");

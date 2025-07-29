@@ -18,8 +18,10 @@ use libc::{malloc, free};
 mod wolfssl_ffi;
 mod certificate;
 mod tls_engine;
+mod post_quantum;
 
 use wolfssl_ffi::*;
+use post_quantum::*;
 
 // ============================================================================
 // Constants et codes d'erreur - identiques au C original
@@ -77,7 +79,7 @@ static mut CERT_SYSTEM_INITIALIZED: bool = false;
 
 /// Initialise le système de gestion des certificats
 /// NOM IDENTIQUE: xCertificateInit
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn xCertificateInit() -> c_int {
     unsafe {
         if CERT_SYSTEM_INITIALIZED {
@@ -96,7 +98,7 @@ pub extern "C" fn xCertificateInit() -> c_int {
 
 /// Nettoie le système de gestion des certificats
 /// NOM IDENTIQUE: xCertificateCleanup
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn xCertificateCleanup() -> c_int {
     unsafe {
         if !CERT_SYSTEM_INITIALIZED {
@@ -115,7 +117,7 @@ pub extern "C" fn xCertificateCleanup() -> c_int {
 
 /// Crée un moteur TLS
 /// NOM IDENTIQUE: tlsEngineCreate
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn tlsEngineCreate(
     p_pptCryptoEngine: *mut *mut xTlsEngine_t,
     p_eMode: XTlsMode,
@@ -209,7 +211,7 @@ pub extern "C" fn tlsEngineCreate(
 
 /// Attache un socket au moteur TLS et effectue le handshake
 /// NOM IDENTIQUE: tlsEngineAttachSocket
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn tlsEngineAttachSocket(
     p_ptEngine: *mut xTlsEngine_t,
     p_iSocketFd: c_int,
@@ -248,7 +250,7 @@ pub extern "C" fn tlsEngineAttachSocket(
 
 /// Ferme une session TLS
 /// NOM IDENTIQUE: tlsEngineShutdown
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn tlsEngineShutdown(p_ptSsl: *mut WOLFSSL) -> c_int {
     if p_ptSsl.is_null() {
         return CERT_OK;
@@ -298,7 +300,7 @@ pub extern "C" fn tlsEngineShutdown(p_ptSsl: *mut WOLFSSL) -> c_int {
 
 /// Détruit un moteur TLS
 /// NOM IDENTIQUE: tlsEngineDestroy
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn tlsEngineDestroy(p_ptEngine: *mut xTlsEngine_t) -> c_int {
     if p_ptEngine.is_null() {
         return CERT_OK;
@@ -318,7 +320,7 @@ pub extern "C" fn tlsEngineDestroy(p_ptEngine: *mut xTlsEngine_t) -> c_int {
 // ============================================================================
 
 unsafe fn load_ca_into_context(ctx: *mut WOLFSSL_CTX, ca_dir: *const c_char, is_pem: bool) -> c_int {
-    let ca_dir_str = CStr::from_ptr(ca_dir).to_str().unwrap_or("");
+    let ca_dir_str = unsafe { CStr::from_ptr(ca_dir) }.to_str().unwrap_or("");
     
     let ca_file_path = if is_pem {
         format!("{}/ca.pem", ca_dir_str)
@@ -342,7 +344,7 @@ unsafe fn load_ca_into_context(ctx: *mut WOLFSSL_CTX, ca_dir: *const c_char, is_
 
 /// Charge un certificat depuis un fichier
 /// NOM IDENTIQUE: xCertificateLoadFromFile
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn xCertificateLoadFromFile(
     p_pcFilePath: *const c_char,
     _p_bIsPEM: bool,
@@ -376,7 +378,7 @@ pub extern "C" fn xCertificateLoadFromFile(
 
 /// Libère un certificat
 /// NOM IDENTIQUE: xCertificateFree
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn xCertificateFree(p_ptCertificate: *mut xCertificate_t) -> c_int {
     if p_ptCertificate.is_null() {
         return CERT_OK;
@@ -396,7 +398,7 @@ pub extern "C" fn xCertificateFree(p_ptCertificate: *mut xCertificate_t) -> c_in
 
 /// Obtient la description d'une erreur
 /// NOM IDENTIQUE: xCertificateGetErrorString
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn xCertificateGetErrorString(p_iError: c_int) -> *const c_char {
     let error_str = match p_iError {
         x if x == CERT_OK => "Success",
@@ -411,4 +413,227 @@ pub extern "C" fn xCertificateGetErrorString(p_iError: c_int) -> *const c_char {
     
     // Note: Cette string est statique, donc safe pour retourner
     error_str.as_ptr() as *const c_char
+}
+
+// ============================================================================
+// Fonctions Post-Quantiques exportées vers C
+// ============================================================================
+
+/// Structure de configuration hybride exportée vers C
+#[repr(C)]
+pub struct xHybridCertConfig_t {
+    ecc_curve: [c_char; 32],           // Nom de la courbe ECC 
+    mlkem_level: c_int,                // Niveau ML-KEM (512, 768, 1024)
+    mldsa_level: c_int,                // Niveau ML-DSA (44, 65, 87)
+    hybrid_mode: c_int,                // Mode hybride (0=PQ only, 1=ECC only, 2=Hybrid)
+    enable_x509_extensions: bool,      // Active les extensions X.509 2019
+}
+
+/// Crée une configuration hybride prédéfinie P-256 + ML-KEM-512 + ML-DSA-44
+/// NOM: xHybridCertConfig_P256_MLKEM512_MLDSA44
+#[unsafe(no_mangle)]
+pub extern "C" fn xHybridCertConfig_P256_MLKEM512_MLDSA44(
+    p_ptConfig: *mut xHybridCertConfig_t
+) -> c_int {
+    if p_ptConfig.is_null() {
+        return CERT_ERROR_INVALID_PARAM;
+    }
+    
+    unsafe {
+        // Remplit la structure avec la configuration P-256 hybride
+        let curve_name = b"prime256v1\0";
+        std::ptr::copy_nonoverlapping(
+            curve_name.as_ptr() as *const c_char,
+            (*p_ptConfig).ecc_curve.as_mut_ptr(),
+            curve_name.len()
+        );
+        
+        (*p_ptConfig).mlkem_level = 512;  // ML-KEM-512
+        (*p_ptConfig).mldsa_level = 44;   // ML-DSA-44
+        (*p_ptConfig).hybrid_mode = 2;    // Hybride
+        (*p_ptConfig).enable_x509_extensions = true;
+    }
+    
+    CERT_OK
+}
+
+/// Crée une configuration hybride prédéfinie P-384 + ML-KEM-768 + ML-DSA-65
+/// NOM: xHybridCertConfig_P384_MLKEM768_MLDSA65
+#[unsafe(no_mangle)]
+pub extern "C" fn xHybridCertConfig_P384_MLKEM768_MLDSA65(
+    p_ptConfig: *mut xHybridCertConfig_t
+) -> c_int {
+    if p_ptConfig.is_null() {
+        return CERT_ERROR_INVALID_PARAM;
+    }
+    
+    unsafe {
+        let curve_name = b"secp384r1\0";
+        std::ptr::copy_nonoverlapping(
+            curve_name.as_ptr() as *const c_char,
+            (*p_ptConfig).ecc_curve.as_mut_ptr(),
+            curve_name.len()
+        );
+        
+        (*p_ptConfig).mlkem_level = 768;  // ML-KEM-768
+        (*p_ptConfig).mldsa_level = 65;   // ML-DSA-65
+        (*p_ptConfig).hybrid_mode = 2;    // Hybride
+        (*p_ptConfig).enable_x509_extensions = true;
+    }
+    
+    CERT_OK
+}
+
+/// Crée une configuration hybride CNSA 2.0: P-521 + ML-KEM-1024 + ML-DSA-87
+/// NOM: xHybridCertConfig_CNSA20
+#[unsafe(no_mangle)]
+pub extern "C" fn xHybridCertConfig_CNSA20(
+    p_ptConfig: *mut xHybridCertConfig_t
+) -> c_int {
+    if p_ptConfig.is_null() {
+        return CERT_ERROR_INVALID_PARAM;
+    }
+    
+    unsafe {
+        let curve_name = b"secp521r1\0";
+        std::ptr::copy_nonoverlapping(
+            curve_name.as_ptr() as *const c_char,
+            (*p_ptConfig).ecc_curve.as_mut_ptr(),
+            curve_name.len()
+        );
+        
+        (*p_ptConfig).mlkem_level = 1024; // ML-KEM-1024
+        (*p_ptConfig).mldsa_level = 87;   // ML-DSA-87
+        (*p_ptConfig).hybrid_mode = 2;    // Hybride
+        (*p_ptConfig).enable_x509_extensions = true;
+    }
+    
+    CERT_OK
+}
+
+/// Configure un moteur TLS pour supporter les certificats hybrides
+/// NOM: tlsEngineConfigureHybrid
+#[unsafe(no_mangle)]
+pub extern "C" fn tlsEngineConfigureHybrid(
+    p_ptEngine: *mut xTlsEngine_t,
+    p_ptConfig: *const xHybridCertConfig_t
+) -> c_int {
+    if p_ptEngine.is_null() || p_ptConfig.is_null() {
+        return CERT_ERROR_INVALID_PARAM;
+    }
+    
+    unsafe {
+        let ctx = (*p_ptEngine).p_ctx;
+        if ctx.is_null() {
+            return CERT_ERROR_INVALID_PARAM;
+        }
+        
+        // Convertit la configuration C vers la structure Rust
+        let hybrid_mode = match (*p_ptConfig).hybrid_mode {
+            0 => HybridMode::PqOnly,
+            1 => HybridMode::EccOnly,
+            2 => HybridMode::Hybrid,
+            _ => return CERT_ERROR_INVALID_PARAM,
+        };
+        
+        let mlkem_level = match (*p_ptConfig).mlkem_level {
+            512 => MlKemLevel::Level1,
+            768 => MlKemLevel::Level3,
+            1024 => MlKemLevel::Level5,
+            _ => return CERT_ERROR_INVALID_PARAM,
+        };
+        
+        let mldsa_level = match (*p_ptConfig).mldsa_level {
+            44 => MlDsaLevel::Level2,
+            65 => MlDsaLevel::Level3,
+            87 => MlDsaLevel::Level5,
+            _ => return CERT_ERROR_INVALID_PARAM,
+        };
+        
+        let curve_cstr = CStr::from_ptr((*p_ptConfig).ecc_curve.as_ptr());
+        let curve_ptr = curve_cstr.as_ptr();
+        
+        let config = HybridCertConfig {
+            ecc_curve: curve_ptr,
+            mlkem_level,
+            mldsa_level,
+            hybrid_mode,
+            enable_x509_extensions: (*p_ptConfig).enable_x509_extensions,
+        };
+        
+        // Configure le contexte TLS
+        match configure_hybrid_tls_context(ctx, &config) {
+            Ok(()) => CERT_OK,
+            Err(code) => code,
+        }
+    }
+}
+
+/// Vérifie si une session TLS utilise des algorithmes post-quantiques
+/// NOM: tlsEngineIsPostQuantumSession
+#[unsafe(no_mangle)]
+pub extern "C" fn tlsEngineIsPostQuantumSession(p_ptSsl: *mut WOLFSSL) -> c_int {
+    if p_ptSsl.is_null() {
+        return 0; // False
+    }
+    
+    match get_hybrid_session_info(p_ptSsl) {
+        Ok(session_info) => {
+            if session_info.is_pq_handshake { 1 } else { 0 }
+        },
+        Err(_) => 0, // False en cas d'erreur
+    }
+}
+
+/// Obtient le niveau de sécurité quantique d'une session TLS
+/// NOM: tlsEngineGetQuantumSecurityLevel
+#[unsafe(no_mangle)]
+pub extern "C" fn tlsEngineGetQuantumSecurityLevel(p_ptSsl: *mut WOLFSSL) -> c_int {
+    if p_ptSsl.is_null() {
+        return 0;
+    }
+    
+    match get_hybrid_session_info(p_ptSsl) {
+        Ok(session_info) => {
+            // Analyse le groupe négocié pour déterminer le niveau de sécurité
+            match session_info.negotiated_group {
+                x if x == WOLFSSL_P256_MLKEM512 || x == 512 => 128,  // 128 bits de sécurité quantique
+                x if x == WOLFSSL_P384_MLKEM768 || x == 768 => 192,  // 192 bits de sécurité quantique
+                x if x == WOLFSSL_P521_MLKEM1024 || x == 1024 => 256, // 256 bits de sécurité quantique (CNSA 2.0)
+                _ => 0, // Pas de post-quantique ou inconnu
+            }
+        },
+        Err(_) => 0,
+    }
+}
+
+/// Vérifie la compatibilité CNSA 2.0 d'une configuration
+/// NOM: xHybridCertConfig_IsCNSA20Compatible
+#[unsafe(no_mangle)]
+pub extern "C" fn xHybridCertConfig_IsCNSA20Compatible(
+    p_ptConfig: *const xHybridCertConfig_t
+) -> c_int {
+    if p_ptConfig.is_null() {
+        return 0; // False
+    }
+    
+    unsafe {
+        // CNSA 2.0 exige ML-KEM-1024 et ML-DSA-87
+        if (*p_ptConfig).mlkem_level == 1024 && (*p_ptConfig).mldsa_level == 87 {
+            1 // True
+        } else {
+            0 // False
+        }
+    }
+}
+
+/// Obtient la description textuelle d'un algorithme post-quantique
+/// NOM: xPostQuantumGetAlgorithmDescription
+#[unsafe(no_mangle)]
+pub extern "C" fn xPostQuantumGetAlgorithmDescription(
+    p_iLevel: c_int,
+    p_bIsKem: bool
+) -> *const c_char {
+    let description = get_pq_algorithm_description(p_iLevel, p_bIsKem);
+    description.as_ptr() as *const c_char
 } 

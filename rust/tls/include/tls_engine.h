@@ -35,13 +35,72 @@
 
 #define WOLFSSL_FILETYPE_PEM 1
 
+#define MLKEM512_KEY_SIZE 1632
+
+#define MLKEM512_CIPHER_SIZE 768
+
+#define MLKEM512_SHARED_SECRET_SIZE 32
+
+#define MLKEM768_KEY_SIZE 2400
+
+#define MLKEM768_CIPHER_SIZE 1088
+
+#define MLKEM768_SHARED_SECRET_SIZE 32
+
+#define MLKEM1024_KEY_SIZE 3168
+
+#define MLKEM1024_CIPHER_SIZE 1568
+
+#define MLKEM1024_SHARED_SECRET_SIZE 32
+
+#define MLDSA44_KEY_SIZE 2560
+
+#define MLDSA44_SIG_SIZE 2420
+
+#define MLDSA44_PRIV_KEY_SIZE 2560
+
+#define MLDSA44_PUB_KEY_SIZE 1312
+
+#define MLDSA65_KEY_SIZE 4032
+
+#define MLDSA65_SIG_SIZE 3309
+
+#define MLDSA65_PRIV_KEY_SIZE 4032
+
+#define MLDSA65_PUB_KEY_SIZE 1952
+
+#define MLDSA87_KEY_SIZE 4896
+
+#define MLDSA87_SIG_SIZE 4627
+
+#define MLDSA87_PRIV_KEY_SIZE 4896
+
+#define MLDSA87_PUB_KEY_SIZE 2592
+
+#define WOLFSSL_P256_MLKEM512 12032
+
+#define WOLFSSL_P384_MLKEM768 12033
+
+#define WOLFSSL_P521_MLKEM1024 12034
+
+#define WOLFSSL_MLDSA44 3585
+
+#define WOLFSSL_MLDSA65 3586
+
+#define WOLFSSL_MLDSA87 3587
+
+#define WOLFSSL_ECDSA_P256_MLDSA44 3841
+
+#define WOLFSSL_ECDSA_P384_MLDSA65 3842
+
+#define WOLFSSL_ECDSA_P521_MLDSA87 3843
+
 /**
- * Mode TLS - identique à l'enum C xTlsMode_t
+ * Méthode WolfSSL - structure opaque
  */
-typedef enum XTlsMode {
-  TLS_MODE_CLIENT = 0,
-  TLS_MODE_SERVER = 1,
-} XTlsMode;
+typedef struct WOLFSSL_METHOD {
+  uint8_t _private[0];
+} WOLFSSL_METHOD;
 
 /**
  * Contexte WolfSSL - structure opaque
@@ -51,43 +110,11 @@ typedef struct WOLFSSL_CTX {
 } WOLFSSL_CTX;
 
 /**
- * Structure TLS Engine - doit correspondre exactement à xTlsEngine_t
- */
-typedef struct xTlsEngine_t {
-  struct WOLFSSL_CTX *p_ctx;
-  enum XTlsMode t_mode;
-} xTlsEngine_t;
-
-/**
  * Session WolfSSL - structure opaque
  */
 typedef struct WOLFSSL {
   uint8_t _private[0];
 } WOLFSSL;
-
-/**
- * Structure Certificate - version simplifiée pour l'interface C
- */
-typedef struct xCertificate_t {
-  uint8_t *cert_data;
-  uint32_t cert_size;
-  uint8_t *der_data;
-  uint32_t der_size;
-  char subject[256];
-  char issuer[256];
-  bool is_ca;
-  int64_t not_before;
-  int64_t not_after;
-  int status;
-  int cert_type;
-} xCertificate_t;
-
-/**
- * Méthode WolfSSL - structure opaque
- */
-typedef struct WOLFSSL_METHOD {
-  uint8_t _private[0];
-} WOLFSSL_METHOD;
 
 /**
  * X509 Certificate - opaque structure
@@ -103,72 +130,26 @@ typedef struct WOLFSSL_X509_NAME {
   uint8_t _private[0];
 } WOLFSSL_X509_NAME;
 
+/**
+ * ASN1 Time - opaque structure
+ */
 typedef struct ASN1_TIME {
   uint8_t _private[0];
 } ASN1_TIME;
 
 /**
- * Initialise le système de gestion des certificats
- * NOM IDENTIQUE: xCertificateInit
+ * ML-KEM key structure - opaque
  */
-int xCertificateInit(void);
+typedef struct MLKEM_KEY {
+  uint8_t _private[0];
+} MLKEM_KEY;
 
 /**
- * Nettoie le système de gestion des certificats
- * NOM IDENTIQUE: xCertificateCleanup
+ * ML-DSA key structure - opaque
  */
-int xCertificateCleanup(void);
-
-/**
- * Crée un moteur TLS
- * NOM IDENTIQUE: tlsEngineCreate
- */
-int tlsEngineCreate(struct xTlsEngine_t **p_pptCryptoEngine,
-                    enum XTlsMode p_eMode,
-                    const char *p_ptcCertFile,
-                    const char *p_ptcKeyFile,
-                    const char *p_ptcCADir,
-                    bool _p_bIsPEM);
-
-/**
- * Attache un socket au moteur TLS et effectue le handshake
- * NOM IDENTIQUE: tlsEngineAttachSocket
- */
-int tlsEngineAttachSocket(struct xTlsEngine_t *p_ptEngine,
-                          int p_iSocketFd,
-                          struct WOLFSSL **p_pptSslCtx);
-
-/**
- * Ferme une session TLS
- * NOM IDENTIQUE: tlsEngineShutdown
- */
-int tlsEngineShutdown(struct WOLFSSL *p_ptSsl);
-
-/**
- * Détruit un moteur TLS
- * NOM IDENTIQUE: tlsEngineDestroy
- */
-int tlsEngineDestroy(struct xTlsEngine_t *p_ptEngine);
-
-/**
- * Charge un certificat depuis un fichier
- * NOM IDENTIQUE: xCertificateLoadFromFile
- */
-int xCertificateLoadFromFile(const char *p_pcFilePath,
-                             bool _p_bIsPEM,
-                             struct xCertificate_t **p_pptCertificate);
-
-/**
- * Libère un certificat
- * NOM IDENTIQUE: xCertificateFree
- */
-int xCertificateFree(struct xCertificate_t *p_ptCertificate);
-
-/**
- * Obtient la description d'une erreur
- * NOM IDENTIQUE: xCertificateGetErrorString
- */
-const char *xCertificateGetErrorString(int p_iError);
+typedef struct MLDSA_KEY {
+  uint8_t _private[0];
+} MLDSA_KEY;
 
 /**
  * Initialise WolfSSL
@@ -292,6 +273,177 @@ extern int wolfSSL_X509_get_isCA(struct WOLFSSL_X509 *x509);
 extern struct ASN1_TIME *wolfSSL_X509_get_notBefore(struct WOLFSSL_X509 *x509);
 
 extern struct ASN1_TIME *wolfSSL_X509_get_notAfter(struct WOLFSSL_X509 *x509);
+
+/**
+ * Initialise une clé ML-KEM
+ */
+extern int wc_MlKemKey_Init(struct MLKEM_KEY *key, int level);
+
+/**
+ * Libère une clé ML-KEM
+ */
+extern void wc_MlKemKey_Free(struct MLKEM_KEY *key);
+
+/**
+ * Génère une paire de clés ML-KEM
+ */
+extern int wc_MlKemKey_MakeKey(struct MLKEM_KEY *key, void *rng);
+
+/**
+ * Encapsule un secret avec ML-KEM
+ */
+extern int wc_MlKemKey_Encap(struct MLKEM_KEY *key,
+                             uint8_t *cipher_text,
+                             int *cipher_text_len,
+                             uint8_t *shared_secret,
+                             int *shared_secret_len,
+                             void *rng);
+
+/**
+ * Décapsule un secret avec ML-KEM
+ */
+extern int wc_MlKemKey_Decap(struct MLKEM_KEY *key,
+                             uint8_t *shared_secret,
+                             int *shared_secret_len,
+                             const uint8_t *cipher_text,
+                             int cipher_text_len);
+
+/**
+ * Exporte la clé publique ML-KEM
+ */
+extern int wc_MlKemKey_ExportPub(struct MLKEM_KEY *key, uint8_t *pub_key, int *pub_key_len);
+
+/**
+ * Importe une clé publique ML-KEM
+ */
+extern int wc_MlKemKey_ImportPub(struct MLKEM_KEY *key, const uint8_t *pub_key, int pub_key_len);
+
+/**
+ * Exporte la clé privée ML-KEM
+ */
+extern int wc_MlKemKey_ExportPriv(struct MLKEM_KEY *key, uint8_t *priv_key, int *priv_key_len);
+
+/**
+ * Importe une clé privée ML-KEM
+ */
+extern int wc_MlKemKey_ImportPriv(struct MLKEM_KEY *key, const uint8_t *priv_key, int priv_key_len);
+
+/**
+ * Initialise une clé ML-DSA
+ */
+extern int wc_MlDsaKey_Init(struct MLDSA_KEY *key, int level);
+
+/**
+ * Libère une clé ML-DSA
+ */
+extern void wc_MlDsaKey_Free(struct MLDSA_KEY *key);
+
+/**
+ * Génère une paire de clés ML-DSA
+ */
+extern int wc_MlDsaKey_MakeKey(struct MLDSA_KEY *key, void *rng);
+
+/**
+ * Signe des données avec ML-DSA
+ */
+extern int wc_MlDsaKey_Sign(struct MLDSA_KEY *key,
+                            uint8_t *sig,
+                            int *sig_len,
+                            const uint8_t *msg,
+                            int msg_len,
+                            void *rng);
+
+/**
+ * Vérifie une signature ML-DSA
+ */
+extern int wc_MlDsaKey_Verify(struct MLDSA_KEY *key,
+                              const uint8_t *sig,
+                              int sig_len,
+                              const uint8_t *msg,
+                              int msg_len);
+
+/**
+ * Exporte la clé publique ML-DSA
+ */
+extern int wc_MlDsaKey_ExportPub(struct MLDSA_KEY *key, uint8_t *pub_key, int *pub_key_len);
+
+/**
+ * Importe une clé publique ML-DSA
+ */
+extern int wc_MlDsaKey_ImportPub(struct MLDSA_KEY *key, const uint8_t *pub_key, int pub_key_len);
+
+/**
+ * Exporte la clé privée ML-DSA
+ */
+extern int wc_MlDsaKey_ExportPriv(struct MLDSA_KEY *key, uint8_t *priv_key, int *priv_key_len);
+
+/**
+ * Importe une clé privée ML-DSA
+ */
+extern int wc_MlDsaKey_ImportPriv(struct MLDSA_KEY *key, const uint8_t *priv_key, int priv_key_len);
+
+/**
+ * Configure les groupes hybrides supportés pour TLS 1.3
+ */
+extern int wolfSSL_CTX_set_groups_list(struct WOLFSSL_CTX *ctx, const char *list);
+
+/**
+ * Configure les algorithmes de signature hybrides supportés
+ */
+extern int wolfSSL_CTX_set_sigalgs_list(struct WOLFSSL_CTX *ctx, const char *list);
+
+/**
+ * Active les extensions post-quantiques X.509
+ */
+extern int wolfSSL_CTX_enable_pq_x509_extensions(struct WOLFSSL_CTX *ctx);
+
+/**
+ * Charge un certificat hybride depuis un fichier
+ */
+extern int wolfSSL_CTX_use_certificate_chain_file_pq(struct WOLFSSL_CTX *ctx,
+                                                     const char *file,
+                                                     int format);
+
+/**
+ * Vérifie si une session utilise des algorithmes post-quantiques
+ */
+extern int wolfSSL_is_pq_handshake(struct WOLFSSL *ssl);
+
+/**
+ * Obtient le groupe négocié pour la session
+ */
+extern int wolfSSL_get_negotiated_group(struct WOLFSSL *ssl);
+
+/**
+ * Obtient l'algorithme de signature négocié
+ */
+extern int wolfSSL_get_negotiated_sigalg(struct WOLFSSL *ssl);
+
+/**
+ * Vérifie si un certificat contient des clés publiques alternatives (hybrides)
+ */
+extern int wolfSSL_X509_has_alt_public_key(struct WOLFSSL_X509 *x509);
+
+/**
+ * Obtient la clé publique alternative d'un certificat
+ */
+extern int wolfSSL_X509_get_alt_public_key(struct WOLFSSL_X509 *x509,
+                                           uint8_t *key_buf,
+                                           int *key_len,
+                                           int *key_type);
+
+/**
+ * Vérifie si un certificat contient des signatures alternatives
+ */
+extern int wolfSSL_X509_has_alt_signature(struct WOLFSSL_X509 *x509);
+
+/**
+ * Obtient la signature alternative d'un certificat
+ */
+extern int wolfSSL_X509_get_alt_signature(struct WOLFSSL_X509 *x509,
+                                          uint8_t *sig_buf,
+                                          int *sig_len,
+                                          int *sig_alg);
 
 extern struct WOLFSSL_X509 *wolfSSL_X509_load_certificate_buffer(const uint8_t *buf,
                                                                  int sz,

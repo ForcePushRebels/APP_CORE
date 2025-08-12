@@ -12,7 +12,7 @@
 #endif
 
 
-#include "certificateManagement.h"
+#include "certManagement.h"
 #include "xLog.h"
 #include "xOsMemory.h"
 #include <stdio.h>
@@ -39,9 +39,9 @@ static void secureClearCertificate(xCertificate_t *p_ptCertificate);
 ////////////////////////////////////////////////////////////
 
 //////////////////////////////////
-/// xCertificateInit
+/// certManagementInit
 //////////////////////////////////
-int xCertificateInit(void)
+int certManagementInit(void)
 {
     if (s_bCertificateSystemInitialized)
     {
@@ -64,9 +64,9 @@ int xCertificateInit(void)
 }
 
 //////////////////////////////////
-/// xCertificateCleanup
+/// certManagementCleanup
 //////////////////////////////////
-int xCertificateCleanup(void)
+int certManagementCleanup(void)
 {
     if (!s_bCertificateSystemInitialized)
     {
@@ -82,15 +82,15 @@ int xCertificateCleanup(void)
 }
 
 //////////////////////////////////
-/// xCertificateLoad
+/// loadCertificate
 //////////////////////////////////
-int xCertificateLoad(const uint8_t *p_pucCertData, 
+int loadCertificate(const uint8_t *p_pucCertData, 
                      uint32_t p_ulDataSize,
                      bool p_bIsPEM,
-                     xCertificate_t **p_pptCertificate)
+                     xCertificate_t **p_ppttCertificate)
 {
     // Parameter validation
-    if (!p_pucCertData || p_ulDataSize == 0 || !p_pptCertificate)
+    if (!p_pucCertData || p_ulDataSize == 0 || !p_ppttCertificate)
     {
         X_LOG_TRACE("Invalid parameters for certificate loading");
         return CERT_ERROR_INVALID_PARAM;
@@ -220,29 +220,29 @@ int xCertificateLoad(const uint8_t *p_pucCertData,
     // Set default status
     l_ptCertificate->t_eStatus = CERT_STATUS_UNKNOWN;
 
-    *p_pptCertificate = l_ptCertificate;
+    *p_ppttCertificate = l_ptCertificate;
     
     X_LOG_TRACE("Certificate loaded successfully: Subject=%s", l_ptCertificate->t_acSubject);
     return CERT_OK;
 }
 
 //////////////////////////////////
-/// xCertificateLoadFromFile
+/// loadCertificateFromFile
 //////////////////////////////////
-int xCertificateLoadFromFile(const char *p_pcFilePath,
+int loadCertificateFromFile(const char *p_ptcFilePath,
                              bool p_bIsPEM,
-                             xCertificate_t **p_pptCertificate)
+                             xCertificate_t **p_ppttCertificate)
 {
-    if (!p_pcFilePath || !p_pptCertificate)
+    if (!p_ptcFilePath || !p_ppttCertificate)
     {
         return CERT_ERROR_INVALID_PARAM;
     }
 
     // Open file
-    FILE *l_ptFile = fopen(p_pcFilePath, "rb");
+    FILE *l_ptFile = fopen(p_ptcFilePath, "rb");
     if (!l_ptFile)
     {
-        X_LOG_TRACE("Failed to open certificate file: %s", p_pcFilePath);
+        X_LOG_TRACE("Failed to open certificate file: %s", p_ptcFilePath);
         return CERT_ERROR_INVALID_CERT;
     }
 
@@ -280,8 +280,8 @@ int xCertificateLoadFromFile(const char *p_pcFilePath,
     }
 
     // Load certificate from memory
-    int l_iResult = xCertificateLoad(l_pucFileData, (uint32_t)l_lFileSize, 
-                                     p_bIsPEM, p_pptCertificate);
+    int l_iResult = loadCertificate(l_pucFileData, (uint32_t)l_lFileSize, 
+                                     p_bIsPEM, p_ppttCertificate);
 
     // Clean up file data
     XOS_MEMORY_SANITIZE(l_pucFileData, (size_t)l_lFileSize);
@@ -291,13 +291,13 @@ int xCertificateLoadFromFile(const char *p_pcFilePath,
 }
 
 //////////////////////////////////
-/// xCertificateLoadRootCA
+/// loadCertificateRootCA
 //////////////////////////////////
-int xCertificateLoadRootCA(const char *p_pcCADirectoryPath,
+int loadCertificateRootCA(const char *p_ptcCADirectoryPath,
                            bool p_bIsPEM,
-                           xCertificate_t **p_pptRootCA)
+                           xCertificate_t **p_ppttRootCA)
 {
-    if (!p_pcCADirectoryPath || !p_pptRootCA)
+    if (!p_ptcCADirectoryPath || !p_ppttRootCA)
     {
         X_LOG_TRACE("Invalid parameters for root CA loading");
         return CERT_ERROR_INVALID_PARAM;
@@ -309,10 +309,10 @@ int xCertificateLoadRootCA(const char *p_pcCADirectoryPath,
         return CERT_ERROR_WOLFSSL_ERROR;
     }
 
-    DIR *l_ptDirectory = opendir(p_pcCADirectoryPath);
+    DIR *l_ptDirectory = opendir(p_ptcCADirectoryPath);
     if (!l_ptDirectory)
     {
-        X_LOG_TRACE("Failed to open CA directory: %s", p_pcCADirectoryPath);
+        X_LOG_TRACE("Failed to open CA directory: %s", p_ptcCADirectoryPath);
         return CERT_ERROR_INVALID_CERT;
     }
 
@@ -350,7 +350,7 @@ int xCertificateLoadRootCA(const char *p_pcCADirectoryPath,
 
         // Construire le chemin complet du fichier
         snprintf(l_acFilePath, sizeof(l_acFilePath), "%s/%s", 
-                 p_pcCADirectoryPath, l_ptEntry->d_name);
+                 p_ptcCADirectoryPath, l_ptEntry->d_name);
 
         // Vérifier que c'est un fichier régulier
         struct stat l_tFileStat;
@@ -361,7 +361,7 @@ int xCertificateLoadRootCA(const char *p_pcCADirectoryPath,
 
         // Charger le certificat
         xCertificate_t *l_ptCertificate = NULL;
-        int l_iResult = xCertificateLoadFromFile(l_acFilePath, p_bIsPEM, &l_ptCertificate);
+        int l_iResult = loadCertificateFromFile(l_acFilePath, p_bIsPEM, &l_ptCertificate);
         if (l_iResult != CERT_OK)
         {
             X_LOG_TRACE("Failed to load certificate from %s: %d", l_acFilePath, l_iResult);
@@ -372,7 +372,7 @@ int xCertificateLoadRootCA(const char *p_pcCADirectoryPath,
         if (!l_ptCertificate->t_bIsCA)
         {
             X_LOG_TRACE("Certificate %s is not a CA certificate", l_ptEntry->d_name);
-            xCertificateFree(l_ptCertificate);
+            freeCertRessources(l_ptCertificate);
             continue;
         }
 
@@ -388,20 +388,20 @@ int xCertificateLoadRootCA(const char *p_pcCADirectoryPath,
                 // Libérer l'ancien certificat racine s'il existe
                 if (l_ptBestRootCA)
                 {
-                    xCertificateFree(l_ptBestRootCA);
+                    freeCertRessources(l_ptBestRootCA);
                 }
                 l_ptBestRootCA = l_ptCertificate;
             }
             else
             {
                 // Garder l'ancien, libérer le nouveau
-                xCertificateFree(l_ptCertificate);
+                freeCertRessources(l_ptCertificate);
             }
         }
         else
         {
             // Ce n'est pas un certificat racine
-            xCertificateFree(l_ptCertificate);
+            freeCertRessources(l_ptCertificate);
         }
     }
 
@@ -409,20 +409,20 @@ int xCertificateLoadRootCA(const char *p_pcCADirectoryPath,
 
     if (!l_ptBestRootCA)
     {
-        X_LOG_TRACE("No root CA certificate found in directory: %s", p_pcCADirectoryPath);
+        X_LOG_TRACE("No root CA certificate found in directory: %s", p_ptcCADirectoryPath);
         return CERT_ERROR_INVALID_CERT;
     }
 
     // Vérifier la validité du certificat racine trouvé
-    int l_iValidityResult = xCertificateCheckValidity(l_ptBestRootCA);
+    int l_iValidityResult = processCertValidity(l_ptBestRootCA);
     if (l_iValidityResult != CERT_OK)
     {
         X_LOG_TRACE("Root CA certificate is not valid: %x", l_iValidityResult);
-        xCertificateFree(l_ptBestRootCA);
+        freeCertRessources(l_ptBestRootCA);
         return l_iValidityResult;
     }
 
-    *p_pptRootCA = l_ptBestRootCA;
+    *p_ppttRootCA = l_ptBestRootCA;
     X_LOG_TRACE("Root CA certificate loaded successfully: Subject=%s", 
                 l_ptBestRootCA->t_acSubject);
     
@@ -430,9 +430,9 @@ int xCertificateLoadRootCA(const char *p_pcCADirectoryPath,
 }
 
 //////////////////////////////////
-/// xCertificateFree
+/// freeCertRessources
 //////////////////////////////////
-int xCertificateFree(xCertificate_t *p_ptCertificate)
+int freeCertRessources(xCertificate_t *p_ptCertificate)
 {
     if (!p_ptCertificate)
     {
@@ -472,9 +472,9 @@ int xCertificateFree(xCertificate_t *p_ptCertificate)
 ////////////////////////////////////////////////////////////
 
 //////////////////////////////////
-/// xCertificateCheckValidity
+/// processCertValidity
 //////////////////////////////////
-int xCertificateCheckValidity(xCertificate_t *p_ptCertificate)
+int processCertValidity(xCertificate_t *p_ptCertificate)
 {
     if (!p_ptCertificate)
     {
@@ -508,13 +508,13 @@ int xCertificateCheckValidity(xCertificate_t *p_ptCertificate)
 ////////////////////////////////////////////////////////////
 
 //////////////////////////////////
-/// xCertificateGetSubject
+/// getCertSubject
 //////////////////////////////////
-int xCertificateGetSubject(xCertificate_t *p_ptCertificate,
-                           char *p_pcBuffer,
+int getCertSubject(xCertificate_t *p_ptCertificate,
+                           char *p_ptcBuffer,
                            uint32_t p_ulBufferSize)
 {
-    if (!p_ptCertificate || !p_pcBuffer || p_ulBufferSize == 0)
+    if (!p_ptCertificate || !p_ptcBuffer || p_ulBufferSize == 0)
     {
         return CERT_ERROR_INVALID_PARAM;
     }
@@ -525,20 +525,20 @@ int xCertificateGetSubject(xCertificate_t *p_ptCertificate,
         return CERT_ERROR_INVALID_PARAM;
     }
 
-    strncpy(p_pcBuffer, p_ptCertificate->t_acSubject, p_ulBufferSize - 1);
-    p_pcBuffer[p_ulBufferSize - 1] = '\0';
+    strncpy(p_ptcBuffer, p_ptCertificate->t_acSubject, p_ulBufferSize - 1);
+    p_ptcBuffer[p_ulBufferSize - 1] = '\0';
 
     return CERT_OK;
 }
 
 //////////////////////////////////
-/// xCertificateGetIssuer
+/// getCertIssuer
 //////////////////////////////////
-int xCertificateGetIssuer(xCertificate_t *p_ptCertificate,
-                          char *p_pcBuffer,
+int getCertIssuer(xCertificate_t *p_ptCertificate,
+                          char *p_ptcBuffer,
                           uint32_t p_ulBufferSize)
 {
-    if (!p_ptCertificate || !p_pcBuffer || p_ulBufferSize == 0)
+    if (!p_ptCertificate || !p_ptcBuffer || p_ulBufferSize == 0)
     {
         return CERT_ERROR_INVALID_PARAM;
     }
@@ -549,16 +549,16 @@ int xCertificateGetIssuer(xCertificate_t *p_ptCertificate,
         return CERT_ERROR_INVALID_PARAM;
     }
 
-    strncpy(p_pcBuffer, p_ptCertificate->t_acIssuer, p_ulBufferSize - 1);
-    p_pcBuffer[p_ulBufferSize - 1] = '\0';
+    strncpy(p_ptcBuffer, p_ptCertificate->t_acIssuer, p_ulBufferSize - 1);
+    p_ptcBuffer[p_ulBufferSize - 1] = '\0';
 
     return CERT_OK;
 }
 
 //////////////////////////////////
-/// xCertificateIsCA
+/// isCertCA
 //////////////////////////////////
-int xCertificateIsCA(xCertificate_t *p_ptCertificate,
+int isCertCA(xCertificate_t *p_ptCertificate,
                      bool *p_pbIsCA)
 {
     if (!p_ptCertificate || !p_pbIsCA)
@@ -571,9 +571,9 @@ int xCertificateIsCA(xCertificate_t *p_ptCertificate,
 }
 
 //////////////////////////////////
-/// xCertificateGetErrorString
+/// getCertErrorString
 //////////////////////////////////
-const char *xCertificateGetErrorString(int p_iError)
+const char *getCertErrorString(int p_iError)
 {
     switch (p_iError)
     {
@@ -661,7 +661,7 @@ static int extractCertificateInfo(xCertificate_t *p_ptCertificate)
     }
 
     // Extract real validity period from decoded certificate
-    int l_iDateResult = xCertificateExtractValidityDates(l_ptDecodedCert,
+    int l_iDateResult = extractCertValidityDate(l_ptDecodedCert,
                                                           &p_ptCertificate->t_tNotBefore,
                                                           &p_ptCertificate->t_tNotAfter);
     if (l_iDateResult != CERT_OK)
@@ -716,9 +716,9 @@ static void secureClearCertificate(xCertificate_t *p_ptCertificate)
 }
 
 //////////////////////////////////
-/// xCertificateExtractValidityDates
+/// extractCertValidityDate
 //////////////////////////////////
-int xCertificateExtractValidityDates(DecodedCert *p_ptDecodedCert,
+int extractCertValidityDate(DecodedCert *p_ptDecodedCert,
                                      time_t *p_ptNotBefore,
                                      time_t *p_ptNotAfter)
 {
@@ -823,13 +823,13 @@ int xCertificateExtractValidityDates(DecodedCert *p_ptDecodedCert,
 }
 
 //////////////////////////////////
-/// xCertificateLoadRootCAIntoContext
+/// loadRootCAIntoCtx
 //////////////////////////////////
-int xCertificateLoadRootCAIntoContext(WOLFSSL_CTX *p_ptSSLContext,
-                                      const char *p_pcCADirectoryPath,
+int loadRootCAIntoCtx(WOLFSSL_CTX *p_ptSSLContext,
+                                      const char *p_ptcCADirectoryPath,
                                       bool p_bIsPEM)
 {
-    if (!p_ptSSLContext || !p_pcCADirectoryPath)
+    if (!p_ptSSLContext || !p_ptcCADirectoryPath)
     {
         X_LOG_TRACE("Invalid parameters for loading root CA into context");
         return CERT_ERROR_INVALID_PARAM;
@@ -840,11 +840,11 @@ int xCertificateLoadRootCAIntoContext(WOLFSSL_CTX *p_ptSSLContext,
 
     if (p_bIsPEM)
     {
-        snprintf(l_acCAFilePath, sizeof(l_acCAFilePath), "%s/ca.pem", p_pcCADirectoryPath);
+        snprintf(l_acCAFilePath, sizeof(l_acCAFilePath), "%s/ca.pem", p_ptcCADirectoryPath);
     }
     else
     {
-        snprintf(l_acCAFilePath, sizeof(l_acCAFilePath), "%s/ca.der", p_pcCADirectoryPath);
+        snprintf(l_acCAFilePath, sizeof(l_acCAFilePath), "%s/ca.der", p_ptcCADirectoryPath);
     }
     
     int l_iWolfResult = wolfSSL_CTX_load_verify_locations(p_ptSSLContext, l_acCAFilePath, NULL);

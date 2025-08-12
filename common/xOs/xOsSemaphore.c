@@ -13,7 +13,7 @@
 ////////////////////////////////////////////////////////////
 /// osSemInit
 ////////////////////////////////////////////////////////////
-int osSemInit(t_OSSemCtx *p_pttOSSem, int p_iInitValue, const char *p_pcName)
+int osSemInit(t_OSSemCtx *p_pttOSSem, int p_iInitValue, const char *p_ptcName)
 {
     if (p_pttOSSem == NULL || p_iInitValue < 0)
     {
@@ -24,13 +24,13 @@ int osSemInit(t_OSSemCtx *p_pttOSSem, int p_iInitValue, const char *p_pcName)
     memset(p_pttOSSem, 0, sizeof(t_OSSemCtx));
 
     p_pttOSSem->value = p_iInitValue;
-    p_pttOSSem->name = p_pcName;
+    p_pttOSSem->name = p_ptcName;
 
     // Create the semaphore
-    if (p_pcName != NULL)
+    if (p_ptcName != NULL)
     {
         // Named semaphore
-        sem_t *namedSem = sem_open(p_pcName, O_CREAT, 0666, p_iInitValue);
+        sem_t *namedSem = sem_open(p_ptcName, O_CREAT, 0666, p_iInitValue);
         if (namedSem == SEM_FAILED)
         {
             return OS_SEM_ERROR;

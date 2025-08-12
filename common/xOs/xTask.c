@@ -12,6 +12,7 @@
 #include <errno.h>
 #include <signal.h>
 #include <time.h>
+#include <unistd.h>
 
 ////////////////////////////////////////////////////////////
 /// osTaskInit
@@ -82,6 +83,22 @@ int osTaskCreate(xOsTaskCtx *p_pttOSTask)
         X_LOG_TRACE("pthread_attr_setstacksize: Stack size is less than the default stack size");
         p_pttOSTask->t_ulStackSize = (size_t)PTHREAD_STACK_MIN;
     }
+
+    /* Align the requested stack size to the system page size            */
+    /* 1) Guarantee at least 2 × PTHREAD_STACK_MIN for safety            */
+    /* 2) Round up to the nearest multiple of page size                  */
+
+    size_t l_ulPageSize = (size_t)sysconf(_SC_PAGESIZE);
+
+    size_t l_ulMinStack = p_pttOSTask->t_ulStackSize;
+    size_t l_ulMinRequired = ((size_t)PTHREAD_STACK_MIN) * 2u;
+
+    if (l_ulMinStack < l_ulMinRequired)
+    {
+        l_ulMinStack = l_ulMinRequired;
+    }
+
+    p_pttOSTask->t_ulStackSize = ((l_ulMinStack + l_ulPageSize - 1u) / l_ulPageSize) * l_ulPageSize;
 
     if (pthread_attr_setstacksize(&l_tAttr, p_pttOSTask->t_ulStackSize) != 0)
     {

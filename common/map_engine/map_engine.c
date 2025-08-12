@@ -274,7 +274,7 @@ int map_engine_update_vision(uint16_t *sensor_data, uint8_t sensor_count)
     return MAP_ENGINE_OK;
 }
 
-static bool is_floor_sensor_in_margin(uint16_t floor_sensor, uint16_t color, uint16_t margin)
+static inline bool is_floor_sensor_in_margin(uint16_t floor_sensor, uint16_t color, uint16_t margin)
 {
     return floor_sensor >= color - margin && floor_sensor <= color + margin;
 }

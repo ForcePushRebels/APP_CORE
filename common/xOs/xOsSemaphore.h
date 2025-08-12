@@ -47,10 +47,10 @@ typedef struct {
 /// @brief Initialize a semaphore with default values
 /// @param p_pttOSSem : pointer to the semaphore structure context
 /// @param p_iInitValue : initial value of the semaphore (>=0)
-/// @param p_pcName : name of the semaphore (NULL for anonymous semaphore)
+/// @param p_ptcName : name of the semaphore (NULL for anonymous semaphore)
 /// @return OS_SEM_SUCCESS if success, OS_SEM_ERROR otherwise
 //////////////////////////////////
-int osSemInit(t_OSSemCtx* p_pttOSSem, int p_iInitValue, const char* p_pcName);
+int osSemInit(t_OSSemCtx* p_pttOSSem, int p_iInitValue, const char* p_ptcName);
 
 //////////////////////////////////
 /// @brief Destroy a semaphore

@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdatomic.h>
+#include <unistd.h>
 #include <ulimit.h>
 #include "xAssert.h"
 
@@ -73,8 +74,24 @@ typedef enum
 #define OS_TASK_DEFAULT_PRIORITY 0   // Normal priority (nice 0)
 #endif
 
+#define KB(x)         ((size_t)(x) * 1024u)
+#define MB(x)         ((size_t)(x) * 1024u * 1024u)
+#define PAGE_ALIGN(x)                                              \
+    ({                                                            \
+        size_t l_ulPageSize = (size_t)sysconf(_SC_PAGESIZE);     \
+        ((size_t)(x) + l_ulPageSize - 1) / l_ulPageSize * l_ulPageSize; \
+    })
+
 // Default stack size: define by the system
-#define OS_TASK_DEFAULT_STACK_SIZE PTHREAD_STACK_MIN
+#if defined(__x86_64__)
+  #define OS_TASK_DEFAULT_STACK_SIZE  MB(1)        /* 1 MiB */
+#elif defined(__aarch64__)
+  #define OS_TASK_DEFAULT_STACK_SIZE  KB(512)      /* 512 KiB */
+#elif defined(__arm__)               /* Pi Zero, Cortex-M/A 32 bits  */
+  #define OS_TASK_DEFAULT_STACK_SIZE  KB(256)      /* 256 KiB */
+#else
+  #define OS_TASK_DEFAULT_STACK_SIZE  KB(512)      /* default value */
+#endif
 
 //////////////////////////////////
 // Task management structure

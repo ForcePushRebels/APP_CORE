@@ -951,9 +951,9 @@ int xServerBroadcastMessage(uint8_t p_ucMsgType, const void *p_pvPayload, uint32
 ///////////////////////////////////////////
 /// xServerGetClientInfo
 ///////////////////////////////////////////
-bool xServerGetClientInfo(ClientID p_tClientId, char *p_pcBuffer, int p_iBufferSize)
+bool xServerGetClientInfo(ClientID p_tClientId, char *p_ptcBuffer, int p_iBufferSize)
 {
-    if (p_pcBuffer == NULL || p_iBufferSize <= 0)
+    if (p_ptcBuffer == NULL || p_iBufferSize <= 0)
     {
         return false;
     }
@@ -967,7 +967,7 @@ bool xServerGetClientInfo(ClientID p_tClientId, char *p_pcBuffer, int p_iBufferS
         return false;
     }
     
-    snprintf(p_pcBuffer, (size_t)p_iBufferSize, 
+    snprintf(p_ptcBuffer, (size_t)p_iBufferSize, 
             "Client %u: %s (TLS: %s, RX: %lu bytes/%u msgs, TX: %lu bytes/%u msgs)",
             l_ptClient->t_tId,
             l_ptClient->t_acClientName,

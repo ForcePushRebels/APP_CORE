@@ -156,13 +156,13 @@ int protocolValidateHeader(const uint8_t *p_pucHeader,
 /// @brief Extract payload from complete frame
 /// @param p_pucFrameData Complete frame data
 /// @param p_ulFrameSize Frame size
-/// @param p_ppucPayload Output: payload pointer (points into frame data)
+/// @param p_pptucPayload Output: payload pointer (points into frame data)
 /// @param p_pulPayloadSize Output: payload size
 /// @return Protocol error code
 //////////////////////////////////
 int protocolExtractPayload(const uint8_t *p_pucFrameData,
                           uint32_t p_ulFrameSize,
-                          const uint8_t **p_ppucPayload,
+                          const uint8_t **p_pptucPayload,
                           uint32_t *p_pulPayloadSize);
 
 //////////////////////////////////

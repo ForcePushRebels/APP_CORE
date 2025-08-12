@@ -146,11 +146,11 @@ int xServerBroadcastMessage(uint8_t p_ucMsgType, const void *p_pvPayload, uint32
 ///////////////////////////////////////////
 /// @brief Get client information
 /// @param p_tClientId Client ID
-/// @param p_pcBuffer Buffer for client info string
+/// @param p_ptcBuffer Buffer for client info string
 /// @param p_iBufferSize Buffer size
 /// @return true if client found, false otherwise
 ///////////////////////////////////////////
-bool xServerGetClientInfo(ClientID p_tClientId, char *p_pcBuffer, int p_iBufferSize);
+bool xServerGetClientInfo(ClientID p_tClientId, char *p_ptcBuffer, int p_iBufferSize);
 
 ///////////////////////////////////////////
 /// @brief Get connected clients count

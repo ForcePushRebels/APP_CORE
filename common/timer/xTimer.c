@@ -17,6 +17,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/timerfd.h>
+#include <poll.h>
 
 ////////////////////////////////////////////////////////////
 /// xTimerCreate
@@ -259,25 +260,27 @@ int xTimerCheckExpired(xOsTimerCtx *p_ptTimer, uint64_t *p_pullExpirations)
         return XOS_TIMER_NOT_INIT;
     }
 
-    // Make the file descriptor non-blocking for this check
-    int l_iFlags = fcntl(p_ptTimer->t_iTimerFd, F_GETFL);
-    if (l_iFlags == -1)
-    {
-        X_LOG_TRACE("xTimerCheckExpired: fcntl F_GETFL failed: %d", errno);
-        return XOS_TIMER_ERROR;
-    }
+    /* Utilise poll(2) avec timeout immédiat pour éviter deux appels fcntl   */
+    struct pollfd l_tPfd = {
+        .fd = p_ptTimer->t_iTimerFd,
+        .events = POLLIN,
+        .revents = 0
+    };
 
-    if (fcntl(p_ptTimer->t_iTimerFd, F_SETFL, l_iFlags | O_NONBLOCK) == -1)
+    int l_iPoll = poll(&l_tPfd, 1, 0); // timeout 0 ⇒ non bloquant
+
+    if (l_iPoll == 0)
     {
-        X_LOG_TRACE("xTimerCheckExpired: fcntl F_SETFL failed: %d", errno);
+        return XOS_TIMER_TIMEOUT; // rien à lire
+    }
+    else if (l_iPoll < 0)
+    {
+        X_LOG_TRACE("xTimerCheckExpired: poll failed: %d", errno);
         return XOS_TIMER_ERROR;
     }
 
     uint64_t l_ullExpirations;
     ssize_t l_iBytes = read(p_ptTimer->t_iTimerFd, &l_ullExpirations, sizeof(l_ullExpirations));
-
-    // Restore blocking mode
-    fcntl(p_ptTimer->t_iTimerFd, F_SETFL, l_iFlags);
 
     if (l_iBytes == -1)
     {

@@ -202,7 +202,7 @@ int networkListen(NetworkSocket *p_ptSocket, int p_iBacklog)
 //////////////////////////////////
 /// networkAccept
 //////////////////////////////////
-NetworkSocket *networkAccept(NetworkSocket *p_ptSocket, NetworkAddress *p_pClientAddress)
+NetworkSocket *networkAccept(NetworkSocket *p_ptSocket, NetworkAddress *p_ptclientAddress)
 {
     if (!networkIsValidSocket(p_ptSocket))
     {
@@ -221,10 +221,10 @@ NetworkSocket *networkAccept(NetworkSocket *p_ptSocket, NetworkAddress *p_pClien
     }
 
     // Store client address if requested
-    if (p_pClientAddress)
+    if (p_ptclientAddress)
     {
-        inet_ntop(AF_INET, &l_tClientAddr.sin_addr, p_pClientAddress->t_cAddress, INET_ADDRSTRLEN);
-        p_pClientAddress->t_usPort = NET_TO_HOST_SHORT(l_tClientAddr.sin_port);
+        inet_ntop(AF_INET, &l_tClientAddr.sin_addr, p_ptclientAddress->t_cAddress, INET_ADDRSTRLEN);
+        p_ptclientAddress->t_usPort = NET_TO_HOST_SHORT(l_tClientAddr.sin_port);
     }
 
     // Create client socket structure
@@ -510,10 +510,10 @@ int networkReceiveFrom(NetworkSocket *p_ptSocket, void *p_pBuffer, unsigned long
 //////////////////////////////////
 /// networkWaitForMultipleActivity 
 //////////////////////////////////
-int networkWaitForMultipleActivity(NetworkSocket **p_pptSockets, int p_iNumSockets, 
+int networkWaitForMultipleActivity(NetworkSocket **p_ppttSockets, int p_iNumSockets, 
                                    int *p_piReadySocket, int p_iTimeoutMs)
 {
-    if (!p_pptSockets || p_iNumSockets <= 0 || p_iNumSockets > NETWORK_MAX_SOCKETS || !p_piReadySocket)
+    if (!p_ppttSockets || p_iNumSockets <= 0 || p_iNumSockets > NETWORK_MAX_SOCKETS || !p_piReadySocket)
         return NETWORK_INVALID_PARAM;
 
     *p_piReadySocket = -1;
@@ -525,14 +525,14 @@ int networkWaitForMultipleActivity(NetworkSocket **p_pptSockets, int p_iNumSocke
     // Add all valid sockets to epoll
     for (int i = 0; i < p_iNumSockets; i++)
     {
-        if (!networkIsValidSocket(p_pptSockets[i]))
+        if (!networkIsValidSocket(p_ppttSockets[i]))
             continue;
 
         struct epoll_event l_tEvent;
         l_tEvent.events = EPOLLIN | EPOLLET;
         l_tEvent.data.u32 = (uint32_t)i;
 
-        epoll_ctl(l_iEpollFd, EPOLL_CTL_ADD, p_pptSockets[i]->t_iSocketFd, &l_tEvent);
+        epoll_ctl(l_iEpollFd, EPOLL_CTL_ADD, p_ppttSockets[i]->t_iSocketFd, &l_tEvent);
     }
 
     struct epoll_event l_atResults[NETWORK_MAX_SOCKETS];

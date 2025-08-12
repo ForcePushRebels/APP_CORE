@@ -24,8 +24,8 @@
 ///////////////////////////////////////////
 typedef enum
 {
-    IDCARD_ROLE_EXPLO,
-    IDCARD_ROLE_INTER
+    IDCARD_ROLE_EXPLO = 0,
+    IDCARD_ROLE_INTER = 1
 } RobotType_t;
 
 ///////////////////////////////////////////

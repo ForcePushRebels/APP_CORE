@@ -9,14 +9,61 @@
 #include "sensorManager.h"
 #include "idCard.h"
 #include "map_engine.h"
+#include <stdbool.h>
+#include <stdatomic.h>
 
 static sensorManager_t s_tSensorManager;
 
 #define SENSOR_MANAGER_TASK_PERIOD 5
 #define SENSOR_OBSTACLE_THRESHOLD 50
 
+/* Pre-computed thresholds for each sensor :
+ * index 0 and 2 are "side" sensors ⇒ threshold / 4
+ * index 1 is the front sensor         ⇒ full threshold */
+static const uint16_t s_ausObstacleThreshold[SENSOR_MANAGER_SENSORS_COUNT] = {
+    SENSOR_OBSTACLE_THRESHOLD / 4,
+    SENSOR_OBSTACLE_THRESHOLD,
+    SENSOR_OBSTACLE_THRESHOLD / 4
+};
+
+// Lookup table to convert raw sensor readings to millimetres
+static bool s_bLUTInitialized = false;
+static uint16_t s_ausRawToMmLUT[256];
+static void initRawToMmLUT(void);
+
 // prototypes
-static void *sensorManagerTask(void *p_pvParam);
+static void *sensorManagerTask(void *p_ptvParam);
+
+///////////////////////////////////////////
+/// initRawToMmLUT
+///////////////////////////////////////////
+static void initRawToMmLUT(void)
+{
+    if (s_bLUTInitialized)
+    {
+        return;
+    }
+
+    for (uint16_t raw = 0; raw < 256; raw++)
+    {
+        uint16_t clamped = raw;
+
+        if (clamped > SENSOR_MAX_RAW_VALUE)
+        {
+            clamped = SENSOR_MAX_RAW_VALUE;
+        }
+        else if (clamped < SENSOR_MIN_RAW_VALUE)
+        {
+            clamped = SENSOR_MIN_RAW_VALUE;
+        }
+
+        s_ausRawToMmLUT[raw] = (clamped * (SENSOR_MAX_MM_VALUE - SENSOR_MIN_MM_VALUE)) /
+                               (SENSOR_MAX_RAW_VALUE - SENSOR_MIN_RAW_VALUE) +
+                               SENSOR_MIN_MM_VALUE;
+    }
+
+    s_bLUTInitialized = true;
+}
 
 ///////////////////////////////////////////
 /// sensorManagerInit
@@ -51,6 +98,9 @@ int sensorManagerInit(void)
     s_tSensorManager.t_tTaskHandler.t_ulStackSize = (size_t)OS_TASK_DEFAULT_STACK_SIZE;
     s_tSensorManager.t_tTaskHandler.a_iStopFlag = OS_TASK_SECURE_FLAG;
     strcpy(s_tSensorManager.t_tTaskHandler.t_acTaskName, "sensorManager");
+
+    // Pre-compute conversion LUT (only once)
+    initRawToMmLUT();
     
     return SENSOR_MANAGER_OK;
 }
@@ -61,26 +111,12 @@ int sensorManagerInit(void)
 bool checkMovePossible(void)
 {
     // On suppose que les valeurs sont à jour dans s_tSensorManager.t_tISensors
-    for (int i = 0; i < SENSOR_MANAGER_SENSORS_COUNT; i++)
+    for (int i = 0; i < SENSOR_MANAGER_SENSORS_COUNT; ++i)
     {
-
-        if (i == 1)
+        if (s_tSensorManager.t_tISensors[i] < s_ausObstacleThreshold[i])
         {
-            if (s_tSensorManager.t_tISensors[i] < SENSOR_OBSTACLE_THRESHOLD)
-            {
-                // Un capteur détecte un obstacle : mouvement impossible
-                X_LOG_TRACE("Obstacle détecté devant");
-                return false;
-            }
-        }
-        else
-        {
-            if (s_tSensorManager.t_tISensors[i] < (SENSOR_OBSTACLE_THRESHOLD / 4))
-            {
-                // Un capteur détecte un obstacle : mouvement impossible
-                X_LOG_TRACE("Obstacle détecté coté");
-                return false;
-            }
+            X_LOG_TRACE("Obstacle detected (sensor %d)", i);
+            return false;
         }
     }
     // Aucun obstacle détecté
@@ -101,12 +137,6 @@ bool checkForward(void)
 int startMonitoring()
 {
 
-    // TODO Nico: gérer le roleRobot :
-    // Si Explo : updateVision à rajouter
-    // Si Inter : rien
-
-    // TODO Nico : fonction capteur sol luminosité pour zone d'intérêt
-
     int32_t l_iRet = SENSOR_MANAGER_OK;
 
     l_iRet = osTaskCreate(&s_tSensorManager.t_tTaskHandler);
@@ -123,22 +153,29 @@ int startMonitoring()
 ///////////////////////////////////////////
 int stopMonitoring(void)
 {
+    /* Stop the periodic timer to unblock the worker thread */
+    xTimerStop(&s_tSensorManager.t_tTimer);
+
+    /* Request task graceful shutdown */
     return osTaskStop(&s_tSensorManager.t_tTaskHandler, 10);
 }
 
-uint16_t updateVision(int sensor)
+///////////////////////////////////////////
+/// updateVision
+///////////////////////////////////////////
+uint16_t updateVision(int p_iSensor)
 {
-    X_ASSERT(sensor >= 0 && sensor < SENSOR_MANAGER_SENSORS_COUNT - 2);
-    uint16_t raw = s_tSensorManager.t_tISensors[sensor];
+    X_ASSERT(p_iSensor >= 0 && p_iSensor < SENSOR_MANAGER_SENSORS_COUNT - 2);
+    uint16_t raw = s_tSensorManager.t_tISensors[p_iSensor];
     return rawValuesToMm(raw);
 }
 
 ///////////////////////////////////////////
 /// updateSensorData
 ///////////////////////////////////////////
-static void updateSensorData(void *p_pvParam)
+static void updateSensorData(void *p_ptvParam)
 {
-    (void)p_pvParam; // warning suppression
+    (void)p_ptvParam; // warning suppression (unused parameter)
 
     int32_t l_iRet = 0;
 
@@ -148,9 +185,10 @@ static void updateSensorData(void *p_pvParam)
         X_LOG_TRACE("Error getting sensor values");
     }
 
-    for (int i = 0; i < SENSOR_MANAGER_SENSORS_COUNT; i++)
+    /* Conversion brute → mm via LUT en une seule boucle  */
+    for (int i = 0; i < SENSOR_MANAGER_SENSORS_COUNT; ++i)
     {
-        s_tSensorManager.t_tISensors[i] = rawValuesToMm(s_tSensorManager.t_tISensors[i]);
+        s_tSensorManager.t_tISensors[i] = s_ausRawToMmLUT[s_tSensorManager.t_tISensors[i]];
     }
 
     s_tSensorManager.t_tFloorSensor = (uint16_t)GetFloorSensorValue();
@@ -165,29 +203,24 @@ static void updateSensorData(void *p_pvParam)
 ///////////////////////////////////////////
 /// sensorManagerTask
 ///////////////////////////////////////////
-static void *sensorManagerTask(void *p_pvParam)
+static void *sensorManagerTask(void *p_ptvParam)
 {
-    (void)p_pvParam; // warning suppression
+    (void)p_ptvParam; // warning suppression (unused parameter)
 
     // Start the timer with the correct period (100ms)
     xTimerStart(&s_tSensorManager.t_tTimer);
 
     X_LOG_TRACE("Starting sensor monitoring with period of %d ms", SENSOR_MANAGER_TASK_PERIOD);
 
-    while (s_tSensorManager.t_tTaskHandler.a_iStopFlag == OS_TASK_SECURE_FLAG)
+    /* Boucle principale : blocante jusqu'à ce que le timer soit stoppé */
+    int l_iPeriods = xTimerProcessCallback(&s_tSensorManager.t_tTimer, updateSensorData, NULL);
+
+    if (l_iPeriods < 0)
     {
-        int l_iPeriods = xTimerProcessCallback(&s_tSensorManager.t_tTimer, updateSensorData, NULL);
-
-        if (l_iPeriods < 0)
-        {
-            // Negative return value indicates an error in the timer function
-            X_LOG_TRACE("Timer processing error: %d", l_iPeriods);
-        }
-
-        // Sleep to prevent CPU hogging
-        xTimerDelay(SENSOR_MANAGER_TASK_PERIOD);
+        X_LOG_TRACE("Timer processing error: %d", l_iPeriods);
     }
 
+    /* Assure la bonne fermeture du timer */
     xTimerStop(&s_tSensorManager.t_tTimer);
 
     return NULL;
@@ -196,15 +229,17 @@ static void *sensorManagerTask(void *p_pvParam)
 ///////////////////////////////////////////
 /// rawValuesToMm
 ///////////////////////////////////////////
-uint16_t rawValuesToMm(uint16_t rawValue)
+uint16_t rawValuesToMm(uint16_t p_usRawValue)
 {
 
-    if (rawValue > 255)
-        rawValue = 255;
+    if (p_usRawValue > SENSOR_MAX_RAW_VALUE)
+    {
+        p_usRawValue = SENSOR_MAX_RAW_VALUE;
+    }
+    else if (p_usRawValue < SENSOR_MIN_RAW_VALUE)
+    {
+        return SENSOR_MIN_MM_VALUE;
+    }
 
-    uint16_t converted_value
-        = (rawValue * (SENSOR_MAX_MM_VALUE - SENSOR_MIN_MM_VALUE)) / (SENSOR_MAX_RAW_VALUE - SENSOR_MIN_RAW_VALUE)
-          + SENSOR_MIN_MM_VALUE;
-    // X_LOG_TRACE("Conversion: %d -> %d", rawValue, converted_value);
-    return (uint16_t)converted_value;
+    return s_ausRawToMmLUT[p_usRawValue];
 }

@@ -82,20 +82,20 @@ static int loadCertAndKey(WOLFSSL_CTX *p_ctx,
 //////////////////////////////////
 /// tlsEngineCreate
 //////////////////////////////////
-int tlsEngineCreate(xTlsEngine_t **p_ppEngine,
+int tlsEngineCreate(xTlsEngine_t **p_pptEngine,
                     xTlsMode_t p_eMode,
-                    const char *p_pcCertFile,
-                    const char *p_pcKeyFile,
-                    const char *p_pcCADir,
+                    const char *p_ptcCertFile,
+                    const char *p_ptcKeyFile,
+                    const char *p_ptcCADir,
                     bool p_bIsPEM)
 {
-    if (!p_ppEngine || !p_pcCADir)
+    if (!p_pptEngine || !p_ptcCADir)
     {
         return CERT_ERROR_INVALID_PARAM;
     }
 
     // Ensure certificate system initialized
-    int l_iCertInit = xCertificateInit();
+    int l_iCertInit = certManagementInit();
     if (l_iCertInit != CERT_OK)
     {
         return l_iCertInit;
@@ -120,7 +120,7 @@ int tlsEngineCreate(xTlsEngine_t **p_ppEngine,
     wolfSSL_CTX_set_cipher_list(l_ptCtx, "TLS13-AES256-GCM-SHA384:TLS13-CHACHA20-POLY1305-SHA256:TLS13-AES128-GCM-SHA256");
 
     // Load end-entity certificate/key if provided
-    int l_iRes = loadCertAndKey(l_ptCtx, p_eMode, p_pcCertFile, p_pcKeyFile, p_bIsPEM);
+    int l_iRes = loadCertAndKey(l_ptCtx, p_eMode, p_ptcCertFile, p_ptcKeyFile, p_bIsPEM);
     if (l_iRes != CERT_OK)
     {
         wolfSSL_CTX_free(l_ptCtx);
@@ -128,7 +128,7 @@ int tlsEngineCreate(xTlsEngine_t **p_ppEngine,
     }
 
     // Load root CA into context (per-context)
-    l_iRes = xCertificateLoadRootCAIntoContext(l_ptCtx, p_pcCADir, p_bIsPEM);
+    l_iRes = loadRootCAIntoCtx(l_ptCtx, p_ptcCADir, p_bIsPEM);
 
     if (l_iRes != CERT_OK)
     {
@@ -147,7 +147,7 @@ int tlsEngineCreate(xTlsEngine_t **p_ppEngine,
     l_ptEngine->p_ctx = l_ptCtx;
     l_ptEngine->t_mode = p_eMode;
 
-    *p_ppEngine = l_ptEngine;
+    *p_pptEngine = l_ptEngine;
 
     X_LOG_TRACE("TLS engine created successfully (mode=%s)",
                 (p_eMode == TLS_MODE_SERVER) ? "SERVER" : "CLIENT");
@@ -160,9 +160,9 @@ int tlsEngineCreate(xTlsEngine_t **p_ppEngine,
 //////////////////////////////////
 int tlsEngineAttachSocket(xTlsEngine_t *p_ptEngine,
                           int p_iSocketFd,
-                          WOLFSSL **p_ppSsl)
+                          WOLFSSL **p_pptSsl)
 {
-    if (!p_ptEngine || !p_ppSsl)
+    if (!p_ptEngine || !p_pptSsl)
     {
         return CERT_ERROR_INVALID_PARAM;
     }
@@ -191,7 +191,7 @@ int tlsEngineAttachSocket(xTlsEngine_t *p_ptEngine,
         return CERT_ERROR_WOLFSSL_ERROR;
     }
 
-    *p_ppSsl = l_ptSsl;
+    *p_pptSsl = l_ptSsl;
     X_LOG_TRACE("TLS handshake completed successfully (fd=%d)", p_iSocketFd);
 
     return CERT_OK;

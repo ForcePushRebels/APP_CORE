@@ -411,11 +411,18 @@ target_link_libraries(inter ${ZLIB_LIBRARIES})
 # Find math library
 find_library(MATH_LIBRARY m)
 
+# Find pthread library
+find_package(Threads REQUIRED)
+
 # Link math library to executables
 if(MATH_LIBRARY)
     target_link_libraries(explo ${MATH_LIBRARY})
     target_link_libraries(inter ${MATH_LIBRARY})
 endif()
+
+# Link pthread library to executables
+target_link_libraries(explo Threads::Threads)
+target_link_libraries(inter Threads::Threads)
 
 
 if(EXTRA_LIBS)

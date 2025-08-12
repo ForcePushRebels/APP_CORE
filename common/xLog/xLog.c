@@ -41,10 +41,10 @@ static FILE *s_ptLogFile = NULL;
 static atomic_int s_eLogState = ATOMIC_VAR_INIT(XOS_LOG_STATE_UNINITIALIZED);
 
 // Forward declarations of secure helper functions
-static bool isValidLogFileName(const char *p_pcFileName);
-static int secureOpenLogFile(const char *p_pcPath, FILE **p_ppFile);
-static void sanitizeLogContent(char *p_pcContent, size_t p_iMaxSize);
-static int xLogGetExecutablePath(char *p_pcExecutablePath, size_t p_iSize);
+static bool isValidLogFileName(const char *p_ptcFileName);
+static int secureOpenLogFile(const char *p_ptcPath, FILE **p_pptFile);
+static void sanitizeLogContent(char *p_ptcContent, size_t p_iMaxSize);
+static int xLogGetExecutablePath(char *p_ptcExecutablePath, size_t p_iSize);
 
 ////////////////////////////////////////////////////////////
 /// xLogInit
@@ -424,16 +424,16 @@ int xLogClose(void)
 ////////////////////////////////////////////////////////////
 /// xLogGetExecutablePath
 ////////////////////////////////////////////////////////////
-static int xLogGetExecutablePath(char *p_pcExecutablePath, size_t p_iSize)
+static int xLogGetExecutablePath(char *p_ptcExecutablePath, size_t p_iSize)
 {
     // Input validation with fixed bounds
-    if (p_pcExecutablePath == NULL || p_iSize == 0 || p_iSize > XOS_LOG_TEMP_BUFFER_SIZE)
+    if (p_ptcExecutablePath == NULL || p_iSize == 0 || p_iSize > XOS_LOG_TEMP_BUFFER_SIZE)
     {
         return -1;
     }
 
     // Initialize output buffer
-    XOS_MEMORY_SANITIZE(p_pcExecutablePath, p_iSize);
+    XOS_MEMORY_SANITIZE(p_ptcExecutablePath, p_iSize);
 
     // Fixed bounds buffers
     char l_cExePath[XOS_LOG_TEMP_BUFFER_SIZE] = {0};
@@ -472,8 +472,8 @@ static int xLogGetExecutablePath(char *p_pcExecutablePath, size_t p_iSize)
     }
 
     // Copy directory path to output buffer securely
-    strncpy(p_pcExecutablePath, l_pcDirPathPtr, p_iSize - 1);
-    p_pcExecutablePath[p_iSize - 1] = '\0';
+    strncpy(p_ptcExecutablePath, l_pcDirPathPtr, p_iSize - 1);
+    p_ptcExecutablePath[p_iSize - 1] = '\0';
 
     // Clear sensitive temporary data
     XOS_MEMORY_SANITIZE(l_cExePath, sizeof(l_cExePath));
@@ -487,16 +487,16 @@ static int xLogGetExecutablePath(char *p_pcExecutablePath, size_t p_iSize)
 ////////////////////////////////////////////////////////////
 
 // Validate log filename - prevent path traversal attacks
-static bool isValidLogFileName(const char *p_pcFileName)
+static bool isValidLogFileName(const char *p_ptcFileName)
 {
     // Single dereference rule - validate and store once
-    if (p_pcFileName == NULL)
+    if (p_ptcFileName == NULL)
     {
         return false;
     }
 
     // Store filename pointer once for security
-    const char *l_pcFilenamePtr = p_pcFileName;
+    const char *l_pcFilenamePtr = p_ptcFileName;
     size_t l_iLen = strlen(l_pcFilenamePtr);
     if (l_iLen == 0 || l_iLen >= XOS_LOG_MAX_FILENAME_SIZE)
     {
@@ -531,16 +531,16 @@ static bool isValidLogFileName(const char *p_pcFileName)
 }
 
 // Securely open log file with proper permissions
-static int secureOpenLogFile(const char *p_pcPath, FILE **p_ppFile)
+static int secureOpenLogFile(const char *p_ptcPath, FILE **p_pptFile)
 {
     // Single dereference rule - validate pointers once
-    if (p_pcPath == NULL || p_ppFile == NULL)
+    if (p_ptcPath == NULL || p_pptFile == NULL)
     {
         return XOS_LOG_INVALID;
     }
 
     // Store path pointer once for security
-    const char *l_pcPathPtr = p_pcPath;
+    const char *l_pcPathPtr = p_ptcPath;
 
     // Open with restricted permissions (owner read/write only)
     int l_iFd = open(l_pcPathPtr, O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW, S_IRUSR | S_IWUSR);
@@ -558,20 +558,20 @@ static int secureOpenLogFile(const char *p_pcPath, FILE **p_ppFile)
     }
 
     // Store result with single dereference
-    *p_ppFile = l_pFile;
+    *p_pptFile = l_pFile;
 
     return XOS_LOG_OK;
 }
 
 // Sanitize log content to prevent log injection
-static void sanitizeLogContent(char *p_pcContent, size_t p_iMaxSize)
+static void sanitizeLogContent(char *p_ptcContent, size_t p_iMaxSize)
 {
-    if (p_pcContent == NULL || p_iMaxSize == 0)
+    if (p_ptcContent == NULL || p_iMaxSize == 0)
     {
         return;
     }
 
-    char *l_pcContentPtr = p_pcContent;
+    char *l_pcContentPtr = p_ptcContent;
     bool in_escape = false;
 
     for (size_t i = 0; i < p_iMaxSize && l_pcContentPtr[i] != '\0'; i++)

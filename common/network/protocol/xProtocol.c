@@ -242,10 +242,10 @@ int protocolValidateHeader(const uint8_t *p_pucHeader,
 //////////////////////////////////
 int protocolExtractPayload(const uint8_t *p_pucFrameData,
                           uint32_t p_ulFrameSize,
-                          const uint8_t **p_ppucPayload,
+                          const uint8_t **p_pptucPayload,
                           uint32_t *p_pulPayloadSize)
 {
-    if (!p_pucFrameData || !p_ppucPayload || !p_pulPayloadSize)
+    if (!p_pucFrameData || !p_pptucPayload || !p_pulPayloadSize)
     {
         return PROTOCOL_INVALID_PARAM;
     }
@@ -263,7 +263,7 @@ int protocolExtractPayload(const uint8_t *p_pucFrameData,
         return l_iResult;
     }
 
-    *p_ppucPayload = l_tFrame.t_ptucPayload;
+    *p_pptucPayload = l_tFrame.t_ptucPayload;
     *p_pulPayloadSize = l_tFrame.t_iPayloadSize;
 
     return PROTOCOL_OK;

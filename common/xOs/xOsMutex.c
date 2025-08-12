@@ -289,7 +289,7 @@ unsigned long mutexGetTimeout(xOsMutexCtx *p_ptMutex)
 ////////////////////////////////////////////////////////////
 /// validateTimeout
 ////////////////////////////////////////////////////////////
-static int validateTimeout(unsigned long p_ulTimeout)
+static inline int validateTimeout(unsigned long p_ulTimeout)
 {
     // Fixed upper bounds validation
     if (p_ulTimeout > MUTEX_MAX_TIMEOUT_MS)
@@ -303,7 +303,7 @@ static int validateTimeout(unsigned long p_ulTimeout)
 ////////////////////////////////////////////////////////////
 /// validateMutexState
 ////////////////////////////////////////////////////////////
-static int validateMutexState(const xOsMutexCtx *p_ptMutex)
+static inline int validateMutexState(const xOsMutexCtx *p_ptMutex)
 {
     X_ASSERT(p_ptMutex != NULL);
     

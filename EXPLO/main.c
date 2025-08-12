@@ -111,9 +111,9 @@ int main()
     X_LOG_TRACE("Hardware abstraction initialized successfully");
 
     // init watchdog
-    l_iReturn = watchdog_init(300);
-    X_ASSERT(l_iReturn == WATCHDOG_SUCCESS);
-    watchdog_set_expiry_handler(l_fWatchdogExpiryHandler);
+    //l_iReturn = watchdog_init(300);
+    //X_ASSERT(l_iReturn == WATCHDOG_SUCCESS);
+    //watchdog_set_expiry_handler(l_fWatchdogExpiryHandler);
 
     // Initialisation du système de handlers de messages
     initMessageHandlerSystem();

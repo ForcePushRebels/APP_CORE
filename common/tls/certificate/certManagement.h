@@ -89,55 +89,55 @@ typedef struct xCertificate {
 /// @brief Initialize the certificate management system
 /// @return int Error code
 //////////////////////////////////
-int xCertificateInit(void);
+int certManagementInit(void);
 
 //////////////////////////////////
 /// @brief Cleanup certificate management resources
 /// @return int Error code
 //////////////////////////////////
-int xCertificateCleanup(void);
+int certManagementCleanup(void);
 
 //////////////////////////////////
 /// @brief Load certificate from DER/PEM data
 /// @param p_pucCertData Certificate data buffer
 /// @param p_ulDataSize Size of certificate data
 /// @param p_bIsPEM True if data is PEM format, false for DER
-/// @param p_pptCertificate Output: loaded certificate
+/// @param p_ppttCertificate Output: loaded certificate
 /// @return int Error code
 //////////////////////////////////
-int xCertificateLoad(const uint8_t *p_pucCertData, 
+int loadCertificate(const uint8_t *p_pucCertData, 
                      uint32_t p_ulDataSize,
                      bool p_bIsPEM,
-                     xCertificate_t **p_pptCertificate);
+                     xCertificate_t **p_ppttCertificate);
 
 //////////////////////////////////
 /// @brief Load certificate from file
-/// @param p_pcFilePath Path to certificate file
+/// @param p_ptcFilePath Path to certificate file
 /// @param p_bIsPEM True if file is PEM format, false for DER
-/// @param p_pptCertificate Output: loaded certificate
+/// @param p_ppttCertificate Output: loaded certificate
 /// @return int Error code
 //////////////////////////////////
-int xCertificateLoadFromFile(const char *p_pcFilePath,
+int loadCertificateFromFile(const char *p_ptcFilePath,
                              bool p_bIsPEM,
-                             xCertificate_t **p_pptCertificate);
+                             xCertificate_t **p_ppttCertificate);
 
 //////////////////////////////////
 /// @brief Load the root CA certificate (highest in hierarchy)
-/// @param p_pcCADirectoryPath Path to directory containing CA certificates
+/// @param p_ptcCADirectoryPath Path to directory containing CA certificates
 /// @param p_bIsPEM True if certificates are in PEM format, false for DER
-/// @param p_pptRootCA Output: loaded root CA certificate
+/// @param p_ppttRootCA Output: loaded root CA certificate
 /// @return int Error code
 //////////////////////////////////
-int xCertificateLoadRootCA(const char *p_pcCADirectoryPath,
+int loadCertificateRootCA(const char *p_ptcCADirectoryPath,
                            bool p_bIsPEM,
-                           xCertificate_t **p_pptRootCA);
+                           xCertificate_t **p_ppttRootCA);
 
 //////////////////////////////////
 /// @brief Free certificate resources
 /// @param p_ptCertificate Certificate to free
 /// @return int Error code
 //////////////////////////////////
-int xCertificateFree(xCertificate_t *p_ptCertificate);
+int freeCertRessources(xCertificate_t *p_ptCertificate);
 
 ////////////////////////////////////////////////////////////
 // Certificate Validation Functions
@@ -148,7 +148,7 @@ int xCertificateFree(xCertificate_t *p_ptCertificate);
 /// @param p_ptCertificate Certificate to check
 /// @return int Error code
 //////////////////////////////////
-int xCertificateCheckValidity(xCertificate_t *p_ptCertificate);
+int processCertValidity(xCertificate_t *p_ptCertificate);
 
 ////////////////////////////////////////////////////////////
 // Certificate Information Functions
@@ -157,23 +157,23 @@ int xCertificateCheckValidity(xCertificate_t *p_ptCertificate);
 //////////////////////////////////
 /// @brief Get certificate subject name
 /// @param p_ptCertificate Certificate
-/// @param p_pcBuffer Output buffer for subject name
+/// @param p_ptcBuffer Output buffer for subject name
 /// @param p_ulBufferSize Buffer size
 /// @return int Error code
 //////////////////////////////////
-int xCertificateGetSubject(xCertificate_t *p_ptCertificate,
-                           char *p_pcBuffer,
+int getCertSubject(xCertificate_t *p_ptCertificate,
+                           char *p_ptcBuffer,
                            uint32_t p_ulBufferSize);
 
 //////////////////////////////////
 /// @brief Get certificate issuer name
 /// @param p_ptCertificate Certificate
-/// @param p_pcBuffer Output buffer for issuer name
+/// @param p_ptcBuffer Output buffer for issuer name
 /// @param p_ulBufferSize Buffer size
 /// @return int Error code
 //////////////////////////////////
-int xCertificateGetIssuer(xCertificate_t *p_ptCertificate,
-                          char *p_pcBuffer,
+int getCertIssuer(xCertificate_t *p_ptCertificate,
+                          char *p_ptcBuffer,
                           uint32_t p_ulBufferSize);
 
 //////////////////////////////////
@@ -182,7 +182,7 @@ int xCertificateGetIssuer(xCertificate_t *p_ptCertificate,
 /// @param p_pbIsCA Output: true if certificate is CA
 /// @return int Error code
 //////////////////////////////////
-int xCertificateIsCA(xCertificate_t *p_ptCertificate,
+int isCertCA(xCertificate_t *p_ptCertificate,
                      bool *p_pbIsCA);
 
 //////////////////////////////////
@@ -190,18 +190,18 @@ int xCertificateIsCA(xCertificate_t *p_ptCertificate,
 /// @param p_iError Error code
 /// @return const char* Error description
 //////////////////////////////////
-const char *xCertificateGetErrorString(int p_iError);
+const char *getCertErrorString(int p_iError);
 
 //////////////////////////////////
 /// @brief Load root CA certificate into TLS context
 /// @param p_ptSSLContext WolfSSL context to load CA into
-/// @param p_pcCADirectoryPath Path to directory containing CA certificates
+/// @param p_ptcCADirectoryPath Path to directory containing CA certificates
 /// @param p_bIsPEM True if certificates are in PEM format, false for DER
 /// @return int Error code
 //////////////////////////////////
-int xCertificateLoadRootCAIntoContext(WOLFSSL_CTX *p_ptSSLContext,
-                                      const char *p_pcCADirectoryPath,
-                                      bool p_bIsPEM);
+int loadRootCAIntoCtx(WOLFSSL_CTX *p_ptSSLContext,
+                      const char *p_ptcCADirectoryPath,
+                      bool p_bIsPEM);
 
 //////////////////////////////////
 /// @brief Extract real validity dates from certificate
@@ -210,7 +210,7 @@ int xCertificateLoadRootCAIntoContext(WOLFSSL_CTX *p_ptSSLContext,
 /// @param p_ptNotAfter Output: certificate valid until date
 /// @return int Error code
 //////////////////////////////////
-int xCertificateExtractValidityDates(DecodedCert *p_ptDecodedCert,
+int extractCertValidityDate(DecodedCert *p_ptDecodedCert,
                                      time_t *p_ptNotBefore,
                                      time_t *p_ptNotAfter);
 

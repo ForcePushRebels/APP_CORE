@@ -13,7 +13,7 @@
 #include <wolfssl/ssl.h>
 #include <stdbool.h>
 
-#include "certificateManagement.h"
+#include "certManagement.h"
 #include "xLog.h"
 #include "xOsMemory.h"
 #include "xAssert.h"
@@ -39,31 +39,31 @@ typedef struct xTlsEngine {
 
 //////////////////////////////////
 /// @brief Create a TLS engine (context + cert/key + CA)
-/// @param p_ppEngine Output: created TLS engine
+/// @param p_pptEngine Output: created TLS engine
 /// @param p_eMode TLS_MODE_CLIENT or TLS_MODE_SERVER
-/// @param p_pcCertFile Path to certificate file (can be NULL for client)
-/// @param p_pcKeyFile Path to private key file (can be NULL for client)
-/// @param p_pcCADir   Path to directory containing CA certificates
+/// @param p_ptcCertFile Path to certificate file (can be NULL for client)
+/// @param p_ptcKeyFile Path to private key file (can be NULL for client)
+/// @param p_ptcCADir   Path to directory containing CA certificates
 /// @param p_bIsPEM    True if certificate/key/CA are PEM, false for DER
 /// @return int Error code (CERT_OK on success or CERT_ERROR_*)
 //////////////////////////////////
-int tlsEngineCreate(xTlsEngine_t **p_ppEngine,
+int tlsEngineCreate(xTlsEngine_t **p_pptEngine,
                     xTlsMode_t p_eMode,
-                    const char *p_pcCertFile,
-                    const char *p_pcKeyFile,
-                    const char *p_pcCADir,
+                    const char *p_ptcCertFile,
+                    const char *p_ptcKeyFile,
+                    const char *p_ptcCADir,
                     bool p_bIsPEM);
 
 //////////////////////////////////
 /// @brief Attach a socket FD to TLS engine and perform handshake
 /// @param p_ptEngine TLS engine
 /// @param p_iSocketFd Socket file descriptor
-/// @param p_ppSsl     Output: WolfSSL session object
+/// @param p_pptSsl     Output: WolfSSL session object
 /// @return int Error code (CERT_OK on success or CERT_ERROR_*)
 //////////////////////////////////
 int tlsEngineAttachSocket(xTlsEngine_t *p_ptEngine,
                           int p_iSocketFd,
-                          WOLFSSL **p_ppSsl);
+                          WOLFSSL **p_pptSsl);
 
 //////////////////////////////////
 /// @brief Shutdown a TLS session and free resources

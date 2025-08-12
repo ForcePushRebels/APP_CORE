@@ -134,10 +134,10 @@ int networkListen(NetworkSocket *p_ptSocket, int p_iBacklog);
 //////////////////////////////////
 /// @brief Accept incoming connection
 /// @param p_ptSocket Listening socket
-/// @param p_pClientAddress Address to store client info (can be NULL)
+/// @param p_ptclientAddress Address to store client info (can be NULL)
 /// @return NetworkSocket* New socket handle or NULL on error
 //////////////////////////////////
-NetworkSocket *networkAccept(NetworkSocket *p_ptSocket, NetworkAddress *p_pClientAddress);
+NetworkSocket *networkAccept(NetworkSocket *p_ptSocket, NetworkAddress *p_ptclientAddress);
 
 //////////////////////////////////
 /// @brief Connect to remote server
@@ -192,13 +192,13 @@ int networkWaitForActivity(NetworkSocket *p_ptSocket, int p_iTimeoutMs);
 #ifdef NETWORK_HAS_EPOLL
 //////////////////////////////////
 /// @brief epoll-based multi-socket polling (Linux only)
-/// @param p_pptSockets Array of socket pointers
+/// @param p_ppttSockets Array of socket pointers
 /// @param p_iNumSockets Number of sockets in array
 /// @param p_piReadySocket Output: index of ready socket (-1 if timeout/error)
 /// @param p_iTimeoutMs Timeout in milliseconds (-1 for infinite)
 /// @return int 1 if ready, 0 if timeout, negative for error
 //////////////////////////////////
-int networkWaitForMultipleActivity(NetworkSocket **p_pptSockets, int p_iNumSockets, int *p_piReadySocket, int p_iTimeoutMs);
+int networkWaitForMultipleActivity(NetworkSocket **p_ppttSockets, int p_iNumSockets, int *p_piReadySocket, int p_iTimeoutMs);
 #endif
 
 //////////////////////////////////

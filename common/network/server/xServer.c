@@ -584,27 +584,50 @@ static void *clientThread(void *p_pvArg)
         {
             if (l_iResult == NETWORK_BROKEN_PIPE || l_iResult == NETWORK_ERROR)
             {
-                X_LOG_INFO("Client %u disconnected", l_ptClient->t_tId);
+                X_LOG_INFO("Client %u disconnected in thread loop", l_ptClient->t_tId);
+                // t_bConnected is already set to false in clientReceiveMessage
                 break;
             }
             // Timeout or temporary error, continue
             continue;
         }
+        
+        // Additional safety check: if t_bConnected was set to false by another thread
+        if (!l_ptClient->t_bConnected)
+        {
+            X_LOG_INFO("Client %u marked as disconnected by another thread", l_ptClient->t_tId);
+            break;
+        }
     }
     
     X_LOG_INFO("Client %u thread terminating", l_ptClient->t_tId);
+    
+    // Ensure t_bConnected is false (thread-safe, atomic operation)
     l_ptClient->t_bConnected = false;
     
-    // Automatic cleanup when thread terminates
+    // Immediate cleanup when thread terminates - thread-safe with mutex
     mutexLock(&s_tServer.t_tClientsMutex);
     
-    // Only cleanup if client is still in the array (not already cleaned up)
-    if (l_ptClient->t_tId != INVALID_CLIENT_ID)
+    // Double-check client is still valid and not already cleaned up
+    if (l_ptClient->t_tId != INVALID_CLIENT_ID && l_ptClient->t_ptSocket != NULL)
     {
-        X_LOG_INFO("Automatically cleaning up client %u after disconnection", l_ptClient->t_tId);
+        ClientID l_tClientId = l_ptClient->t_tId; // Save ID for logging before cleanup
+        X_LOG_INFO("Thread-safe cleanup of client %u after disconnection", l_tClientId);
+        
+        // Perform cleanup (this will set t_tId to INVALID_CLIENT_ID)
         clientCleanup(l_ptClient);
-        s_tServer.t_iClientCount--;
-        X_LOG_INFO("Client count after cleanup: %d", s_tServer.t_iClientCount);
+        
+        // Safely decrement client count
+        if (s_tServer.t_iClientCount > 0)
+        {
+            s_tServer.t_iClientCount--;
+        }
+        
+        X_LOG_INFO("Client %u cleanup completed, remaining clients: %d", l_tClientId, s_tServer.t_iClientCount);
+    }
+    else
+    {
+        X_LOG_INFO("Client %u already cleaned up by another thread", l_ptClient->t_tId);
     }
     
     mutexUnlock(&s_tServer.t_tClientsMutex);
@@ -625,6 +648,17 @@ static int clientReceiveMessage(clientCtx *p_ptClient)
     {
         // TLS receive
         l_iHeaderReceived = wolfSSL_read(p_ptClient->t_ptTlsSession, l_aucHeader, PROTOCOL_HEADER_SIZE);
+        if (l_iHeaderReceived <= 0)
+        {
+            int l_iError = wolfSSL_get_error(p_ptClient->t_ptTlsSession, l_iHeaderReceived);
+            if (l_iError == SOCKET_PEER_CLOSED_E || l_iError == WOLFSSL_ERROR_ZERO_RETURN)
+            {
+                X_LOG_INFO("Client %u TLS disconnected (close_notify or peer closed)", p_ptClient->t_tId);
+                // IMPORTANT: Mark client as disconnected to stop the thread loop
+                p_ptClient->t_bConnected = false;
+                return NETWORK_ERROR;
+            }
+        }
     }
     else
     {
@@ -634,8 +668,14 @@ static int clientReceiveMessage(clientCtx *p_ptClient)
     
     if (l_iHeaderReceived != PROTOCOL_HEADER_SIZE)
     {
-        return (l_iHeaderReceived == NETWORK_BROKEN_PIPE || l_iHeaderReceived == NETWORK_ERROR) ? 
-               NETWORK_ERROR : NETWORK_TIMEOUT;
+        if (l_iHeaderReceived == NETWORK_BROKEN_PIPE || l_iHeaderReceived == NETWORK_ERROR || l_iHeaderReceived == 0)
+        {
+            X_LOG_INFO("Client %u disconnected (header read: %d)", p_ptClient->t_tId, l_iHeaderReceived);
+            // IMPORTANT: Mark client as disconnected to stop the thread loop
+            p_ptClient->t_bConnected = false;
+            return NETWORK_ERROR;
+        }
+        return NETWORK_TIMEOUT;
     }
     
     // Validate header and get payload size
@@ -672,6 +712,17 @@ static int clientReceiveMessage(clientCtx *p_ptClient)
             l_iPayloadReceived = wolfSSL_read(p_ptClient->t_ptTlsSession, 
                                             p_ptClient->t_aucRecvBuffer + PROTOCOL_HEADER_SIZE, 
                                             (int)l_ulRemainingBytes);
+            // Check for TLS disconnection during payload read
+            if (l_iPayloadReceived <= 0)
+            {
+                int l_iError = wolfSSL_get_error(p_ptClient->t_ptTlsSession, l_iPayloadReceived);
+                if (l_iError == SOCKET_PEER_CLOSED_E || l_iError == WOLFSSL_ERROR_ZERO_RETURN)
+                {
+                    X_LOG_INFO("Client %u TLS disconnected during payload read", p_ptClient->t_tId);
+                    p_ptClient->t_bConnected = false;
+                    return NETWORK_ERROR;
+                }
+            }
         }
         else
         {
@@ -683,8 +734,14 @@ static int clientReceiveMessage(clientCtx *p_ptClient)
         
         if ((uint32_t)l_iPayloadReceived != l_ulRemainingBytes)
         {
-            return (l_iPayloadReceived == NETWORK_BROKEN_PIPE || l_iPayloadReceived == NETWORK_ERROR) ? 
-                   NETWORK_ERROR : NETWORK_TIMEOUT;
+            if (l_iPayloadReceived == NETWORK_BROKEN_PIPE || l_iPayloadReceived == NETWORK_ERROR || l_iPayloadReceived == 0)
+            {
+                X_LOG_INFO("Client %u disconnected (payload read: %d/%u)", p_ptClient->t_tId, l_iPayloadReceived, l_ulRemainingBytes);
+                // IMPORTANT: Mark client as disconnected to stop the thread loop
+                p_ptClient->t_bConnected = false;
+                return NETWORK_ERROR;
+            }
+            return NETWORK_TIMEOUT;
         }
     }
     

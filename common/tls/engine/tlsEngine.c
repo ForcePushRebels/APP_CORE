@@ -116,8 +116,25 @@ int tlsEngineCreate(xTlsEngine_t **p_pptEngine,
         return CERT_ERROR_WOLFSSL_ERROR;
     }
 
-    // Limit cipher suites to TLS1.3 strong suites (optional)
-    wolfSSL_CTX_set_cipher_list(l_ptCtx, "TLS13-AES256-GCM-SHA384:TLS13-CHACHA20-POLY1305-SHA256:TLS13-AES128-GCM-SHA256");
+    
+    #if defined(__arm__) && defined(__ARM_ARCH_6__)
+        // Raspberry Pi Zero - prioritize CHACHA20 for better performance on ARMv6
+        wolfSSL_CTX_set_cipher_list(l_ptCtx, "TLS13-CHACHA20-POLY1305-SHA256:ECDHE-RSA-CHACHA20-POLY1305");
+        X_LOG_TRACE("TLS Engine configured for Raspberry Pi Zero: CHACHA20-POLY1305 priority");
+    #else
+        // Standard platforms - prioritize AES256 with ECDHE
+        wolfSSL_CTX_set_cipher_list(l_ptCtx, "TLS13-AES256-GCM-SHA384:TLS13-CHACHA20-POLY1305-SHA256");
+        X_LOG_TRACE("TLS Engine configured for standard platform: AES256-GCM-ECDHE priority");
+    #endif
+    
+    // Enable server cipher preference and ECDHE key exchange
+    wolfSSL_CTX_set_options(l_ptCtx, WOLFSSL_OP_CIPHER_SERVER_PREFERENCE);
+    
+    // Ensure ECDHE curves are available
+    if (wolfSSL_CTX_set1_groups_list(l_ptCtx, "P-256:P-384:P-521") != WOLFSSL_SUCCESS)
+    {
+        X_LOG_TRACE("Warning: Could not set ECDHE curves, using defaults");
+    }
 
     // Load end-entity certificate/key if provided
     int l_iRes = loadCertAndKey(l_ptCtx, p_eMode, p_ptcCertFile, p_ptcKeyFile, p_bIsPEM);
@@ -191,8 +208,39 @@ int tlsEngineAttachSocket(xTlsEngine_t *p_ptEngine,
         return CERT_ERROR_WOLFSSL_ERROR;
     }
 
+    // Log negotiated cipher suite for debugging
+    const char* l_ptcCipher = wolfSSL_get_cipher(l_ptSsl);
+    const char* l_ptcVersion = wolfSSL_get_version(l_ptSsl);
+    X_LOG_TRACE("TLS handshake completed: %s with %s (fd=%d)", l_ptcVersion, l_ptcCipher, p_iSocketFd);
+    
+    // Log negotiated cipher with platform-specific context
+    if (l_ptcCipher && strstr(l_ptcCipher, "CHACHA20"))
+    {
+        #if defined(__arm__) && defined(__ARM_ARCH_6__)
+            X_LOG_TRACE("CHACHA20-POLY1305 negotiated - optimal for Raspberry Pi Zero!");
+        #else
+            X_LOG_TRACE("CHACHA20-POLY1305 negotiated - good performance!");
+        #endif
+    }
+    else if (l_ptcCipher && strstr(l_ptcCipher, "AES"))
+    {
+        if (strstr(l_ptcCipher, "ECDHE"))
+        {
+            X_LOG_TRACE("AES-ECDHE negotiated - perfect forward secrecy + strong encryption");
+        }
+        else
+        {
+            X_LOG_TRACE("AES cipher negotiated - strong security");
+        }
+    }
+    
+    // Log key exchange method
+    if (l_ptcCipher && strstr(l_ptcCipher, "ECDHE"))
+    {
+        X_LOG_TRACE("🔑 ECDHE key exchange - forward secrecy enabled");
+    }
+
     *p_pptSsl = l_ptSsl;
-    X_LOG_TRACE("TLS handshake completed successfully (fd=%d)", p_iSocketFd);
 
     return CERT_OK;
 }

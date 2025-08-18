@@ -12,5 +12,6 @@
     "files.associations": {
         "assert.h": "c",
         "intervention_manager.h": "c"
-    }
+    },
+    "sarif-viewer.connectToGithubCodeScanning": "off"
 }

@@ -22,9 +22,6 @@ void getCryptoError(int p_iError, char *p_ptcError)
 
     wc_ErrorString(p_iError, p_ptcError);
 }
-////////////////////////////////////////////////////////////
-//  AES256 Cipher and Decipher primitives functions
-////////////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////////////
 //  AES256 implementation using the context defined in header
@@ -173,6 +170,115 @@ int aes256_decipher(aes256_ctx_t *p_ptCtx,
 
         // Return specific error for authentication failure
         return (result == AES_GCM_AUTH_E) ? CRYPTO_ERROR_AUTH_FAILED : CRYPTO_ERROR_WOLFSSL;
+    }
+
+    return CRYPTO_OK;
+}
+
+////////////////////////////////////////////////////////////
+/// rng_ctx_init
+////////////////////////////////////////////////////////////
+int rng_init(WC_RNG *p_ptRng)
+{
+    if (!p_ptRng)
+    {
+        return CRYPTO_ERROR_INVALID_PARAM;
+    }
+
+    memset(p_ptRng, 0, sizeof(WC_RNG));
+
+    int ret = wc_InitRng_ex(p_ptRng, NULL, 0);
+    if (ret != 0)
+    {
+        char p_ptcError[MAX_ERROR_STRING_LENGTH];
+        getCryptoError(ret, p_ptcError);
+        printf("Error: %s\n", p_ptcError);
+        return CRYPTO_ERROR_WOLFSSL;
+    }
+
+    return CRYPTO_OK;
+}
+
+////////////////////////////////////////////////////////////
+/// rng_free
+////////////////////////////////////////////////////////////
+int rng_free(WC_RNG *p_ptRng)
+{
+    if (!p_ptRng)
+    {
+        return CRYPTO_ERROR_INVALID_PARAM;
+    }
+
+    int ret = wc_FreeRng(p_ptRng);
+    if (ret != 0)
+    {
+        return CRYPTO_ERROR_WOLFSSL;
+    }
+
+    return CRYPTO_OK;
+}
+
+////////////////////////////////////////////////////////////
+/// rng_GetRandomBytes
+////////////////////////////////////////////////////////////
+int rng_GetRandomBytes(WC_RNG *p_ptRng, uint8_t *p_ptData, uint32_t p_uiSize)
+{
+    if (!p_ptRng || !p_ptData)
+    {
+        return CRYPTO_ERROR_INVALID_PARAM;
+    }
+
+    int ret = wc_RNG_GenerateBlock(p_ptRng, p_ptData, p_uiSize);
+    if (ret != 0)
+    {
+        return CRYPTO_ERROR_WOLFSSL;
+    }
+
+    return CRYPTO_OK;
+}
+
+////////////////////////////////////////////////////////////
+/// pbkdf2_function
+////////////////////////////////////////////////////////////
+int pbkdf2_Process(const uint8_t *p_ptPassword, 
+                    size_t p_iPasswordLen, 
+                    const uint8_t *p_ptSalt, 
+                    size_t p_iSaltLen, 
+                    uint8_t *p_ptOutput, 
+                    size_t p_iOutputLen)
+{
+    if (!p_ptPassword || !p_ptSalt || !p_ptOutput)
+    {
+        return CRYPTO_ERROR_INVALID_PARAM;
+    }
+
+    if (p_iOutputLen != 32)
+    {
+        return CRYPTO_ERROR_INVALID_PARAM;
+    }
+
+    if (p_iPasswordLen < 12 || p_iPasswordLen > 32)
+    {
+        return CRYPTO_ERROR_INVALID_PARAM;
+    }
+
+    if (p_iSaltLen != 32)
+    {
+        return CRYPTO_ERROR_INVALID_PARAM;
+    }
+    
+    int l_iRet = wc_PBKDF2(p_ptOutput, 
+                           p_ptPassword, 
+                           p_iPasswordLen, 
+                           p_ptSalt, 
+                           p_iSaltLen, 
+                           PBKDF2_ITERATION_COUNT, 
+                           PBKDF2_OUTPUT_LENGTH, 
+                           WC_SHA256);
+
+    if (l_iRet != 0)
+    {
+        return CRYPTO_ERROR_WOLFSSL;
     }
 
     return CRYPTO_OK;

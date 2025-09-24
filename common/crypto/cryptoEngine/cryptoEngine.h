@@ -15,6 +15,7 @@
 #include <wolfssl/wolfcrypt/random.h>
 #include <wolfssl/wolfcrypt/settings.h>
 #include <wolfssl/wolfcrypt/sha3.h>
+#include <wolfssl/openssl/rand.h>
 
 #include <stdint.h>
 #include <string.h>
@@ -23,6 +24,9 @@
 #define AES256_GCM_TAG_LENGTH 16
 #define AES256_GCM_IV_LENGTH 12
 #define AES256_KEY_LENGTH 32
+#define PBKDF2_SALT_LENGTH 32
+#define PBKDF2_OUTPUT_LENGTH 32
+#define PBKDF2_ITERATION_COUNT 100000
 
 // Additional error codes for improved error handling
 #define CRYPTO_ERROR_AUTH_FAILED 0x7CC00021
@@ -56,9 +60,6 @@ typedef struct aes256_ctx
 {
     Aes t_tAes;
     uint8_t t_aucKey[32];
-    // Note: IV and tag are now provided as function parameters
-    // This makes the API more flexible and prevents accidental reuse
-    // RNG removed since IV is provided externally
 } aes256_ctx_t;
 
 ////////////////////////////////////////////////////////////
@@ -125,3 +126,57 @@ int aes256_decipher(aes256_ctx_t *p_ptCtx,
                     uint8_t *p_ptOutput,
                     const uint8_t *p_ptAad,
                     size_t p_iAadLen);
+
+////////////////////////////////////////////////////////////
+//  RNG Primitives
+////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////
+/// rng_init
+/// @brief Initialize RNG
+/// @param [in] p_ptRng RNG to initialize
+/// @return int Error code (CRYPTO_OK on success)
+////////////////////////////////////////////////////////////
+int rng_init(WC_RNG *p_ptRng);
+
+////////////////////////////////////////////////////////////
+/// rng_free
+/// @brief Free RNG
+/// @param [in] p_ptRng RNG to free
+/// @return int Error code (CRYPTO_OK on success)
+////////////////////////////////////////////////////////////
+int rng_free(WC_RNG *p_ptRng);
+
+////////////////////////////////////////////////////////////
+/// rng_GetRandomBytes
+/// @brief Generate random bytes
+/// @param [in] p_ptRng RNG to generate bytes from
+/// @param [out] p_ptData Data to generate
+/// @param [in] p_uiSize Size of the data
+/// @return int Error code (CRYPTO_OK on success)
+////////////////////////////////////////////////////////////
+int rng_GetRandomBytes(WC_RNG *p_ptRng, uint8_t *p_ptData, uint32_t p_uiSize);
+
+////////////////////////////////////////////////////////////
+//  PBKDF2 Primitives
+////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////
+/// pbkdf2_Process
+/// @brief PBKDF2 function
+/// @param [in] p_ptPassword Password
+/// @param [in] p_iPasswordLen Password length
+/// @param [in] p_ptSalt Salt
+/// @param [in] p_iSaltLen Salt length
+/// @param [out] p_ptOutput Output
+/// @param [in] p_iOutputLen Output length
+/// @return int Error code (CRYPTO_OK on success)
+////////////////////////////////////////////////////////////
+int pbkdf2_Process(const uint8_t *p_ptPassword, 
+                    size_t p_iPasswordLen, 
+                    const uint8_t *p_ptSalt, 
+                    size_t p_iSaltLen, 
+                    uint8_t *p_ptOutput, 
+                    size_t p_iOutputLen);
+
+                    

@@ -398,10 +398,19 @@ class FrameBuilderDialog(QDialog):
 # Networking worker thread
 # ---------------------------------------------------------------------------
 
-CERT_DIR = Path("build/x86_64-debug/pki")
+# Determine certificate paths relative to the script location
+SCRIPT_DIR = Path(__file__).parent
+PROJECT_ROOT = SCRIPT_DIR.parent  # Go up from python_test/ to APP_CORE/
+CERT_DIR = PROJECT_ROOT / "build/x86_64-debug/pki"
 CA_CERT = CERT_DIR / "root/ca.pem"
 CLIENT_CERT = CERT_DIR / "client/fullchain.pem"
 CLIENT_KEY = CERT_DIR / "client/client.key"
+
+# Debug: Print certificate paths for troubleshooting
+print(f"🔍 Certificats PKI recherchés dans: {CERT_DIR}")
+print(f"   CA Root: {CA_CERT} {'✓' if CA_CERT.exists() else '❌'}")
+print(f"   Client: {CLIENT_CERT} {'✓' if CLIENT_CERT.exists() else '❌'}")
+print(f"   Client Key: {CLIENT_KEY} {'✓' if CLIENT_KEY.exists() else '❌'}")
 
 
 class ClientWorker(QThread):

@@ -1,1 +1,0 @@
-../../armv6-rpi-linux-gnueabihf/sysroot/lib/libsanitizer.spec

@@ -22,7 +22,7 @@ endif()
 message(STATUS "Detected architecture: ${TARGET_ARCH}")
 
 # Target options
-option(TARGET_RASPI_ARM_V6 "Build for Raspberry Pi ARM v6 target with custom toolchain (cross-compile)" OFF)
+option(TARGET_RASPI_ZERO_W "Build for Raspberry Pi Zero W target (cross-compile)" OFF)
 option(DEBUG "Enable debug build" OFF)
 option(USE_3D_SIMULATION "Use 3D simulation instead of 2D (changes Intox port from 12345 to 12348)" OFF)
 
@@ -47,19 +47,17 @@ endif()
 
 set(INTOX_ADDRESS "127.0.0.1")
 
-# Raspberry Pi ARM v6 configuration (for cross-compilation)
-if(TARGET_RASPI_ARM_V6)
+# Raspberry Pi Zero W configuration (for cross-compilation)
+if(TARGET_RASPI_ZERO_W)
     # Cross-compilation toolchain setup
     set(CMAKE_SYSTEM_NAME Linux)
     set(CMAKE_SYSTEM_PROCESSOR arm)
     
-    # ARM v6 toolchain configuration
-    set(CROSS_TOOLS "${CMAKE_CURRENT_SOURCE_DIR}/libs/x-tools/armv6-rpi-linux-gnueabihf" CACHE PATH "Path to ARM v6 cross-compilation tools")
-    set(CROSS_GCC "${CROSS_TOOLS}/bin/armv6-rpi-linux-gnueabihf-gcc" CACHE FILEPATH "ARM v6 Cross GCC compiler")
-    set(CROSS_CLANG "${CROSS_TOOLS}/bin/clang" CACHE FILEPATH "ARM v6 Cross Clang compiler")
-    set(CROSS_SYSROOT "${CROSS_TOOLS}/armv6-rpi-linux-gnueabihf/sysroot" CACHE PATH "ARM v6 Cross-compilation sysroot")
-    # Use the specific toolchain file
-    set(CMAKE_TOOLCHAIN_FILE "${CROSS_TOOLS}/armv6-rpi-linux-gnueabihf.toolchain.cmake" CACHE FILEPATH "ARM v6 toolchain file")
+    # Toolchain paths (adjust these for your cross-compilation setup)
+    set(CROSS_TOOLS "/usr" CACHE PATH "Path to cross-compilation tools")
+    set(CROSS_GCC "${CROSS_TOOLS}/bin/arm-linux-gnueabihf-gcc" CACHE FILEPATH "Cross GCC compiler")
+    set(CROSS_CLANG "${CROSS_TOOLS}/bin/clang" CACHE FILEPATH "Cross Clang compiler")
+    set(CROSS_SYSROOT "/usr/arm-linux-gnueabihf" CACHE PATH "Cross-compilation sysroot")
     
     # Try to use Clang first, fallback to GCC
     find_program(CLANG_FOUND ${CROSS_CLANG})
@@ -79,9 +77,7 @@ if(TARGET_RASPI_ARM_V6)
         endif()
     endif()
     
-    # Add target-specific definitions
-    add_compile_definitions(RASPI_ARM_V6)
-    
+    add_compile_definitions(RASPI_ZERO_W)
     set(CMAKE_SYSROOT "${CROSS_SYSROOT}")
     set(CMAKE_FIND_ROOT_PATH "${CROSS_SYSROOT}")
     set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
@@ -90,11 +86,11 @@ if(TARGET_RASPI_ARM_V6)
     
     # Output executable name
     if(DEBUG)
-        set(EXPLO_EXE_NAME "explo_armv6_debug")
-        set(INTER_EXE_NAME "inter_armv6_debug")
+        set(EXPLO_EXE_NAME "explo_raspi_debug")
+        set(INTER_EXE_NAME "inter_raspi_debug")
     else()
-        set(EXPLO_EXE_NAME "explo_armv6_release")
-        set(INTER_EXE_NAME "inter_armv6_release")
+        set(EXPLO_EXE_NAME "explo_raspi_release")
+        set(INTER_EXE_NAME "inter_raspi_release")
     endif()
     
     # Use appropriate libraries for Raspberry Pi
@@ -290,9 +286,9 @@ pkg_check_modules(WOLFSSL REQUIRED wolfssl)
 include_directories(${WOLFSSL_INCLUDE_DIRS})
 message(STATUS "TLS support enabled - Will use wolfSSL")
 
-# Add libraries based on target architecture
-if(TARGET_RASPI_ARM_V6)
-    # For ARM v6, use the aarch64 libraries (adjust if you have specific armv6 libs)
+# Add libraries based on target architecture - use armhf for Raspberry Pi
+if(TARGET_RASPI_ZERO_W)
+    # For Raspberry Pi, we'll use the aarch64 libraries (adjust if you have armhf-specific libs)
     set(MRPIZ_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs/lib_mrpiz-aarch64-v0.6.1/lib")
     set(MRPIZ_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs/lib_mrpiz-aarch64-v0.6.1/include/mrpiz")
     set(LUMPIZ_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs/lib_lumpiz-aarch64-v0.1.1/lib")
@@ -447,10 +443,9 @@ message(STATUS "")
 message(STATUS "Build configuration summary:")
 message(STATUS "----------------------------------------")
 message(STATUS "  Architecture: ${TARGET_ARCH}")
-if(TARGET_RASPI_ARM_V6)
-    message(STATUS "  Target: Raspberry Pi ARM v6 (cross-compile)")
+if(TARGET_RASPI_ZERO_W)
+    message(STATUS "  Target: Raspberry Pi Zero W (cross-compile)")
     message(STATUS "  Compiler: ${COMPILER_DETECTED}")
-    message(STATUS "  Toolchain: ${CMAKE_TOOLCHAIN_FILE}")
 else()
     message(STATUS "  Target: PC Development")
     message(STATUS "  Simulation: ${SIMULATION_TYPE}")
@@ -512,6 +507,7 @@ file(WRITE ${PRESETS_FILE} [=[
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "DEBUG": "ON",
+        "TARGET_RASPI_ZERO_W": "OFF",
         "USE_3D_SIMULATION": "OFF"
       }
     },
@@ -524,6 +520,7 @@ file(WRITE ${PRESETS_FILE} [=[
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "DEBUG": "OFF",
+        "TARGET_RASPI_ZERO_W": "OFF",
         "USE_3D_SIMULATION": "OFF"
       }
     },
@@ -536,6 +533,7 @@ file(WRITE ${PRESETS_FILE} [=[
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "DEBUG": "ON",
+        "TARGET_RASPI_ZERO_W": "OFF",
         "USE_3D_SIMULATION": "ON"
       }
     },
@@ -548,32 +546,33 @@ file(WRITE ${PRESETS_FILE} [=[
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "DEBUG": "OFF",
+        "TARGET_RASPI_ZERO_W": "OFF",
         "USE_3D_SIMULATION": "ON"
       }
     },
     {
-      "name": "armv6-debug",
-      "displayName": "Raspberry Pi ARM v6 Debug",
-      "description": "Debug build for Raspberry Pi ARM v6 with custom toolchain",
+      "name": "raspi-debug",
+      "displayName": "Raspberry Pi Zero W Debug",
+      "description": "Debug build for Raspberry Pi Zero W",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/armv6-debug",
+      "binaryDir": "${sourceDir}/build/raspi-debug",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "DEBUG": "ON",
-        "TARGET_RASPI_ARM_V6": "ON",
+        "TARGET_RASPI_ZERO_W": "ON",
         "USE_3D_SIMULATION": "OFF"
       }
     },
     {
-      "name": "armv6-release",
-      "displayName": "Raspberry Pi ARM v6 Release",
-      "description": "Release build for Raspberry Pi ARM v6 with custom toolchain",
+      "name": "raspi-release",
+      "displayName": "Raspberry Pi Zero W Release",
+      "description": "Release build for Raspberry Pi Zero W",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/armv6-release",
+      "binaryDir": "${sourceDir}/build/raspi-release",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "DEBUG": "OFF",
-        "TARGET_RASPI_ARM_V6": "ON",
+        "TARGET_RASPI_ZERO_W": "ON",
         "USE_3D_SIMULATION": "OFF"
       }
     },
@@ -586,6 +585,7 @@ file(WRITE ${PRESETS_FILE} [=[
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "DEBUG": "OFF",
+        "TARGET_RASPI_ZERO_W": "OFF",
         "USE_3D_SIMULATION": "OFF"
       }
     }
@@ -608,12 +608,12 @@ file(WRITE ${PRESETS_FILE} [=[
       "configurePreset": "x86_64-3d-release"
     },
     {
-      "name": "armv6-debug",
-      "configurePreset": "armv6-debug"
+      "name": "raspi-debug",
+      "configurePreset": "raspi-debug"
     },
     {
-      "name": "armv6-release",
-      "configurePreset": "armv6-release"
+      "name": "raspi-release",
+      "configurePreset": "raspi-release"
     },
     {
       "name": "production",

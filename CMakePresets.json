@@ -15,7 +15,6 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "DEBUG": "ON",
-        "TARGET_RASPI_ZERO_W": "OFF",
         "USE_3D_SIMULATION": "OFF"
       }
     },
@@ -28,7 +27,6 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "DEBUG": "OFF",
-        "TARGET_RASPI_ZERO_W": "OFF",
         "USE_3D_SIMULATION": "OFF"
       }
     },
@@ -41,7 +39,6 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "DEBUG": "ON",
-        "TARGET_RASPI_ZERO_W": "OFF",
         "USE_3D_SIMULATION": "ON"
       }
     },
@@ -54,33 +51,32 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "DEBUG": "OFF",
-        "TARGET_RASPI_ZERO_W": "OFF",
         "USE_3D_SIMULATION": "ON"
       }
     },
     {
-      "name": "raspi-debug",
-      "displayName": "Raspberry Pi Zero W Debug",
-      "description": "Debug build for Raspberry Pi Zero W",
+      "name": "armv6-debug",
+      "displayName": "Raspberry Pi ARM v6 Debug",
+      "description": "Debug build for Raspberry Pi ARM v6 with custom toolchain",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/raspi-debug",
+      "binaryDir": "${sourceDir}/build/armv6-debug",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "DEBUG": "ON",
-        "TARGET_RASPI_ZERO_W": "ON",
+        "TARGET_RASPI_ARM_V6": "ON",
         "USE_3D_SIMULATION": "OFF"
       }
     },
     {
-      "name": "raspi-release",
-      "displayName": "Raspberry Pi Zero W Release",
-      "description": "Release build for Raspberry Pi Zero W",
+      "name": "armv6-release",
+      "displayName": "Raspberry Pi ARM v6 Release",
+      "description": "Release build for Raspberry Pi ARM v6 with custom toolchain",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/raspi-release",
+      "binaryDir": "${sourceDir}/build/armv6-release",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "DEBUG": "OFF",
-        "TARGET_RASPI_ZERO_W": "ON",
+        "TARGET_RASPI_ARM_V6": "ON",
         "USE_3D_SIMULATION": "OFF"
       }
     },
@@ -93,7 +89,6 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "DEBUG": "OFF",
-        "TARGET_RASPI_ZERO_W": "OFF",
         "USE_3D_SIMULATION": "OFF"
       }
     }
@@ -116,12 +111,12 @@
       "configurePreset": "x86_64-3d-release"
     },
     {
-      "name": "raspi-debug",
-      "configurePreset": "raspi-debug"
+      "name": "armv6-debug",
+      "configurePreset": "armv6-debug"
     },
     {
-      "name": "raspi-release",
-      "configurePreset": "raspi-release"
+      "name": "armv6-release",
+      "configurePreset": "armv6-release"
     },
     {
       "name": "production",

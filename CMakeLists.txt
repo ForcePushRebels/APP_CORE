@@ -317,7 +317,6 @@ add_compile_definitions(
     _BSD_SOURCE
     _XOPEN_SOURCE
     _XOPEN_SOURCE_EXTENDED
-    _POSIX_C_SOURCE=199309L
    
 )
 
@@ -333,10 +332,66 @@ endif()
 
 # TLS support (always enabled)
 add_compile_definitions(_USE_TLS)
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(WOLFSSL REQUIRED wolfssl)
-include_directories(${WOLFSSL_INCLUDE_DIRS})
-message(STATUS "TLS support enabled - Will use wolfSSL")
+
+# Configure wolfSSL based on target
+if(TARGET_RASPI_ZERO_W)
+    # For Raspberry Pi, use local wolfSSL library in libs/wolfssl (support common build subdirs)
+    set(WOLFSSL_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs/wolfssl")
+
+    # Manually locate headers and library to bypass sysroot-only search
+    set(_WOLFSSL_CANDIDATE_INCLUDE_DIRS
+        "${WOLFSSL_ROOT_DIR}/include"
+        "${WOLFSSL_ROOT_DIR}/build/include"
+        "${WOLFSSL_ROOT_DIR}/build-armv6/include"
+        "${WOLFSSL_ROOT_DIR}/build-armhf/include"
+        "${WOLFSSL_ROOT_DIR}/build-arm/include"
+    )
+    set(WOLFSSL_INCLUDE_DIR "")
+    foreach(_dir ${_WOLFSSL_CANDIDATE_INCLUDE_DIRS})
+        if(EXISTS "${_dir}/wolfssl/ssl.h")
+            set(WOLFSSL_INCLUDE_DIR "${_dir}")
+            break()
+        endif()
+    endforeach()
+
+    set(_WOLFSSL_CANDIDATE_LIB_DIRS
+        "${WOLFSSL_ROOT_DIR}/lib"
+        "${WOLFSSL_ROOT_DIR}/build/lib"
+        "${WOLFSSL_ROOT_DIR}/build-armv6/lib"
+        "${WOLFSSL_ROOT_DIR}/build-armhf/lib"
+        "${WOLFSSL_ROOT_DIR}/build-arm/lib"
+    )
+    set(WOLFSSL_LIBRARY "")
+    foreach(_libdir ${_WOLFSSL_CANDIDATE_LIB_DIRS})
+        if(EXISTS "${_libdir}/libwolfssl.a")
+            set(WOLFSSL_LIBRARY "${_libdir}/libwolfssl.a")
+            break()
+        elseif(EXISTS "${_libdir}/libwolfssl.so")
+            set(WOLFSSL_LIBRARY "${_libdir}/libwolfssl.so")
+            break()
+        endif()
+    endforeach()
+
+    if(NOT WOLFSSL_INCLUDE_DIR)
+        message(FATAL_ERROR "wolfSSL headers not found under ${WOLFSSL_ROOT_DIR}. Expected wolfssl/ssl.h in an include directory.")
+    endif()
+
+    if(NOT WOLFSSL_LIBRARY)
+        message(FATAL_ERROR "wolfSSL library not found under ${WOLFSSL_ROOT_DIR}. Expected libwolfssl.(a|so) in a lib directory.")
+    endif()
+
+    include_directories(${WOLFSSL_INCLUDE_DIR})
+    set(WOLFSSL_LIBRARIES "${WOLFSSL_LIBRARY}")
+    message(STATUS "TLS support enabled - Using local wolfSSL")
+    message(STATUS "  wolfSSL include: ${WOLFSSL_INCLUDE_DIR}")
+    message(STATUS "  wolfSSL library: ${WOLFSSL_LIBRARY}")
+else()
+    # For PC development, use system wolfSSL via pkg-config
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(WOLFSSL REQUIRED wolfssl)
+    include_directories(${WOLFSSL_INCLUDE_DIRS})
+    message(STATUS "TLS support enabled - Using system wolfSSL")
+endif()
 
 # Add libraries based on target architecture
 if(TARGET_RASPI_ZERO_W)
@@ -493,6 +548,12 @@ if(EXTRA_LIBS)
     target_link_libraries(inter ${EXTRA_LIBS})
 endif()
 
+# Additional system libs for Raspberry Pi Zero W
+if(TARGET_RASPI_ZERO_W)
+    target_link_libraries(explo pthread rt atomic)
+    target_link_libraries(inter pthread rt atomic)
+endif()
+
 # Add TLS libraries (always enabled)
 target_link_libraries(explo ${WOLFSSL_LIBRARIES})
 target_link_libraries(inter ${WOLFSSL_LIBRARIES})
@@ -501,6 +562,15 @@ message(STATUS "Linking with wolfSSL libraries: ${WOLFSSL_LIBRARIES}")
 # Add build type definitions
 target_compile_definitions(explo PRIVATE EXPLO_BUILD)
 target_compile_definitions(inter PRIVATE INTER_BUILD)
+
+# Override POSIX level for Raspberry Pi target only
+if(TARGET_RASPI_ZERO_W)
+    target_compile_definitions(explo PRIVATE _POSIX_C_SOURCE=200809L)
+    target_compile_definitions(inter PRIVATE _POSIX_C_SOURCE=200809L)
+else()
+    target_compile_definitions(explo PRIVATE _POSIX_C_SOURCE=199309L)
+    target_compile_definitions(inter PRIVATE _POSIX_C_SOURCE=199309L)
+endif()
 
 # Calculate total files
 math(EXPR TOTAL_FILES_COUNT "${COMMON_SOURCES_COUNT} + ${EXPLO_SOURCES_COUNT} + ${INTER_SOURCES_COUNT}")
@@ -534,7 +604,11 @@ message(STATUS "")
 message(STATUS "BUILD CONFIGURATION:")
 message(STATUS "   Build Type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "   Debug Mode: ${DEBUG}")
-message(STATUS "   TLS Support: Always Enabled (wolfSSL ${WOLFSSL_VERSION})")
+if(TARGET_RASPI_ZERO_W)
+    message(STATUS "   TLS Support: Always Enabled (local wolfSSL)")
+else()
+    message(STATUS "   TLS Support: Always Enabled (system wolfSSL ${WOLFSSL_VERSION})")
+endif()
 message(STATUS "")
 message(STATUS "SOURCE FILES:")
 message(STATUS "   Common modules: ${COMMON_SOURCES_COUNT}")

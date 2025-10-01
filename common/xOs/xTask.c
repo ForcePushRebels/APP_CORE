@@ -10,6 +10,8 @@
 #include "xTask.h"
 #include "xLog.h"
 #include <errno.h>
+#include <limits.h>
+#include <pthread.h>
 #include <signal.h>
 #include <time.h>
 #include <unistd.h>
@@ -324,7 +326,7 @@ int osTaskStop(xOsTaskCtx *p_pttOSTask, int p_iTimeout)
     int l_iReturn = pthread_kill(p_pttOSTask->t_tHandle, 0);
     if (l_iReturn == ESRCH) // ESRCH = No such process
     {
-        pthread_join(p_pttOSTask->t_tHandle, NULL); 
+        pthread_join(p_pttOSTask->t_tHandle, NULL);
         p_pttOSTask->t_iState = OS_TASK_STATUS_TERMINATED;
         return OS_TASK_SUCCESS;
     }
@@ -353,7 +355,7 @@ int osTaskStop(xOsTaskCtx *p_pttOSTask, int p_iTimeout)
 
             p_pttOSTask->t_iState = OS_TASK_STATUS_TERMINATED;
             X_LOG_TRACE("Task ID %d terminated gracefully.", p_pttOSTask->t_iId);
-            return OS_TASK_SUCCESS; 
+            return OS_TASK_SUCCESS;
         }
 
         // wait a short time before checking again to avoid saturating the CPU.
@@ -362,11 +364,10 @@ int osTaskStop(xOsTaskCtx *p_pttOSTask, int p_iTimeout)
     }
 
     X_LOG_TRACE("Task ID %d did not stop gracefully. Forcing termination.", p_pttOSTask->t_iId);
-    osTaskEnd(p_pttOSTask); 
+    osTaskEnd(p_pttOSTask);
 
-    return OS_TASK_ERROR_TIMEOUT; 
+    return OS_TASK_ERROR_TIMEOUT;
 }
-
 
 ////////////////////////////////////////////////////////////
 /// osTaskGetErrorString

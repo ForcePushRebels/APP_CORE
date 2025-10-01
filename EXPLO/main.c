@@ -18,7 +18,6 @@
 #include "idCard.h"
 #include "map_engine.h"
 #include "motorControl.h"
-#include "xServer.h"
 #include "pilot.h"
 #include "positionControl.h"
 #include "safetyController.h"
@@ -28,6 +27,7 @@
 #include "xAssert.h"
 #include "xLog.h"
 #include "xNetwork.h"
+#include "xServer.h"
 #include "xTimer.h"
 
 #include "explorationManager.h"

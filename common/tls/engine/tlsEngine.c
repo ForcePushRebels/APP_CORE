@@ -9,6 +9,7 @@
 #include "tlsEngine.h"
 
 #include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <string.h>
 #include <strings.h>
@@ -26,11 +27,7 @@
 //////////////////////////////////
 /// loadCertAndKey
 //////////////////////////////////
-static int loadCertAndKey(WOLFSSL_CTX *p_ctx,
-                          xTlsMode_t p_mode,
-                          const char *p_certFile,
-                          const char *p_keyFile,
-                          bool p_isPem)
+static int loadCertAndKey(WOLFSSL_CTX *p_ctx, xTlsMode_t p_mode, const char *p_certFile, const char *p_keyFile, bool p_isPem)
 {
     if (!p_ctx)
         return CERT_ERROR_INVALID_PARAM;
@@ -45,6 +42,29 @@ static int loadCertAndKey(WOLFSSL_CTX *p_ctx,
 
     int l_iResult;
 
+    // Check certificate file existence
+    if (access(p_certFile, F_OK) != 0)
+    {
+        X_LOG_TRACE("Certificate file does not exist: %s (errno=%d %s)", p_certFile, errno, strerror(errno));
+        return CERT_ERROR_INVALID_CERT;
+    }
+    else
+    {
+    }
+
+    // Check key file existence (if provided)
+    if (p_keyFile)
+    {
+        if (access(p_keyFile, F_OK) != 0)
+        {
+            X_LOG_TRACE("Key file does not exist: %s (errno=%d %s)", p_keyFile, errno, strerror(errno));
+            return CERT_ERROR_INVALID_CERT;
+        }
+        else
+        {
+        }
+    }
+
     if (p_mode == TLS_MODE_SERVER)
     {
         // For server, load full chain (PEM only)
@@ -57,7 +77,7 @@ static int loadCertAndKey(WOLFSSL_CTX *p_ctx,
 
     if (l_iResult != WOLFSSL_SUCCESS)
     {
-        X_LOG_TRACE("Failed to load certificate/chain file: %s", p_certFile);
+        X_LOG_TRACE("Failed to load certificate/chain file: %s (wolfSSL rc=%d)", p_certFile, l_iResult);
         return CERT_ERROR_INVALID_CERT;
     }
 
@@ -65,9 +85,28 @@ static int loadCertAndKey(WOLFSSL_CTX *p_ctx,
     if (p_keyFile)
     {
         // Private key must be PEM for wolfSSL (most versions)
-        if (wolfSSL_CTX_use_PrivateKey_file(p_ctx, p_keyFile, WOLFSSL_FILETYPE_PEM) != WOLFSSL_SUCCESS)
+        int key_result = wolfSSL_CTX_use_PrivateKey_file(p_ctx, p_keyFile, WOLFSSL_FILETYPE_PEM);
+
+        if (key_result != WOLFSSL_SUCCESS)
         {
-            X_LOG_TRACE("Failed to load key file (PEM required): %s", p_keyFile);
+            // Récupérer l'erreur wolfSSL pour la clé privée
+            unsigned long key_err = wolfSSL_ERR_get_error();
+            char key_error_buffer[256];
+            wolfSSL_ERR_error_string_n(key_err, key_error_buffer, sizeof(key_error_buffer));
+
+            X_LOG_TRACE("Failed to load private key file: %s (wolfSSL rc=%d, err=0x%lx %s)",
+                        p_keyFile,
+                        key_result,
+                        key_err,
+                        key_error_buffer);
+
+            return CERT_ERROR_INVALID_CERT;
+        }
+
+        // Vérifier que la clé privée correspond au certificat
+        if (wolfSSL_CTX_check_private_key(p_ctx) != WOLFSSL_SUCCESS)
+        {
+            X_LOG_TRACE("ERROR: Private key does not match the certificate!");
             return CERT_ERROR_INVALID_CERT;
         }
     }
@@ -102,9 +141,7 @@ int tlsEngineCreate(xTlsEngine_t **p_pptEngine,
     }
 
     // Select method based on mode
-    WOLFSSL_METHOD *l_ptMethod = (p_eMode == TLS_MODE_SERVER) ?
-                                    wolfTLSv1_3_server_method() :
-                                    wolfTLSv1_3_client_method();
+    WOLFSSL_METHOD *l_ptMethod = (p_eMode == TLS_MODE_SERVER) ? wolfTLSv1_3_server_method() : wolfTLSv1_3_client_method();
     if (!l_ptMethod)
     {
         return CERT_ERROR_WOLFSSL_ERROR;
@@ -116,25 +153,19 @@ int tlsEngineCreate(xTlsEngine_t **p_pptEngine,
         return CERT_ERROR_WOLFSSL_ERROR;
     }
 
-    
-    #if defined(__arm__) && defined(__ARM_ARCH_6__)
-        // Raspberry Pi Zero - prioritize CHACHA20 for better performance on ARMv6
-        wolfSSL_CTX_set_cipher_list(l_ptCtx, "TLS13-CHACHA20-POLY1305-SHA256:ECDHE-RSA-CHACHA20-POLY1305");
-        X_LOG_TRACE("TLS Engine configured for Raspberry Pi Zero: CHACHA20-POLY1305 priority");
-    #else
-        // Standard platforms - prioritize AES256 with ECDHE
-        wolfSSL_CTX_set_cipher_list(l_ptCtx, "TLS13-AES256-GCM-SHA384:TLS13-CHACHA20-POLY1305-SHA256");
-        X_LOG_TRACE("TLS Engine configured for standard platform: AES256-GCM-ECDHE priority");
-    #endif
-    
+#if defined(__arm__) && defined(__ARM_ARCH_6__)
+    // Raspberry Pi Zero - prioritize CHACHA20 for better performance on ARMv6
+    wolfSSL_CTX_set_cipher_list(l_ptCtx, "TLS13-CHACHA20-POLY1305-SHA256:ECDHE-RSA-CHACHA20-POLY1305");
+#else
+    // Standard platforms - prioritize AES256 with ECDHE
+    wolfSSL_CTX_set_cipher_list(l_ptCtx, "TLS13-AES256-GCM-SHA384:TLS13-CHACHA20-POLY1305-SHA256");
+#endif
+
     // Enable server cipher preference and ECDHE key exchange
     wolfSSL_CTX_set_options(l_ptCtx, WOLFSSL_OP_CIPHER_SERVER_PREFERENCE);
-    
+
     // Ensure ECDHE curves are available
-    if (wolfSSL_CTX_set1_groups_list(l_ptCtx, "P-256:P-384:P-521") != WOLFSSL_SUCCESS)
-    {
-        X_LOG_TRACE("Warning: Could not set ECDHE curves, using defaults");
-    }
+    (void)wolfSSL_CTX_set1_groups_list(l_ptCtx, "P-256:P-384:P-521");
 
     // Load end-entity certificate/key if provided
     int l_iRes = loadCertAndKey(l_ptCtx, p_eMode, p_ptcCertFile, p_ptcKeyFile, p_bIsPEM);
@@ -166,18 +197,13 @@ int tlsEngineCreate(xTlsEngine_t **p_pptEngine,
 
     *p_pptEngine = l_ptEngine;
 
-    X_LOG_TRACE("TLS engine created successfully (mode=%s)",
-                (p_eMode == TLS_MODE_SERVER) ? "SERVER" : "CLIENT");
-
     return CERT_OK;
 }
 
 //////////////////////////////////
 /// tlsEngineAttachSocket
 //////////////////////////////////
-int tlsEngineAttachSocket(xTlsEngine_t *p_ptEngine,
-                          int p_iSocketFd,
-                          WOLFSSL **p_pptSsl)
+int tlsEngineAttachSocket(xTlsEngine_t *p_ptEngine, int p_iSocketFd, WOLFSSL **p_pptSsl)
 {
     if (!p_ptEngine || !p_pptSsl)
     {
@@ -196,9 +222,7 @@ int tlsEngineAttachSocket(xTlsEngine_t *p_ptEngine,
         return CERT_ERROR_WOLFSSL_ERROR;
     }
 
-    int l_iHandshakeRes = (p_ptEngine->t_mode == TLS_MODE_SERVER) ?
-                            wolfSSL_accept(l_ptSsl) :
-                            wolfSSL_connect(l_ptSsl);
+    int l_iHandshakeRes = (p_ptEngine->t_mode == TLS_MODE_SERVER) ? wolfSSL_accept(l_ptSsl) : wolfSSL_connect(l_ptSsl);
 
     if (l_iHandshakeRes != WOLFSSL_SUCCESS)
     {
@@ -206,38 +230,6 @@ int tlsEngineAttachSocket(xTlsEngine_t *p_ptEngine,
         X_LOG_TRACE("TLS handshake failed (err=%d)", l_iErr);
         wolfSSL_free(l_ptSsl);
         return CERT_ERROR_WOLFSSL_ERROR;
-    }
-
-    // Log negotiated cipher suite for debugging
-    const char* l_ptcCipher = wolfSSL_get_cipher(l_ptSsl);
-    const char* l_ptcVersion = wolfSSL_get_version(l_ptSsl);
-    X_LOG_TRACE("TLS handshake completed: %s with %s (fd=%d)", l_ptcVersion, l_ptcCipher, p_iSocketFd);
-    
-    // Log negotiated cipher with platform-specific context
-    if (l_ptcCipher && strstr(l_ptcCipher, "CHACHA20"))
-    {
-        #if defined(__arm__) && defined(__ARM_ARCH_6__)
-            X_LOG_TRACE("CHACHA20-POLY1305 negotiated - optimal for Raspberry Pi Zero!");
-        #else
-            X_LOG_TRACE("CHACHA20-POLY1305 negotiated - good performance!");
-        #endif
-    }
-    else if (l_ptcCipher && strstr(l_ptcCipher, "AES"))
-    {
-        if (strstr(l_ptcCipher, "ECDHE"))
-        {
-            X_LOG_TRACE("AES-ECDHE negotiated - perfect forward secrecy + strong encryption");
-        }
-        else
-        {
-            X_LOG_TRACE("AES cipher negotiated - strong security");
-        }
-    }
-    
-    // Log key exchange method
-    if (l_ptcCipher && strstr(l_ptcCipher, "ECDHE"))
-    {
-        X_LOG_TRACE("🔑 ECDHE key exchange - forward secrecy enabled");
     }
 
     *p_pptSsl = l_ptSsl;
@@ -259,10 +251,11 @@ int tlsEngineShutdown(WOLFSSL *p_ptSsl)
     int l_iShutdownResult;
     int l_iRetryCount = 0;
     const int MAX_SHUTDOWN_RETRIES = 5;
-    
-    do {
+
+    do
+    {
         l_iShutdownResult = wolfSSL_shutdown(p_ptSsl);
-        
+
         if (l_iShutdownResult == WOLFSSL_SUCCESS)
         {
             // Shutdown complet (close_notify envoyé et reçu)
@@ -277,7 +270,7 @@ int tlsEngineShutdown(WOLFSSL *p_ptSsl)
                 X_LOG_TRACE("TLS shutdown timeout after %d retries", MAX_SHUTDOWN_RETRIES);
                 break;
             }
-            
+
             // Petit délai pour laisser le peer répondre
             struct timespec delay = {0, 10000000}; // 10ms
             nanosleep(&delay, NULL);
@@ -312,8 +305,8 @@ int tlsEngineShutdown(WOLFSSL *p_ptSsl)
     if (l_iFd >= 0)
     {
         // Fermeture gracieuse TCP
-        shutdown(l_iFd, SHUT_WR);  // Fermer l'écriture d'abord
-        
+        shutdown(l_iFd, SHUT_WR); // Fermer l'écriture d'abord
+
         // Optionnel : lire les données restantes pour vider le buffer
         char l_buffer[256];
         int l_iTimeout = 0;
@@ -321,10 +314,10 @@ int tlsEngineShutdown(WOLFSSL *p_ptSsl)
         {
             fd_set readfds;
             struct timeval tv = {0, 1000}; // 1ms timeout
-            
+
             FD_ZERO(&readfds);
             FD_SET(l_iFd, &readfds);
-            
+
             int l_iSelect = select(l_iFd + 1, &readfds, NULL, NULL, &tv);
             if (l_iSelect > 0 && FD_ISSET(l_iFd, &readfds))
             {
@@ -337,13 +330,11 @@ int tlsEngineShutdown(WOLFSSL *p_ptSsl)
             }
             l_iTimeout++;
         }
-        
+
         shutdown(l_iFd, SHUT_RDWR); // Fermeture complète
     }
 
     wolfSSL_free(p_ptSsl);
-    X_LOG_TRACE("TLS session shutdown completed");
-    
     return CERT_OK;
 }
 

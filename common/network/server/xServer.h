@@ -11,11 +11,11 @@
 #define X_SERVER_H
 
 #include "networkEncode.h"
-#include "xNetwork.h" 
+#include "tlsEngine.h"
+#include "xNetwork.h"
+#include "xOsMutex.h"
 #include "xProtocol.h"
 #include "xTask.h"
-#include "xOsMutex.h"
-#include "tlsEngine.h"
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -23,65 +23,67 @@
 // Configuration Constants
 //-----------------------------------------------------------------------------
 
-#define SERVER_MAX_CLIENTS          8      // Maximum concurrent clients
-#define SERVER_RECV_BUFFER_SIZE     65536   // Client receive buffer size
-#define SERVER_SEND_BUFFER_SIZE     65536   // Client send buffer size
-#define SERVER_CLIENT_NAME_SIZE     64     // Client name/address buffer
-#define SERVER_DEFAULT_PORT         8080   // Default server port
-#define SERVER_EPOLL_TIMEOUT        100    // Epoll timeout in milliseconds
+#define SERVER_MAX_CLIENTS 8          // Maximum concurrent clients
+#define SERVER_RECV_BUFFER_SIZE 65536 // Client receive buffer size
+#define SERVER_SEND_BUFFER_SIZE 65536 // Client send buffer size
+#define SERVER_CLIENT_NAME_SIZE 64    // Client name/address buffer
+#define SERVER_DEFAULT_PORT 8080      // Default server port
+#define SERVER_EPOLL_TIMEOUT 100      // Epoll timeout in milliseconds
 
 //-----------------------------------------------------------------------------
 // Error Codes
 //-----------------------------------------------------------------------------
 
-#define SERVER_OK                   0x400A000
-#define SERVER_ERROR                0x400A001
-#define SERVER_INVALID_PARAM        0x400A002
-#define SERVER_NOT_INITIALIZED      0x400A003
-#define SERVER_ALREADY_RUNNING      0x400A004
-#define SERVER_NOT_RUNNING          0x400A005
-#define SERVER_MAX_CLIENTS_REACHED  0x400A006
-#define SERVER_CLIENT_NOT_FOUND     0x400A007
-#define SERVER_SOCKET_ERROR         0x400A008
-#define SERVER_TLS_ERROR            0x400A009
-#define SERVER_THREAD_ERROR         0x400A00A
+#define SERVER_OK 0x400A000
+#define SERVER_ERROR 0x400A001
+#define SERVER_INVALID_PARAM 0x400A002
+#define SERVER_NOT_INITIALIZED 0x400A003
+#define SERVER_ALREADY_RUNNING 0x400A004
+#define SERVER_NOT_RUNNING 0x400A005
+#define SERVER_MAX_CLIENTS_REACHED 0x400A006
+#define SERVER_CLIENT_NOT_FOUND 0x400A007
+#define SERVER_SOCKET_ERROR 0x400A008
+#define SERVER_TLS_ERROR 0x400A009
+#define SERVER_THREAD_ERROR 0x400A00A
 
 //-----------------------------------------------------------------------------
 // Types
 //-----------------------------------------------------------------------------
 
 typedef uint8_t ClientID;
-#define INVALID_CLIENT_ID           0xFF
+#define INVALID_CLIENT_ID 0xFF
 
 // Server configuration
-typedef struct {
-    uint16_t t_usPort;                      // Server port
-    bool t_bUseTls;                         // Enable TLS
-    int t_iSocketTimeout;                   // Socket timeout (seconds)
-    char t_acCertFile[256];                 // TLS certificate file path
-    char t_acKeyFile[256];                  // TLS private key file path
-    char t_acCaDir[256];                    // TLS CA directory
+typedef struct
+{
+    uint16_t t_usPort;      // Server port
+    bool t_bUseTls;         // Enable TLS
+    int t_iSocketTimeout;   // Socket timeout (seconds)
+    char t_acCertFile[256]; // TLS certificate file path
+    char t_acKeyFile[256];  // TLS private key file path
+    char t_acCaDir[256];    // TLS CA directory
 } ServerConfig;
 
 // Client context (fixed-size, no dynamic allocation)
-typedef struct {
-    ClientID t_tId;                         // Client ID (0xFF = unused slot)
-    NetworkSocket *t_ptSocket;              // Client socket
-    NetworkAddress t_tAddress;              // Client address
+typedef struct
+{
+    ClientID t_tId;                               // Client ID (0xFF = unused slot)
+    NetworkSocket *t_ptSocket;                    // Client socket
+    NetworkAddress t_tAddress;                    // Client address
     char t_acClientName[SERVER_CLIENT_NAME_SIZE]; // Client address string
-    
+
     // Threading
-    xOsTaskCtx t_tClientTask;               // Client thread
-    volatile bool t_bConnected;             // Connection state
-    volatile bool t_bShutdown;              // Shutdown request
-    
+    xOsTaskCtx t_tClientTask;   // Client thread
+    volatile bool t_bConnected; // Connection state
+    volatile bool t_bShutdown;  // Shutdown request
+
     // TLS support
-    WOLFSSL *t_ptTlsSession;                // TLS session (NULL if plain TCP)
-    
+    WOLFSSL *t_ptTlsSession; // TLS session (NULL if plain TCP)
+
     // Buffers (no dynamic allocation)
     uint8_t t_aucRecvBuffer[SERVER_RECV_BUFFER_SIZE];
     uint8_t t_aucSendBuffer[SERVER_SEND_BUFFER_SIZE];
-    
+
     // Statistics
     uint64_t t_ullBytesReceived;
     uint64_t t_ulBytesSent;
@@ -131,8 +133,7 @@ void xServerCleanup(void);
 /// @param p_ulPayloadSize Payload size
 /// @return SERVER_OK or error code
 ///////////////////////////////////////////
-int xServerSendMessage(ClientID p_tClientId, uint8_t p_ucMsgType, 
-                      const void *p_pvPayload, uint32_t p_ulPayloadSize);
+int xServerSendMessage(ClientID p_tClientId, uint8_t p_ucMsgType, const void *p_pvPayload, uint32_t p_ulPayloadSize);
 
 ///////////////////////////////////////////
 /// @brief Broadcast message to all clients
@@ -186,4 +187,4 @@ clientCtx *xServerGetclientCtx(ClientID p_tClientId);
 ///////////////////////////////////////////
 ClientID xServerGetClientID(const clientCtx *p_ptContext);
 
-#endif // X_SERVER_H 
+#endif // X_SERVER_H

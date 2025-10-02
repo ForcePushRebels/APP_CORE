@@ -822,11 +822,11 @@ int loadRootCAIntoCtx(WOLFSSL_CTX *p_ptSSLContext, const char *p_ptcCADirectoryP
         // Directory path, append ca.pem or ca.der
         if (p_bIsPEM)
         {
-            snprintf(l_acCAFilePath, sizeof(l_acCAFilePath), "%s/ca.pem", p_ptcCADirectoryPath);
+            snprintf(l_acCAFilePath, sizeof(l_acCAFilePath), "%s/root-ca.pem", p_ptcCADirectoryPath);
         }
         else
         {
-            snprintf(l_acCAFilePath, sizeof(l_acCAFilePath), "%s/ca.der", p_ptcCADirectoryPath);
+            snprintf(l_acCAFilePath, sizeof(l_acCAFilePath), "%s/root-ca.der", p_ptcCADirectoryPath);
         }
     }
 

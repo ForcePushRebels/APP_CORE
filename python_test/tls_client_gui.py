@@ -398,10 +398,75 @@ class FrameBuilderDialog(QDialog):
 # Networking worker thread
 # ---------------------------------------------------------------------------
 
-CERT_DIR = Path("build/x86_64-debug/pki")
-CA_CERT = CERT_DIR / "root/ca.pem"
-CLIENT_CERT = CERT_DIR / "client/fullchain.pem"
-CLIENT_KEY = CERT_DIR / "client/client.key"
+# Auto-detect PKI directory and certificates based on environment
+def detect_pki_environment():
+    """Detect PKI environment and return appropriate certificate paths."""
+    import os
+    import platform
+    
+    # Try to detect build directory
+    possible_build_dirs = [
+        "build/x86_64-debug",
+        "build/x86_64-release", 
+        "build/raspi-debug",
+        "build/raspi-release",
+        "build/production"
+    ]
+    
+    for build_dir in possible_build_dirs:
+        pki_path = Path(build_dir) / "pki"
+        if pki_path.exists():
+            print(f"🔍 PKI détectée: {pki_path}")
+            
+            # Check if local certificates exist (for development)
+            local_cert = pki_path / "local" / "client-chain.pem"
+            local_key = pki_path / "local" / "client.key"
+            local_ca = pki_path / "intermediate-ca" / "ca-chain.pem"
+            
+            if local_cert.exists() and local_key.exists() and local_ca.exists():
+                print(f" Certificats locaux trouvés: {pki_path}/local/")
+                return {
+                    "pki_dir": pki_path,
+                    "ca_cert": local_ca,
+                    "client_cert": local_cert,
+                    "client_key": local_key,
+                    "environment": "local"
+                }
+            
+            # Check for production certificates (command, pato-explo, pato-inter)
+            for actor in ["command", "pato-explo", "pato-inter"]:
+                actor_cert = pki_path / actor / "client-chain.pem"
+                actor_key = pki_path / actor / "client.key"
+                actor_ca = pki_path / "intermediate-ca" / "ca-chain.pem"
+                
+                if actor_cert.exists() and actor_key.exists() and actor_ca.exists():
+                    print(f"✅ Certificats production trouvés: {pki_path}/{actor}/")
+                    return {
+                        "pki_dir": pki_path,
+                        "ca_cert": actor_ca,
+                        "client_cert": actor_cert,
+                        "client_key": actor_key,
+                        "environment": "production",
+                        "actor": actor
+                    }
+    
+    # Fallback to default paths
+    print("⚠️ Aucune PKI détectée, utilisation des chemins par défaut")
+    default_pki = Path("build/x86_64-debug/pki")
+    return {
+        "pki_dir": default_pki,
+        "ca_cert": default_pki / "intermediate-ca" / "ca-chain.pem",
+        "client_cert": default_pki / "local" / "client-chain.pem", 
+        "client_key": default_pki / "local" / "client.key",
+        "environment": "fallback"
+    }
+
+# Detect PKI environment
+PKI_CONFIG = detect_pki_environment()
+CERT_DIR = PKI_CONFIG["pki_dir"]
+CA_CERT = PKI_CONFIG["ca_cert"]
+CLIENT_CERT = PKI_CONFIG["client_cert"]
+CLIENT_KEY = PKI_CONFIG["client_key"]
 
 
 class ClientWorker(QThread):
@@ -558,11 +623,11 @@ class ClientWorker(QThread):
         else:
             self.log.emit("🔧 Suite de chiffrement: Négociation automatique")
 
-        # Résoudre server.demo.local vers 127.0.0.1 si nécessaire
-        actual_host = "127.0.0.1" if self.host == "server.demo.local" else self.host
+        # Résoudre 127.0.0.1 si nécessaire
+        actual_host = "127.0.0.1" if self.host in ("localhost", "127.0.0.1") else self.host
         raw_sock = socket.create_connection((actual_host, self.port))
-        # Utiliser le nom original pour la validation du certificat
-        server_hostname = self.host if self.host != "127.0.0.1" else "server.demo.local"
+        # Utiliser un SNI cohérent avec la PKI locale
+        server_hostname = "localhost" if self.host in ("localhost", "127.0.0.1") else self.host
         tls_sock = ctx.wrap_socket(raw_sock, server_hostname=server_hostname)
         
         # Log détaillé de la connexion avec couleurs
@@ -654,8 +719,8 @@ class ClientWorker(QThread):
 
 class ConnectionTab(QWidget):
     """A single tab managing one TLS connection."""
-
-    def __init__(self, host: str = "server.demo.local", port: int = 8080):
+    """def __init__(self, host: str = "server.demo.local", port: int = 8080):"""
+    def __init__(self, host: str = "127.0.0.1", port: int = 8080):
         super().__init__()
         self.worker: Optional[ClientWorker] = None
         self.client_id = id(self)  # ID unique pour ce client
@@ -666,6 +731,23 @@ class ConnectionTab(QWidget):
         self.port_spin = QSpinBox()
         self.port_spin.setRange(1, 65535)
         self.port_spin.setValue(port)
+
+        # Environment selector
+        self.env_combo = QComboBox()
+        self.env_combo.addItem("🏠 Local (Développement)", "local")
+        self.env_combo.addItem("📱 Command (Tablette)", "command")
+        self.env_combo.addItem("🤖 Pato-Explo (Robot)", "pato-explo")
+        self.env_combo.addItem("🔧 Pato-Inter (Robot)", "pato-inter")
+        self.env_combo.addItem("🔧 Manuel (Personnalisé)", "manual")
+        
+        # Certificate paths (for manual mode)
+        self.ca_path_edit = QLineEdit(str(CA_CERT))
+        self.cert_path_edit = QLineEdit(str(CLIENT_CERT))
+        self.key_path_edit = QLineEdit(str(CLIENT_KEY))
+        
+        # Certificate info label
+        self.cert_info_label = QLabel(f"📋 Environnement: {PKI_CONFIG['environment']}")
+        self.cert_info_label.setStyleSheet("color: #4fc3f7; font-weight: bold; padding: 4px;")
 
         self.btn_connect = QPushButton("🔗 Connecter")
         
@@ -726,6 +808,25 @@ class ConnectionTab(QWidget):
         top_bar.addWidget(self.btn_connect)
         top_bar.addWidget(self.btn_disconnect)
         top_bar.addStretch()
+        
+        # Environment and certificate selection
+        env_bar = QHBoxLayout()
+        env_bar.setSpacing(12)
+        env_bar.addWidget(create_label("🏗️ Environnement:"))
+        env_bar.addWidget(self.env_combo)
+        env_bar.addWidget(self.cert_info_label)
+        env_bar.addStretch()
+        
+        # Manual certificate paths (initially hidden)
+        cert_bar = QHBoxLayout()
+        cert_bar.setSpacing(12)
+        cert_bar.addWidget(create_label("📜 CA:"))
+        cert_bar.addWidget(self.ca_path_edit)
+        cert_bar.addWidget(create_label("🔑 Cert:"))
+        cert_bar.addWidget(self.cert_path_edit)
+        cert_bar.addWidget(create_label("🗝️ Key:"))
+        cert_bar.addWidget(self.key_path_edit)
+        cert_bar.addStretch()
 
         send_bar = QHBoxLayout()
         send_bar.setSpacing(12)
@@ -742,6 +843,8 @@ class ConnectionTab(QWidget):
         root.setSpacing(16)
         root.setContentsMargins(16, 16, 16, 16)
         root.addLayout(top_bar)
+        root.addLayout(env_bar)
+        root.addLayout(cert_bar)
         root.addLayout(send_bar)
         root.addWidget(self.log_view)
 
@@ -752,6 +855,7 @@ class ConnectionTab(QWidget):
         # Utiliser seulement les signaux standard Qt - pas de customisation
         self.template_combo.currentIndexChanged.connect(self._on_template_changed)
         self.cipher_combo.currentIndexChanged.connect(self._on_cipher_changed)
+        self.env_combo.currentIndexChanged.connect(self._on_environment_changed)
         
         # Appliquer les thèmes ComboBox simplifiés
         self.apply_combo_theme()
@@ -759,6 +863,9 @@ class ConnectionTab(QWidget):
         
         # Configuration ComboBox simplifiée
         self._setup_simple_combo_behavior()
+        
+        # Initialize environment
+        self._initialize_environment()
         
         # Apply theme to all elements
         self.apply_theme()
@@ -768,6 +875,33 @@ class ConnectionTab(QWidget):
         # Configuration de base seulement
         self.template_combo.setMaxVisibleItems(8)
         self.cipher_combo.setMaxVisibleItems(5)
+        self.env_combo.setMaxVisibleItems(5)
+    
+    def _initialize_environment(self):
+        """Initialize environment and certificate paths."""
+        # Hide manual certificate paths initially
+        self.ca_path_edit.setVisible(False)
+        self.cert_path_edit.setVisible(False)
+        self.key_path_edit.setVisible(False)
+        
+        # Set default environment based on detected PKI
+        if PKI_CONFIG['environment'] == 'local':
+            self.env_combo.setCurrentIndex(0)  # Local
+        elif PKI_CONFIG['environment'] == 'production':
+            actor = PKI_CONFIG.get('actor', 'local')
+            if actor == 'command':
+                self.env_combo.setCurrentIndex(1)
+            elif actor == 'pato-explo':
+                self.env_combo.setCurrentIndex(2)
+            elif actor == 'pato-inter':
+                self.env_combo.setCurrentIndex(3)
+            else:
+                self.env_combo.setCurrentIndex(0)  # Default to local
+        else:
+            self.env_combo.setCurrentIndex(0)  # Default to local
+        
+        # Update certificate paths
+        self._on_environment_changed(self.env_combo.currentIndex())
 
     def apply_cipher_combo_theme(self):
         """Apply theme to cipher suite combo box"""
@@ -823,8 +957,25 @@ class ConnectionTab(QWidget):
             
         cipher_suite = self.cipher_combo.currentData()
         
+        # Get certificate paths based on environment
+        env = self.env_combo.currentData()
+        if env == "manual":
+            # Use manual paths
+            ca_path = Path(self.ca_path_edit.text())
+            cert_path = Path(self.cert_path_edit.text())
+            key_path = Path(self.key_path_edit.text())
+        else:
+            # Use auto-detected paths
+            ca_path = Path(self.ca_path_edit.text())
+            cert_path = Path(self.cert_path_edit.text())
+            key_path = Path(self.key_path_edit.text())
+        
         # Créer un worker unique pour ce client
-        self.worker = ClientWorker(host, port, cipher_suite=cipher_suite)
+        self.worker = ClientWorker(host, port, 
+                                 ca_path=ca_path,
+                                 cert_path=cert_path,
+                                 key_path=key_path,
+                                 cipher_suite=cipher_suite)
         self.worker.log.connect(self._append_log)
         self.worker.connected.connect(self._on_connected)
         self.worker.disconnected.connect(self._on_disconnected)
@@ -924,6 +1075,68 @@ class ConnectionTab(QWidget):
         cipher_name = self.cipher_combo.currentText()
         if cipher_suite:
             self._append_log(f"🔐 Cipher sélectionné: {cipher_name}")
+    
+    def _on_environment_changed(self, index: int):
+        """Handle environment selection change."""
+        env = self.env_combo.currentData()
+        env_name = self.env_combo.currentText()
+        
+        # Show/hide manual certificate paths
+        if env == "manual":
+            self.ca_path_edit.setVisible(True)
+            self.cert_path_edit.setVisible(True)
+            self.key_path_edit.setVisible(True)
+            self._append_log("🔧 Mode manuel activé - configurez les chemins de certificats")
+        else:
+            self.ca_path_edit.setVisible(False)
+            self.cert_path_edit.setVisible(False)
+            self.key_path_edit.setVisible(False)
+            
+            # Update certificate paths based on environment
+            self._update_certificate_paths(env)
+            self._append_log(f"🏗️ Environnement sélectionné: {env_name}")
+    
+    def _update_certificate_paths(self, environment):
+        """Update certificate paths based on selected environment."""
+        try:
+            # Find PKI directory
+            pki_dir = None
+            for build_dir in ["build/x86_64-debug", "build/x86_64-release", "build/raspi-debug", "build/raspi-release"]:
+                test_pki = Path(build_dir) / "pki"
+                if test_pki.exists():
+                    pki_dir = test_pki
+                    break
+            
+            if not pki_dir:
+                self._append_log("⚠️ Aucune PKI trouvée")
+                return
+            
+            # Set paths based on environment
+            if environment == "local":
+                ca_path = pki_dir / "intermediate-ca" / "ca-chain.pem"
+                cert_path = pki_dir / "local" / "client-chain.pem"
+                key_path = pki_dir / "local" / "client.key"
+            else:
+                ca_path = pki_dir / "intermediate-ca" / "ca-chain.pem"
+                cert_path = pki_dir / environment / "client-chain.pem"
+                key_path = pki_dir / environment / "client.key"
+            
+            # Update the edit fields
+            self.ca_path_edit.setText(str(ca_path))
+            self.cert_path_edit.setText(str(cert_path))
+            self.key_path_edit.setText(str(key_path))
+            
+            # Update info label
+            self.cert_info_label.setText(f"📋 Environnement: {environment}")
+            
+            # Check if files exist
+            if ca_path.exists() and cert_path.exists() and key_path.exists():
+                self._append_log(f"✅ Certificats {environment} trouvés")
+            else:
+                self._append_log(f"⚠️ Certificats {environment} manquants")
+                
+        except Exception as e:
+            self._append_log(f"❌ Erreur mise à jour certificats: {e}")
     
     def eventFilter(self, obj, event):
         """Simplified event filter - let Qt handle ComboBox behavior naturally"""
@@ -1087,6 +1300,52 @@ class ConnectionTab(QWidget):
                 border-color: {theme['border_focus']};
             }}
         """)
+        
+        # Environment combo box
+        self.env_combo.setStyleSheet(f"""
+            QComboBox {{
+                {base_input_style}
+                min-width: 200px;
+                color: {theme['accent']};
+                font-weight: 600;
+            }}
+            QComboBox:focus {{
+                {focus_style}
+                color: {theme['accent']};
+            }}
+            QComboBox:hover {{
+                border-color: {theme['border_focus']};
+            }}
+            QComboBox QAbstractItemView {{
+                background: {theme['secondary_bg']};
+                color: {theme['text']};
+                selection-background-color: {theme['accent']};
+                border: 1px solid {theme['border']};
+                border-radius: 4px;
+            }}
+        """)
+        
+        # Certificate path inputs (for manual mode)
+        cert_input_style = f"""
+            QLineEdit {{
+                {base_input_style}
+                color: {theme['text_secondary']};
+                font-family: 'Fira Code', 'SF Mono', monospace;
+                font-size: 12px;
+                min-width: 200px;
+            }}
+            QLineEdit:focus {{
+                {focus_style}
+                color: {theme['text']};
+            }}
+            QLineEdit:hover {{
+                border-color: {theme['border_focus']};
+            }}
+        """
+        
+        self.ca_path_edit.setStyleSheet(cert_input_style)
+        self.cert_path_edit.setStyleSheet(cert_input_style)
+        self.key_path_edit.setStyleSheet(cert_input_style)
     
     def apply_button_themes(self, theme):
         # Base button style

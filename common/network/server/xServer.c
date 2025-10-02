@@ -12,12 +12,11 @@
 #include "xAssert.h"
 #include "xLog.h"
 #include <errno.h>
+#include <libgen.h>
 #include <signal.h>
 #include <string.h>
 #include <sys/epoll.h>
 #include <unistd.h>
-#include <libgen.h>  
-
 
 //-----------------------------------------------------------------------------
 // Server State Structure (single instance, no allocation)
@@ -1087,11 +1086,11 @@ ServerConfig xServerCreateDefaultConfig(void)
 {
     ServerConfig l_sConfig;
     memset(&l_sConfig, 0, sizeof(ServerConfig));
-    
+
     l_sConfig.t_usPort = SERVER_DEFAULT_PORT;
     l_sConfig.t_bUseTls = false;
     l_sConfig.t_iSocketTimeout = 30; // 30 seconds
-    
+
     // Find executable path
     char l_acExecutablePath[256];
     ssize_t len = readlink("/proc/self/exe", l_acExecutablePath, sizeof(l_acExecutablePath) - 1);
@@ -1100,53 +1099,106 @@ ServerConfig xServerCreateDefaultConfig(void)
         X_LOG_ERROR("Failed to find executable path");
         return l_sConfig;
     }
-    
+
     l_acExecutablePath[len] = '\0';
-    
+
     // Obtenir le répertoire du binaire (enlever le nom du fichier)
     char l_acExecutableDir[256];
     strncpy(l_acExecutableDir, l_acExecutablePath, sizeof(l_acExecutableDir) - 1);
     l_acExecutableDir[sizeof(l_acExecutableDir) - 1] = '\0';
-    
+
     // dirname() retourne le répertoire parent
-    char *exeDir = dirname(l_acExecutableDir);  // /home/pato/app_core/bin
-    
+    char *exeDir = dirname(l_acExecutableDir); // /home/pato/app_core/bin
+
     X_LOG_TRACE("Executable directory: %s", exeDir);
-    
-    // Créer les chemins absolus depuis le répertoire (pas depuis le binaire)
-    char l_acAbsolutePath[256];
-    char l_acResolvedPath[256];
-    
-    // Certificate path
-    snprintf(l_acAbsolutePath, sizeof(l_acAbsolutePath), "%s/../pki/server/fullchain.pem", exeDir);
-    if (realpath(l_acAbsolutePath, l_acResolvedPath)) {
+
+    // Détection de la target basée sur le nom de l'exécutable
+    char l_acActorDir[256] = "local"; // Par défaut, utiliser le dossier local
+
+    if (strstr(l_acExecutablePath, "raspi") != NULL)
+    {
+        X_LOG_INFO("Target detected: Raspberry Pi");
+        // Pour Raspberry Pi, on utilisera pato-explo ou pato-inter selon le binaire
+        if (strstr(l_acExecutablePath, "explo") != NULL)
+        {
+            strcpy(l_acActorDir, "pato-explo");
+        }
+        else if (strstr(l_acExecutablePath, "inter") != NULL)
+        {
+            strcpy(l_acActorDir, "pato-inter");
+        }
+    }
+    else if (strstr(l_acExecutablePath, "intox") != NULL)
+    {
+        X_LOG_INFO("Target detected: PC Development (localhost)");
+        strcpy(l_acActorDir, "local");
+    }
+    else
+    {
+        X_LOG_INFO("Target detected: Unknown (using local certificates)");
+        strcpy(l_acActorDir, "local");
+    }
+
+    // Construction des chemins PKI
+    char l_acAbsolutePath[512];
+    char l_acResolvedPath[512];
+
+    // Certificate path (server-chain.pem contient cert + intermediate + root)
+    snprintf(l_acAbsolutePath, sizeof(l_acAbsolutePath), "%s/../pki/%s/server-chain.pem", exeDir, l_acActorDir);
+    if (realpath(l_acAbsolutePath, l_acResolvedPath))
+    {
         strcpy(l_sConfig.t_acCertFile, l_acResolvedPath);
-        X_LOG_TRACE("Certificate path resolved: %s", l_acResolvedPath);
-    } else {
+        X_LOG_INFO("Certificate file: %s", l_acResolvedPath);
+    }
+    else
+    {
         strcpy(l_sConfig.t_acCertFile, l_acAbsolutePath);
-        X_LOG_TRACE("Certificate path (unresolved): %s", l_acAbsolutePath);
+        X_LOG_WARN("Certificate file not found: %s", l_acAbsolutePath);
     }
-    
+
     // Key path
-    snprintf(l_acAbsolutePath, sizeof(l_acAbsolutePath), "%s/../pki/server/server.key", exeDir);
-    if (realpath(l_acAbsolutePath, l_acResolvedPath)) {
+    snprintf(l_acAbsolutePath, sizeof(l_acAbsolutePath), "%s/../pki/%s/server.key", exeDir, l_acActorDir);
+    if (realpath(l_acAbsolutePath, l_acResolvedPath))
+    {
         strcpy(l_sConfig.t_acKeyFile, l_acResolvedPath);
-        X_LOG_TRACE("Key path resolved: %s", l_acResolvedPath);
-    } else {
+        X_LOG_INFO("Private key file: %s", l_acResolvedPath);
+    }
+    else
+    {
         strcpy(l_sConfig.t_acKeyFile, l_acAbsolutePath);
+        X_LOG_WARN("Private key file not found: %s", l_acAbsolutePath);
     }
-    
-    // CA directory path
-    snprintf(l_acAbsolutePath, sizeof(l_acAbsolutePath), "%s/../pki/root", exeDir);
-    if (realpath(l_acAbsolutePath, l_acResolvedPath)) {
+
+    // CA directory path (pour la vérification des certificats clients)
+    snprintf(l_acAbsolutePath, sizeof(l_acAbsolutePath), "%s/../pki/root-ca", exeDir);
+    if (realpath(l_acAbsolutePath, l_acResolvedPath))
+    {
         strcpy(l_sConfig.t_acCaDir, l_acResolvedPath);
-        X_LOG_TRACE("CA directory path resolved: %s", l_acResolvedPath);
-    } else {
-        strcpy(l_sConfig.t_acCaDir, l_acAbsolutePath);
+        X_LOG_INFO("CA directory: %s", l_acResolvedPath);
     }
-    
+    else
+    {
+        strcpy(l_sConfig.t_acCaDir, l_acAbsolutePath);
+        X_LOG_WARN("CA directory not found: %s", l_acAbsolutePath);
+    }
+
+    // Vérification de l'existence des fichiers et activation TLS
+    if (access(l_sConfig.t_acCertFile, R_OK) == 0 && access(l_sConfig.t_acKeyFile, R_OK) == 0
+        && access(l_sConfig.t_acCaDir, R_OK) == 0)
+    {
+        l_sConfig.t_bUseTls = true;
+        X_LOG_INFO("TLS configuration loaded successfully");
+        X_LOG_INFO("  Certificate: %s", l_sConfig.t_acCertFile);
+        X_LOG_INFO("  Private Key: %s", l_sConfig.t_acKeyFile);
+        X_LOG_INFO("  CA Directory: %s", l_sConfig.t_acCaDir);
+    }
+    else
+    {
+        l_sConfig.t_bUseTls = false;
+        X_LOG_WARN("TLS disabled due to missing certificate files");
+    }
+
     return l_sConfig;
-    
 }
 
 ///////////////////////////////////////////

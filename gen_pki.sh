@@ -44,8 +44,8 @@ echo -e "${YELLOW}[INFO]${NC} PKI sera générée dans: ${GREEN}$PKI_DIR${NC}"
 # Acteurs du système avec leurs hostnames (sans le hostname local)
 declare -A ACTORS=(
     ["command"]="command"
-    ["pato-explo"]="pato_explo"
-    ["pato-inter"]="pato_inter"
+    ["pato-explo"]="pato-explo"
+    ["pato-inter"]="pato-inter"
 )
 
 # Définir qui a besoin de certificats serveur
@@ -507,8 +507,8 @@ echo -e "\n${GREEN}✓ Root CA créé${NC} (P-384, 20 ans)"
 echo -e "${GREEN}✓ Intermediate CA créé${NC} (P-384, 10 ans)"
 echo -e "${GREEN}✓ 3 acteurs configurés:${NC}"
 echo -e "  • command (tablette) → ${YELLOW}command.local${NC} ${BLUE}[CLIENT ONLY]${NC}"
-echo -e "  • pato-explo → ${YELLOW}pato_explo.local${NC} ${GREEN}[SERVER + CLIENT]${NC}"
-echo -e "  • pato-inter → ${YELLOW}pato_inter.local${NC} ${BLUE}[CLIENT ONLY]${NC}"
+echo -e "  • pato-explo → ${YELLOW}pato-explo.local${NC} ${GREEN}[SERVER + CLIENT]${NC}"
+echo -e "  • pato-inter → ${YELLOW}pato-inter.local${NC} ${BLUE}[CLIENT ONLY]${NC}"
 echo -e "${GREEN}✓ Certificats localhost pour tests locaux créés${NC} (hostname: ${YELLOW}$LOCAL_HOSTNAME${NC})"
 
 if [ "$VERIFICATION_SUCCESS" = true ]; then
@@ -543,7 +543,7 @@ echo -e "  1. ${BLUE}Tests locaux:${NC}"
 echo -e "     openssl s_server -cert $PKI_DIR/local/server-chain.pem -key $PKI_DIR/local/server.key -accept 4433"
 echo -e "     openssl s_client -connect localhost:4433 -CAfile $PKI_DIR/local/ca-chain.pem"
 echo -e "  2. Vérifier: ${BLUE}openssl verify -CAfile pki/intermediate-ca/ca-chain.pem pki/local/server.pem${NC}"
-echo -e "  3. Tester mDNS: ${BLUE}ping pato_explo.local${NC}"
+echo -e "  3. Tester mDNS: ${BLUE}ping pato-explo.local${NC}"
 echo -e "  4. Transférer les certificats vers les autres machines"
 
 echo ""

@@ -843,6 +843,11 @@ int loadRootCAIntoCtx(WOLFSSL_CTX *p_ptSSLContext, const char *p_ptcCADirectoryP
     // If file failed and it's a directory, try loading from directory
     if (strstr(p_ptcCADirectoryPath, ".pem") == NULL && strstr(p_ptcCADirectoryPath, ".der") == NULL)
     {
+        // trace the output error from wolfssl for debug 
+        unsigned long l_ulError = wolfSSL_ERR_get_error();
+        char l_acError[256];
+        wolfSSL_ERR_error_string_n(l_ulError, l_acError, sizeof(l_acError));
+        X_LOG_ERROR("WolfSSL error: %s", l_acError);
         X_LOG_TRACE("File load failed, trying directory: %s", p_ptcCADirectoryPath);
         l_iWolfResult = wolfSSL_CTX_load_verify_locations(p_ptSSLContext, NULL, p_ptcCADirectoryPath);
         if (l_iWolfResult == WOLFSSL_SUCCESS)

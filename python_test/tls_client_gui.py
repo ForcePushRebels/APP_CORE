@@ -56,6 +56,61 @@ from PyQt6.QtWidgets import (
 )
 
 # ---------------------------------------------------------------------------
+# Pre-defined server targets with their certificates and settings
+# ---------------------------------------------------------------------------
+
+SERVER_TARGETS = [
+    {
+        "name": "🔧 Local Development",
+        "host": "127.0.0.1",
+        "port": 8080,
+        "description": "Serveur local de développement",
+        "environment": "local",
+        "sni": "localhost"
+    },
+    {
+        "name": "📱 Command Tablet",
+        "host": "command.robot.local",
+        "port": 8443,
+        "description": "Serveur tablette de commande",
+        "environment": "command",
+        "sni": "command.robot.local"
+    },
+    {
+        "name": "🤖 Robot Pato-Explo",
+        "host": "pato-explo.robot.local",
+        "port": 8443,
+        "description": "Robot d'exploration PATO",
+        "environment": "pato-explo",
+        "sni": "pato-explo.robot.local"
+    },
+    {
+        "name": "🔧 Robot Pato-Inter",
+        "host": "pato-inter.robot.local",
+        "port": 8443,
+        "description": "Robot d'intervention PATO",
+        "environment": "pato-inter",
+        "sni": "pato-inter.robot.local"
+    },
+    {
+        "name": "🌐 Production Server",
+        "host": "prod.robot.local",
+        "port": 8443,
+        "description": "Serveur de production",
+        "environment": "production",
+        "sni": "prod.robot.local"
+    },
+    {
+        "name": "🔧 Custom Target",
+        "host": "",
+        "port": 8443,
+        "description": "Configuration personnalisée",
+        "environment": "manual",
+        "sni": ""
+    }
+]
+
+# ---------------------------------------------------------------------------
 # Pre-defined message templates (based on network_encode.h)
 # ---------------------------------------------------------------------------
 
@@ -403,28 +458,31 @@ def detect_pki_environment():
     """Detect PKI environment and return appropriate certificate paths."""
     import os
     import platform
-    
+
+    # Get project root directory
+    project_root = Path("/home/christophe/pato/APP_CORE")
+
     # Try to detect build directory
     possible_build_dirs = [
         "build/x86_64-debug",
-        "build/x86_64-release", 
+        "build/x86_64-release",
         "build/raspi-debug",
         "build/raspi-release",
         "build/production"
     ]
-    
+
     for build_dir in possible_build_dirs:
-        pki_path = Path(build_dir) / "pki"
+        pki_path = project_root / build_dir / "pki"
         if pki_path.exists():
             print(f"🔍 PKI détectée: {pki_path}")
-            
+
             # Check if local certificates exist (for development)
             local_cert = pki_path / "local" / "client-chain.pem"
             local_key = pki_path / "local" / "client.key"
             local_ca = pki_path / "intermediate-ca" / "ca-chain.pem"
-            
+
             if local_cert.exists() and local_key.exists() and local_ca.exists():
-                print(f" Certificats locaux trouvés: {pki_path}/local/")
+                print(f"✅ Certificats locaux trouvés: {pki_path}/local/")
                 return {
                     "pki_dir": pki_path,
                     "ca_cert": local_ca,
@@ -432,13 +490,13 @@ def detect_pki_environment():
                     "client_key": local_key,
                     "environment": "local"
                 }
-            
+
             # Check for production certificates (command, pato-explo, pato-inter)
             for actor in ["command", "pato-explo", "pato-inter"]:
                 actor_cert = pki_path / actor / "client-chain.pem"
                 actor_key = pki_path / actor / "client.key"
                 actor_ca = pki_path / "intermediate-ca" / "ca-chain.pem"
-                
+
                 if actor_cert.exists() and actor_key.exists() and actor_ca.exists():
                     print(f"✅ Certificats production trouvés: {pki_path}/{actor}/")
                     return {
@@ -449,14 +507,14 @@ def detect_pki_environment():
                         "environment": "production",
                         "actor": actor
                     }
-    
+
     # Fallback to default paths
     print("⚠️ Aucune PKI détectée, utilisation des chemins par défaut")
-    default_pki = Path("build/x86_64-debug/pki")
+    default_pki = project_root / "build" / "x86_64-debug" / "pki"
     return {
         "pki_dir": default_pki,
         "ca_cert": default_pki / "intermediate-ca" / "ca-chain.pem",
-        "client_cert": default_pki / "local" / "client-chain.pem", 
+        "client_cert": default_pki / "local" / "client-chain.pem",
         "client_key": default_pki / "local" / "client.key",
         "environment": "fallback"
     }
@@ -484,6 +542,7 @@ class ClientWorker(QThread):
         cert_path: Path = CLIENT_CERT,
         key_path: Path = CLIENT_KEY,
         cipher_suite: str = "ECDHE+CHACHA20",
+        server_hostname: Optional[str] = None,
         parent: Optional[QWidget] = None,
     ) -> None:
         super().__init__(parent)
@@ -493,6 +552,7 @@ class ClientWorker(QThread):
         self.cert_path = cert_path
         self.key_path = key_path
         self.cipher_suite = cipher_suite
+        self.server_hostname = server_hostname or host  # Default to host if not specified
 
         self._send_queue: "queue.Queue[bytes]" = queue.Queue()
         self._stop_event = threading.Event()
@@ -626,9 +686,8 @@ class ClientWorker(QThread):
         # Résoudre 127.0.0.1 si nécessaire
         actual_host = "127.0.0.1" if self.host in ("localhost", "127.0.0.1") else self.host
         raw_sock = socket.create_connection((actual_host, self.port))
-        # Utiliser un SNI cohérent avec la PKI locale
-        server_hostname = "localhost" if self.host in ("localhost", "127.0.0.1") else self.host
-        tls_sock = ctx.wrap_socket(raw_sock, server_hostname=server_hostname)
+        # Utiliser le SNI personnalisé ou par défaut
+        tls_sock = ctx.wrap_socket(raw_sock, server_hostname=self.server_hostname)
         
         # Log détaillé de la connexion avec couleurs
         tls_version = tls_sock.version()
@@ -719,20 +778,25 @@ class ClientWorker(QThread):
 
 class ConnectionTab(QWidget):
     """A single tab managing one TLS connection."""
-    """def __init__(self, host: str = "server.demo.local", port: int = 8080):"""
-    def __init__(self, host: str = "127.0.0.1", port: int = 8080):
+    def __init__(self, target_name: str = "Local Development"):
         super().__init__()
         self.worker: Optional[ClientWorker] = None
         self.client_id = id(self)  # ID unique pour ce client
         self.is_connected = False
+        self.current_target = None
 
         # --- UI elements ---------------------------------------------------
-        self.host_edit = QLineEdit(host)
+        # Server target selector
+        self.target_combo = QComboBox()
+        for target in SERVER_TARGETS:
+            self.target_combo.addItem(target["name"], target)
+
+        # Host and port (for custom target)
+        self.host_edit = QLineEdit()
         self.port_spin = QSpinBox()
         self.port_spin.setRange(1, 65535)
-        self.port_spin.setValue(port)
 
-        # Environment selector
+        # Environment selector (auto-synced with target)
         self.env_combo = QComboBox()
         self.env_combo.addItem("🏠 Local (Développement)", "local")
         self.env_combo.addItem("📱 Command (Tablette)", "command")
@@ -745,9 +809,13 @@ class ConnectionTab(QWidget):
         self.cert_path_edit = QLineEdit(str(CLIENT_CERT))
         self.key_path_edit = QLineEdit(str(CLIENT_KEY))
         
-        # Certificate info label
-        self.cert_info_label = QLabel(f"📋 Environnement: {PKI_CONFIG['environment']}")
-        self.cert_info_label.setStyleSheet("color: #4fc3f7; font-weight: bold; padding: 4px;")
+        # Target info label
+        self.target_info_label = QLabel("Sélectionnez une cible serveur")
+        self.target_info_label.setStyleSheet("color: #4fc3f7; font-weight: bold; padding: 4px;")
+
+        # SNI field for custom targets
+        self.sni_edit = QLineEdit()
+        self.sni_edit.setPlaceholderText("Server Name Indication (SNI)")
 
         self.btn_connect = QPushButton("🔗 Connecter")
         
@@ -796,26 +864,35 @@ class ConnectionTab(QWidget):
             """)
             return label
 
-        # Layout with Apple-style spacing
-        top_bar = QHBoxLayout()
-        top_bar.setSpacing(12)
-        top_bar.addWidget(create_label("🌐 Hôte:"))
-        top_bar.addWidget(self.host_edit)
-        top_bar.addWidget(create_label("🔌 Port:"))
-        top_bar.addWidget(self.port_spin)
-        top_bar.addWidget(create_label("🔐 Chiffrement:"))
-        top_bar.addWidget(self.cipher_combo)
-        top_bar.addWidget(self.btn_connect)
-        top_bar.addWidget(self.btn_disconnect)
-        top_bar.addStretch()
-        
-        # Environment and certificate selection
-        env_bar = QHBoxLayout()
-        env_bar.setSpacing(12)
-        env_bar.addWidget(create_label("🏗️ Environnement:"))
-        env_bar.addWidget(self.env_combo)
-        env_bar.addWidget(self.cert_info_label)
-        env_bar.addStretch()
+        # Target selection bar
+        target_bar = QHBoxLayout()
+        target_bar.setSpacing(12)
+        target_bar.addWidget(create_label("🎯 Cible:"))
+        target_bar.addWidget(self.target_combo)
+        target_bar.addWidget(self.target_info_label)
+        target_bar.addStretch()
+
+        # Connection details bar (host/port for custom targets)
+        conn_bar = QHBoxLayout()
+        conn_bar.setSpacing(12)
+        conn_bar.addWidget(create_label("🌐 Hôte:"))
+        conn_bar.addWidget(self.host_edit)
+        conn_bar.addWidget(create_label("🔌 Port:"))
+        conn_bar.addWidget(self.port_spin)
+        conn_bar.addWidget(create_label("🔐 Chiffrement:"))
+        conn_bar.addWidget(self.cipher_combo)
+        conn_bar.addWidget(self.btn_connect)
+        conn_bar.addWidget(self.btn_disconnect)
+        conn_bar.addStretch()
+
+        # SNI and Environment bar
+        sni_env_bar = QHBoxLayout()
+        sni_env_bar.setSpacing(12)
+        sni_env_bar.addWidget(create_label("🔒 SNI:"))
+        sni_env_bar.addWidget(self.sni_edit)
+        sni_env_bar.addWidget(create_label("🏗️ Environnement:"))
+        sni_env_bar.addWidget(self.env_combo)
+        sni_env_bar.addStretch()
         
         # Manual certificate paths (initially hidden)
         cert_bar = QHBoxLayout()
@@ -842,8 +919,9 @@ class ConnectionTab(QWidget):
         root = QVBoxLayout(self)
         root.setSpacing(16)
         root.setContentsMargins(16, 16, 16, 16)
-        root.addLayout(top_bar)
-        root.addLayout(env_bar)
+        root.addLayout(target_bar)
+        root.addLayout(conn_bar)
+        root.addLayout(sni_env_bar)
         root.addLayout(cert_bar)
         root.addLayout(send_bar)
         root.addWidget(self.log_view)
@@ -856,6 +934,7 @@ class ConnectionTab(QWidget):
         self.template_combo.currentIndexChanged.connect(self._on_template_changed)
         self.cipher_combo.currentIndexChanged.connect(self._on_cipher_changed)
         self.env_combo.currentIndexChanged.connect(self._on_environment_changed)
+        self.target_combo.currentIndexChanged.connect(self._on_target_changed)
         
         # Appliquer les thèmes ComboBox simplifiés
         self.apply_combo_theme()
@@ -864,9 +943,9 @@ class ConnectionTab(QWidget):
         # Configuration ComboBox simplifiée
         self._setup_simple_combo_behavior()
         
-        # Initialize environment
-        self._initialize_environment()
-        
+        # Initialize target selection
+        self._initialize_target_selection()
+
         # Apply theme to all elements
         self.apply_theme()
     
@@ -877,31 +956,79 @@ class ConnectionTab(QWidget):
         self.cipher_combo.setMaxVisibleItems(5)
         self.env_combo.setMaxVisibleItems(5)
     
-    def _initialize_environment(self):
-        """Initialize environment and certificate paths."""
-        # Hide manual certificate paths initially
-        self.ca_path_edit.setVisible(False)
-        self.cert_path_edit.setVisible(False)
-        self.key_path_edit.setVisible(False)
-        
-        # Set default environment based on detected PKI
-        if PKI_CONFIG['environment'] == 'local':
-            self.env_combo.setCurrentIndex(0)  # Local
-        elif PKI_CONFIG['environment'] == 'production':
+    def _initialize_target_selection(self):
+        """Initialize target selection and related UI elements."""
+        # Hide manual fields initially
+        self._update_custom_target_visibility()
+
+        # Set default target based on detected PKI environment
+        default_target_idx = 0  # Local Development
+        if PKI_CONFIG['environment'] == 'production':
             actor = PKI_CONFIG.get('actor', 'local')
             if actor == 'command':
-                self.env_combo.setCurrentIndex(1)
+                default_target_idx = 1  # Command Tablet
             elif actor == 'pato-explo':
-                self.env_combo.setCurrentIndex(2)
+                default_target_idx = 2  # Robot Pato-Explo
             elif actor == 'pato-inter':
-                self.env_combo.setCurrentIndex(3)
-            else:
-                self.env_combo.setCurrentIndex(0)  # Default to local
+                default_target_idx = 3  # Robot Pato-Inter
+
+        self.target_combo.setCurrentIndex(default_target_idx)
+        self._on_target_changed(default_target_idx)
+
+    def _update_custom_target_visibility(self):
+        """Show/hide custom target fields based on selected target."""
+        target = self.target_combo.currentData()
+        if target and target["name"] == "🔧 Custom Target":
+            # Show custom fields for manual configuration
+            self.host_edit.setVisible(True)
+            self.port_spin.setVisible(True)
+            self.sni_edit.setVisible(True)
+            self.target_info_label.setText("Configuration personnalisée")
         else:
-            self.env_combo.setCurrentIndex(0)  # Default to local
-        
+            # Hide custom fields for predefined targets
+            self.host_edit.setVisible(False)
+            self.port_spin.setVisible(False)
+            self.sni_edit.setVisible(False)
+            if target:
+                self.target_info_label.setText(f"📋 {target['description']}")
+
+    def _on_target_changed(self, index: int):
+        """Handle target selection change."""
+        target = self.target_combo.itemData(index)
+        if not target:
+            return
+
+        self.current_target = target
+
+        # Update host/port for custom target
+        if target["name"] == "🔧 Custom Target":
+            self.host_edit.setText("")
+            self.port_spin.setValue(8443)
+            self.sni_edit.setText("")
+            self._update_custom_target_visibility()
+            self._append_log(f"🎯 Cible sélectionnée: {target['name']} - Configuration personnalisée requise")
+        else:
+            # For predefined targets, update all fields automatically
+            self.host_edit.setText(target["host"])
+            self.port_spin.setValue(target["port"])
+            self.sni_edit.setText(target["sni"])
+            self._update_custom_target_visibility()
+            self._append_log(f"🎯 Cible sélectionnée: {target['name']} ({target['host']}:{target['port']})")
+
+        # Auto-sync environment with target
+        env_mapping = {
+            "local": 0,
+            "command": 1,
+            "pato-explo": 2,
+            "pato-inter": 3,
+            "production": 4,
+            "manual": 4
+        }
+        env_index = env_mapping.get(target["environment"], 0)
+        self.env_combo.setCurrentIndex(env_index)
+
         # Update certificate paths
-        self._on_environment_changed(self.env_combo.currentIndex())
+        self._on_environment_changed(env_index)
 
     def apply_cipher_combo_theme(self):
         """Apply theme to cipher suite combo box"""
@@ -944,19 +1071,26 @@ class ConnectionTab(QWidget):
             QMessageBox.warning(self, "Déjà connecté", "La connexion est déjà active.")
             return
 
+        # Get target information
+        target = self.current_target
+        if not target:
+            QMessageBox.warning(self, "Erreur", "Veuillez sélectionner une cible serveur.")
+            return
+
         host = self.host_edit.text().strip()
         port = int(self.port_spin.value())
-        
+
         if not host:
             QMessageBox.warning(self, "Erreur", "Veuillez saisir une adresse d'hôte.")
             return
-            
+
         if port < 1 or port > 65535:
             QMessageBox.warning(self, "Erreur", "Le port doit être entre 1 et 65535.")
             return
-            
+
         cipher_suite = self.cipher_combo.currentData()
-        
+        sni = self.sni_edit.text().strip() or host  # Use host as SNI if not specified
+
         # Get certificate paths based on environment
         env = self.env_combo.currentData()
         if env == "manual":
@@ -969,9 +1103,9 @@ class ConnectionTab(QWidget):
             ca_path = Path(self.ca_path_edit.text())
             cert_path = Path(self.cert_path_edit.text())
             key_path = Path(self.key_path_edit.text())
-        
-        # Créer un worker unique pour ce client
-        self.worker = ClientWorker(host, port, 
+
+        # Créer un worker unique pour ce client avec SNI
+        self.worker = ClientWorker(host, port,
                                  ca_path=ca_path,
                                  cert_path=cert_path,
                                  key_path=key_path,
@@ -979,11 +1113,19 @@ class ConnectionTab(QWidget):
         self.worker.log.connect(self._append_log)
         self.worker.connected.connect(self._on_connected)
         self.worker.disconnected.connect(self._on_disconnected)
-        
-        # Log de démarrage avec info du client
-        self._append_log(f"[INFO] 🚀 Connexion vers {host}:{port} (cipher: {cipher_suite})")
+
+        # Override SNI in worker if custom target
+        if target["name"] == "🔧 Custom Target":
+            self.worker.server_hostname = sni
+        else:
+            self.worker.server_hostname = target["sni"]
+
+        # Log de démarrage avec info du client et de la cible
+        target_name = target["name"]
+        self._append_log(f"[INFO] 🚀 Connexion vers {target_name} ({host}:{port})")
+        self._append_log(f"[INFO] 🔒 SNI: {self.worker.server_hostname}, Cipher: {cipher_suite}")
         self._append_log("[INFO] Démarrage du thread de connexion…")
-        
+
         self.worker.start()
 
     def _on_disconnect(self):
@@ -1099,42 +1241,54 @@ class ConnectionTab(QWidget):
     def _update_certificate_paths(self, environment):
         """Update certificate paths based on selected environment."""
         try:
+            # Get project root directory
+            project_root = Path("/home/christophe/pato/APP_CORE")
+
             # Find PKI directory
             pki_dir = None
             for build_dir in ["build/x86_64-debug", "build/x86_64-release", "build/raspi-debug", "build/raspi-release"]:
-                test_pki = Path(build_dir) / "pki"
+                test_pki = project_root / build_dir / "pki"
                 if test_pki.exists():
                     pki_dir = test_pki
                     break
-            
+
             if not pki_dir:
                 self._append_log("⚠️ Aucune PKI trouvée")
                 return
-            
+
             # Set paths based on environment
             if environment == "local":
                 ca_path = pki_dir / "intermediate-ca" / "ca-chain.pem"
                 cert_path = pki_dir / "local" / "client-chain.pem"
                 key_path = pki_dir / "local" / "client.key"
-            else:
+            elif environment in ["command", "pato-explo", "pato-inter"]:
                 ca_path = pki_dir / "intermediate-ca" / "ca-chain.pem"
                 cert_path = pki_dir / environment / "client-chain.pem"
                 key_path = pki_dir / environment / "client.key"
-            
+            else:
+                # Manual mode - keep current paths
+                return
+
             # Update the edit fields
             self.ca_path_edit.setText(str(ca_path))
             self.cert_path_edit.setText(str(cert_path))
             self.key_path_edit.setText(str(key_path))
-            
+
             # Update info label
             self.cert_info_label.setText(f"📋 Environnement: {environment}")
-            
+
             # Check if files exist
             if ca_path.exists() and cert_path.exists() and key_path.exists():
                 self._append_log(f"✅ Certificats {environment} trouvés")
             else:
                 self._append_log(f"⚠️ Certificats {environment} manquants")
-                
+                # Debug: show what files are missing
+                missing = []
+                if not ca_path.exists(): missing.append("CA")
+                if not cert_path.exists(): missing.append("Cert")
+                if not key_path.exists(): missing.append("Key")
+                self._append_log(f"   Fichiers manquants: {', '.join(missing)}")
+
         except Exception as e:
             self._append_log(f"❌ Erreur mise à jour certificats: {e}")
     
@@ -1301,6 +1455,51 @@ class ConnectionTab(QWidget):
             }}
         """)
         
+        # Target combo box - highlighted for primary selection
+        self.target_combo.setStyleSheet(f"""
+            QComboBox {{
+                {base_input_style}
+                min-width: 220px;
+                color: {theme['accent']};
+                font-weight: 600;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 {theme['secondary_bg']},
+                    stop:1 {theme['tertiary_bg']});
+            }}
+            QComboBox:focus {{
+                {focus_style}
+                color: {theme['accent']};
+            }}
+            QComboBox:hover {{
+                border-color: {theme['border_focus']};
+            }}
+            QComboBox QAbstractItemView {{
+                background: {theme['secondary_bg']};
+                color: {theme['text']};
+                selection-background-color: {theme['accent']};
+                border: 1px solid {theme['border']};
+                border-radius: 4px;
+            }}
+        """)
+
+        # SNI input - security focused
+        self.sni_edit.setStyleSheet(f"""
+            QLineEdit {{
+                {base_input_style}
+                color: {theme['accent_secondary']};
+                font-family: 'Fira Code', 'SF Mono', monospace;
+                min-width: 200px;
+                font-weight: 500;
+            }}
+            QLineEdit:focus {{
+                {focus_style}
+                color: {theme['accent_secondary']};
+            }}
+            QLineEdit:hover {{
+                border-color: {theme['border_focus']};
+            }}
+        """)
+
         # Environment combo box
         self.env_combo.setStyleSheet(f"""
             QComboBox {{
@@ -1508,14 +1707,14 @@ class MainWindow(QMainWindow):
         # Apply theme after all widgets are created
         self.apply_liquid_glass_theme()
 
-        # Initial tab
-        self._add_new_tab()
+        # Initial tab with default target
+        self._add_new_tab("Local Development")
         self._update_status()
 
-    def _add_new_tab(self):
+    def _add_new_tab(self, target_name: str = "Local Development"):
         tab_number = self.tabs.count() + 1
-        tab = ConnectionTab()
-        
+        tab = ConnectionTab(target_name)
+
         # Connecter les signaux pour la mise à jour du statut
         def on_tab_connected():
             self._update_status()
@@ -1523,29 +1722,29 @@ class MainWindow(QMainWindow):
             tab_idx = self.tabs.indexOf(tab)
             if tab_idx != -1:
                 self.tabs.setTabText(tab_idx, f"✅ Client {tab_number}")
-        
+
         def on_tab_disconnected():
             self._update_status()
             # Mettre à jour le titre de l'onglet
             tab_idx = self.tabs.indexOf(tab)
             if tab_idx != -1:
                 self.tabs.setTabText(tab_idx, f"🔌 Client {tab_number}")
-        
+
         # Connecter aux signaux du worker à travers les slots du tab
         tab._on_connected_original = tab._on_connected
         tab._on_disconnected_original = tab._on_disconnected
-        
+
         def new_on_connected():
             tab._on_connected_original()
             on_tab_connected()
-            
+
         def new_on_disconnected():
             tab._on_disconnected_original()
             on_tab_disconnected()
-        
+
         tab._on_connected = new_on_connected
         tab._on_disconnected = new_on_disconnected
-        
+
         idx = self.tabs.addTab(tab, f"🔌 Client {tab_number}")
         self.tabs.setCurrentIndex(idx)
         self._update_status()

@@ -66,7 +66,8 @@ def load_certificates_for_actor(pki_dir, actor_name):
 def find_intermediate_cas(pki_dir):
     """Trouve toutes les intermédiaires CA disponibles."""
     intermediates = []
-    possible_inters = ["intermediate-robots", "intermediate-command", "intermediate-development", "intermediate-system"]
+    #possible_inters = ["intermediate-robots", "intermediate-command", "intermediate-development", "intermediate-system"]
+    possible_inters = []
 
     for inter_name in possible_inters:
         inter_file = pki_dir / inter_name / f"{inter_name}.pem"
@@ -100,8 +101,8 @@ def test_tls_connection(host, port, client_certs, intermediate_cas):
         print("✅ CA racine chargée, vérification activée (hostname désactivé pour debug)")
 
         # Charger les intermédiaires CA pour compatibilité
-        print("
-🔗 Chargement intermédiaires CA:"        loaded_inters = 0
+        print("🔗 Chargement intermédiaires CA:")
+        loaded_inters = 0
         for inter_ca in intermediate_cas:
             try:
                 ctx.load_verify_locations(str(inter_ca))
@@ -114,8 +115,8 @@ def test_tls_connection(host, port, client_certs, intermediate_cas):
             print("   ⚠️ Aucune intermédiaire CA chargée")
 
         # 3. Configuration du certificat client
-        print("
-🔑 Configuration certificat client:"        print(f"   Chaîne: {client_certs['chain']}")
+        print("🔑 Configuration certificat client:")
+        print(f"   Chaîne: {client_certs['chain']}")
         print(f"   Clé: {client_certs['key']}")
         ctx.load_cert_chain(
             certfile=str(client_certs['chain']),
@@ -124,8 +125,7 @@ def test_tls_connection(host, port, client_certs, intermediate_cas):
         print("✅ Certificat client chargé")
 
         # 4. Configuration des options SSL
-        print("
-⚙️ Configuration SSL:"        # Activer les cipher suites modernes
+        print("⚙️ Configuration SSL:" )       # Activer les cipher suites modernes
         try:
             ctx.set_ciphers("ECDHE+AESGCM:ECDHE+CHACHA20")
             print("✅ Cipher suites configurées: ECDHE+AESGCM, ECDHE+CHACHA20")
@@ -139,13 +139,13 @@ def test_tls_connection(host, port, client_certs, intermediate_cas):
 
         # 6. Wrap SSL
         print("🔒 Établissement connexion TLS...")
-        print("   (Ceci peut échouer si les certificats ne sont pas compatibles)"
+        print("   (Ceci peut échouer si les certificats ne sont pas compatibles)")
         tls_sock = ctx.wrap_socket(sock, server_hostname=host)
         print("✅ Handshake TLS réussi!")
 
         # 7. Informations sur la connexion
-        print("
-📊 Informations connexion TLS:"        print(f"   Version: {tls_sock.version()}")
+        print("📊 Informations connexion TLS:")
+        print(f"   Version: {tls_sock.version()}")
         print(f"   Cipher: {tls_sock.cipher()[0]}")
 
         # Vérifier le certificat du serveur
@@ -161,8 +161,7 @@ def test_tls_connection(host, port, client_certs, intermediate_cas):
             print("   ⚠️ Aucun certificat serveur reçu")
 
         # 8. Test d'envoi/réception
-        print("
-📨 Test communication:"        # Envoyer un ping simple (message ID 0x30 = Is Any Robot Here?)
+        print("📨 Test communication:")        # Envoyer un ping simple (message ID 0x30 = Is Any Robot Here?)
         test_message = b'\x00\x01\x30'  # size=1, msg_type=0x30, no payload
         tls_sock.send(test_message)
         print(f"   → Envoyé: {test_message.hex()}")
@@ -179,8 +178,8 @@ def test_tls_connection(host, port, client_certs, intermediate_cas):
             print(f"   ⚠️ Erreur réception: {e}")
 
         # 9. Fermeture propre
-        print("
-🔌 Fermeture connexion..."        tls_sock.close()
+        print("🔌 Fermeture connexion...")
+        tls_sock.close()
         print("✅ Connexion fermée proprement")
 
         return True
@@ -233,7 +232,7 @@ def main():
     # Configuration
     CLIENT_ACTOR = "local"      # PC de développement
     SERVER_ACTOR = "pato-explo" # Serveur sur Raspberry Pi
-    DEFAULT_HOST = "127.0.0.1"  # Changer selon l'IP de la Raspberry Pi
+    DEFAULT_HOST = "10.42.0.1"  # Changer selon l'IP de la Raspberry Pi
     DEFAULT_PORT = 8080
 
     # Arguments en ligne de commande
@@ -267,8 +266,8 @@ def main():
         sys.exit(1)
 
     # 3. Trouver les intermédiaires CA
-    print("
-🔗 Intermédiaires CA disponibles:"    intermediate_cas = find_intermediate_cas(pki_dir)
+    intermediate_cas = find_intermediate_cas(pki_dir)
+    print(f"🔗 Intermédiaires CA disponibles: {intermediate_cas}") 
 
     # 4. Test de connexion
     success = test_tls_connection(host, port, client_certs, intermediate_cas)
@@ -283,8 +282,6 @@ def main():
         print("  2. Vérifiez l'adresse IP et le port")
         print("  3. Régénérez la PKI si nécessaire: ./gen_pki.sh")
         print("  4. Assurez-vous que les intermédiaires CA sont compatibles")
-
-    sys.exit(0 if success else 1)
 
 if __name__ == "__main__":
     main()

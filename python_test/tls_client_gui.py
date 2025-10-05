@@ -71,7 +71,7 @@ SERVER_TARGETS = [
     {
         "name": "📱 Command Tablet",
         "host": "command.robot.local",
-        "port": 8443,
+        "port": 8080,
         "description": "Serveur tablette de commande",
         "environment": "command",
         "sni": "command.robot.local"
@@ -79,7 +79,7 @@ SERVER_TARGETS = [
     {
         "name": "🤖 Robot Pato-Explo",
         "host": "pato-explo.robot.local",
-        "port": 8443,
+        "port": 8080,
         "description": "Robot d'exploration PATO",
         "environment": "pato-explo",
         "sni": "pato-explo.robot.local"
@@ -87,7 +87,7 @@ SERVER_TARGETS = [
     {
         "name": "🔧 Robot Pato-Inter",
         "host": "pato-inter.robot.local",
-        "port": 8443,
+        "port": 8080,
         "description": "Robot d'intervention PATO",
         "environment": "pato-inter",
         "sni": "pato-inter.robot.local"
@@ -95,7 +95,7 @@ SERVER_TARGETS = [
     {
         "name": "🌐 Production Server",
         "host": "prod.robot.local",
-        "port": 8443,
+        "port": 8080,
         "description": "Serveur de production",
         "environment": "production",
         "sni": "prod.robot.local"
@@ -103,7 +103,7 @@ SERVER_TARGETS = [
     {
         "name": "🔧 Custom Target",
         "host": "",
-        "port": 8443,
+        "port": 8080,
         "description": "Configuration personnalisée",
         "environment": "manual",
         "sni": ""
@@ -454,8 +454,8 @@ class FrameBuilderDialog(QDialog):
 # ---------------------------------------------------------------------------
 
 # Auto-detect PKI directory and certificates based on environment
-def detect_pki_environment():
-    """Detect PKI environment and return appropriate certificate paths."""
+def detect_pki_environment_for_target(target_environment):
+    """Detect PKI environment and return appropriate certificate paths for a specific target."""
     import os
     import platform
 
@@ -471,53 +471,54 @@ def detect_pki_environment():
         "build/production"
     ]
 
+    # Map target environments to certificate directories
+    env_to_actor = {
+        "local": "local",
+        "command": "command",
+        "pato-explo": "pato-explo",
+        "pato-inter": "pato-inter",
+        "production": "command"  # Default to command for production
+    }
+
+    target_actor = env_to_actor.get(target_environment, "local")
+
     for build_dir in possible_build_dirs:
         pki_path = project_root / build_dir / "pki"
         if pki_path.exists():
             print(f"🔍 PKI détectée: {pki_path}")
 
-            # Check if local certificates exist (for development)
-            local_cert = pki_path / "local" / "client-chain.pem"
-            local_key = pki_path / "local" / "client.key"
-            local_ca = pki_path / "intermediate-ca" / "ca-chain.pem"
+            # Check if target actor certificates exist
+            actor_cert = pki_path / target_actor / "client-chain.pem"
+            actor_key = pki_path / target_actor / "client.key"
+            root_ca = pki_path / "root-ca" / "root-ca.pem"
 
-            if local_cert.exists() and local_key.exists() and local_ca.exists():
-                print(f"✅ Certificats locaux trouvés: {pki_path}/local/")
+            if actor_cert.exists() and actor_key.exists() and root_ca.exists():
+                print(f"✅ Certificats {target_actor} trouvés: {pki_path}/{target_actor}/")
                 return {
                     "pki_dir": pki_path,
-                    "ca_cert": local_ca,
-                    "client_cert": local_cert,
-                    "client_key": local_key,
-                    "environment": "local"
+                    "ca_cert": root_ca,
+                    "client_cert": actor_cert,
+                    "client_key": actor_key,
+                    "environment": target_environment,
+                    "actor": target_actor
                 }
 
-            # Check for production certificates (command, pato-explo, pato-inter)
-            for actor in ["command", "pato-explo", "pato-inter"]:
-                actor_cert = pki_path / actor / "client-chain.pem"
-                actor_key = pki_path / actor / "client.key"
-                actor_ca = pki_path / "intermediate-ca" / "ca-chain.pem"
-
-                if actor_cert.exists() and actor_key.exists() and actor_ca.exists():
-                    print(f"✅ Certificats production trouvés: {pki_path}/{actor}/")
-                    return {
-                        "pki_dir": pki_path,
-                        "ca_cert": actor_ca,
-                        "client_cert": actor_cert,
-                        "client_key": actor_key,
-                        "environment": "production",
-                        "actor": actor
-                    }
-
     # Fallback to default paths
-    print("⚠️ Aucune PKI détectée, utilisation des chemins par défaut")
+    print(f"⚠️ Aucune PKI détectée pour {target_environment}, utilisation des chemins par défaut")
     default_pki = project_root / "build" / "x86_64-debug" / "pki"
+    default_actor = env_to_actor.get(target_environment, "local")
     return {
         "pki_dir": default_pki,
-        "ca_cert": default_pki / "intermediate-ca" / "ca-chain.pem",
-        "client_cert": default_pki / "local" / "client-chain.pem",
-        "client_key": default_pki / "local" / "client.key",
-        "environment": "fallback"
+        "ca_cert": default_pki / "root-ca" / "root-ca.pem",
+        "client_cert": default_pki / default_actor / "client-chain.pem",
+        "client_key": default_pki / default_actor / "client.key",
+        "environment": "fallback",
+        "actor": default_actor
     }
+
+def detect_pki_environment():
+    """Legacy function - kept for backward compatibility."""
+    return detect_pki_environment_for_target("local")
 
 # Detect PKI environment
 PKI_CONFIG = detect_pki_environment()
@@ -671,39 +672,97 @@ class ClientWorker(QThread):
     # ----------------------------- internals -----------------------------
 
     def _establish_connection(self) -> ssl.SSLSocket:
-        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-        ctx.load_verify_locations(str(self.ca_path))
-        ctx.load_cert_chain(certfile=str(self.cert_path), keyfile=str(self.key_path))
-        ctx.minimum_version = ssl.TLSVersion.TLSv1_3
-        
-        # Configurer la suite de chiffrement selon le choix utilisateur
-        if self.cipher_suite != "DEFAULT":
-            ctx.set_ciphers(self.cipher_suite)
-            self.log.emit(f"🔐 Suite de chiffrement configurée: {self.cipher_suite}")
-        else:
-            self.log.emit("🔧 Suite de chiffrement: Négociation automatique")
+        try:
+            self.log.emit("🔧 Initialisation du contexte SSL/TLS...")
+            ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+            ctx.minimum_version = ssl.TLSVersion.TLSv1_3
 
-        # Résoudre 127.0.0.1 si nécessaire
-        actual_host = "127.0.0.1" if self.host in ("localhost", "127.0.0.1") else self.host
-        raw_sock = socket.create_connection((actual_host, self.port))
-        # Utiliser le SNI personnalisé ou par défaut
-        tls_sock = ctx.wrap_socket(raw_sock, server_hostname=self.server_hostname)
-        
-        # Log détaillé de la connexion avec couleurs
-        tls_version = tls_sock.version()
-        cipher_info = tls_sock.cipher()
-        cipher_name = cipher_info[0] if cipher_info else "Inconnu"
-        
-        self.log.emit(f"✅ Connexion TLS établie!")
-        self.log.emit(f"🔒 Version TLS négociée: {tls_version}")
-        self.log.emit(f"🔐 Suite chiffrée: {cipher_name}")
-        
-        if "CHACHA20" in cipher_name:
-            self.log.emit(f"🚀 CHACHA20-POLY1305 sélectionné - Performance optimale!")
-        elif "AES" in cipher_name:
-            self.log.emit(f"🛡️ AES sélectionné - Sécurité éprouvée")
-            
-        return tls_sock
+            # Configuration de la vérification des certificats
+            self.log.emit("🔍 Configuration de la vérification des certificats...")
+            try:
+                ctx.load_verify_locations(str(self.ca_path))
+                self.log.emit(f"✅ CA chargé: {self.ca_path}")
+            except Exception as e:
+                self.log.emit(f"❌ Erreur chargement CA {self.ca_path}: {e}")
+                raise
+
+            # Configuration du certificat client
+            self.log.emit("🔑 Configuration du certificat client...")
+            try:
+                ctx.load_cert_chain(certfile=str(self.cert_path), keyfile=str(self.key_path))
+                self.log.emit(f"✅ Certificat client chargé: {self.cert_path}")
+                self.log.emit(f"✅ Clé privée chargée: {self.key_path}")
+            except Exception as e:
+                self.log.emit(f"❌ Erreur chargement certificat client {self.cert_path}: {e}")
+                self.log.emit(f"   Vérifiez que le fichier existe et que la clé correspond")
+                raise
+
+            # Configurer la suite de chiffrement selon le choix utilisateur
+            if self.cipher_suite != "DEFAULT":
+                try:
+                    ctx.set_ciphers(self.cipher_suite)
+                    self.log.emit(f"🔐 Suite de chiffrement configurée: {self.cipher_suite}")
+                except Exception as e:
+                    self.log.emit(f"⚠️ Erreur configuration cipher suite {self.cipher_suite}: {e}")
+                    self.log.emit("🔧 Basculement vers négociation automatique")
+                    ctx.set_ciphers(None)
+            else:
+                self.log.emit("🔧 Suite de chiffrement: Négociation automatique")
+
+            # Résoudre l'adresse et établir la connexion TCP
+            self.log.emit("🌐 Résolution de l'adresse et connexion TCP...")
+            actual_host = "127.0.0.1" if self.host in ("localhost", "127.0.0.1") else self.host
+            try:
+                raw_sock = socket.create_connection((actual_host, self.port))
+                self.log.emit(f"✅ Connexion TCP établie vers {actual_host}:{self.port}")
+            except Exception as e:
+                self.log.emit(f"❌ Erreur connexion TCP vers {actual_host}:{self.port}: {e}")
+                raise
+
+            # Établir la connexion TLS
+            self.log.emit(f"🔒 Établissement de la connexion TLS avec SNI: {self.server_hostname}...")
+            try:
+                tls_sock = ctx.wrap_socket(raw_sock, server_hostname=self.server_hostname)
+                self.log.emit("✅ Handshake TLS réussi!")
+            except ssl.SSLCertVerificationError as e:
+                self.log.emit(f"❌ Erreur vérification certificat serveur: {e}")
+                self.log.emit("   Vérifiez que le certificat serveur est valide et signé par la CA")
+                raise
+            except ssl.SSLError as e:
+                self.log.emit(f"❌ Erreur SSL/TLS: {e}")
+                self.log.emit("   Vérifiez la configuration des certificats et la compatibilité TLS")
+                raise
+
+            # Log détaillé de la connexion avec couleurs
+            tls_version = tls_sock.version()
+            cipher_info = tls_sock.cipher()
+            cipher_name = cipher_info[0] if cipher_info else "Inconnu"
+
+            self.log.emit(f"🔒 Version TLS négociée: {tls_version}")
+            self.log.emit(f"🔐 Suite chiffrée: {cipher_name}")
+
+            if "CHACHA20" in cipher_name:
+                self.log.emit("🚀 CHACHA20-POLY1305 sélectionné - Performance optimale!")
+            elif "AES" in cipher_name:
+                self.log.emit("🛡️ AES sélectionné - Sécurité éprouvée")
+
+            # Vérifier le certificat peer si disponible
+            try:
+                peer_cert = tls_sock.getpeercert()
+                if peer_cert:
+                    subject = peer_cert.get('subject', [])
+                    subject_str = ', '.join([f"{name[0][1]}" for name in subject if name])
+                    self.log.emit(f"📜 Certificat serveur vérifié - Sujet: {subject_str}")
+                else:
+                    self.log.emit("⚠️ Aucun certificat peer reçu")
+            except Exception as e:
+                self.log.emit(f"⚠️ Impossible de vérifier le certificat peer: {e}")
+
+            return tls_sock
+
+        except Exception as e:
+            self.log.emit(f"❌ Échec établissement connexion TLS: {e}")
+            raise
 
     def run(self) -> None:
         try:
@@ -1003,7 +1062,7 @@ class ConnectionTab(QWidget):
         # Update host/port for custom target
         if target["name"] == "🔧 Custom Target":
             self.host_edit.setText("")
-            self.port_spin.setValue(8443)
+            self.port_spin.setValue(8080)
             self.sni_edit.setText("")
             self._update_custom_target_visibility()
             self._append_log(f"🎯 Cible sélectionnée: {target['name']} - Configuration personnalisée requise")
@@ -1241,33 +1300,13 @@ class ConnectionTab(QWidget):
     def _update_certificate_paths(self, environment):
         """Update certificate paths based on selected environment."""
         try:
-            # Get project root directory
-            project_root = Path("/home/christophe/pato/APP_CORE")
+            # Use the new auto-detection function
+            cert_config = detect_pki_environment_for_target(environment)
 
-            # Find PKI directory
-            pki_dir = None
-            for build_dir in ["build/x86_64-debug", "build/x86_64-release", "build/raspi-debug", "build/raspi-release"]:
-                test_pki = project_root / build_dir / "pki"
-                if test_pki.exists():
-                    pki_dir = test_pki
-                    break
-
-            if not pki_dir:
-                self._append_log("⚠️ Aucune PKI trouvée")
-                return
-
-            # Set paths based on environment
-            if environment == "local":
-                ca_path = pki_dir / "intermediate-ca" / "ca-chain.pem"
-                cert_path = pki_dir / "local" / "client-chain.pem"
-                key_path = pki_dir / "local" / "client.key"
-            elif environment in ["command", "pato-explo", "pato-inter"]:
-                ca_path = pki_dir / "intermediate-ca" / "ca-chain.pem"
-                cert_path = pki_dir / environment / "client-chain.pem"
-                key_path = pki_dir / environment / "client.key"
-            else:
-                # Manual mode - keep current paths
-                return
+            ca_path = cert_config["ca_cert"]
+            cert_path = cert_config["client_cert"]
+            key_path = cert_config["client_key"]
+            actor = cert_config["actor"]
 
             # Update the edit fields
             self.ca_path_edit.setText(str(ca_path))
@@ -1275,22 +1314,35 @@ class ConnectionTab(QWidget):
             self.key_path_edit.setText(str(key_path))
 
             # Update info label
-            self.cert_info_label.setText(f"📋 Environnement: {environment}")
+            if hasattr(self, 'cert_info_label'):
+                self.cert_info_label.setText(f"📋 Environnement: {environment} ({actor})")
 
-            # Check if files exist
+            # Check if files exist and provide verbose feedback
             if ca_path.exists() and cert_path.exists() and key_path.exists():
-                self._append_log(f"✅ Certificats {environment} trouvés")
+                self._append_log(f"✅ Certificats {environment} ({actor}) trouvés")
+                self._append_log(f"   CA: {ca_path}")
+                self._append_log(f"   Cert: {cert_path}")
+                self._append_log(f"   Key: {key_path}")
             else:
-                self._append_log(f"⚠️ Certificats {environment} manquants")
+                self._append_log(f"⚠️ Certificats {environment} ({actor}) manquants ou incomplets")
                 # Debug: show what files are missing
                 missing = []
-                if not ca_path.exists(): missing.append("CA")
-                if not cert_path.exists(): missing.append("Cert")
-                if not key_path.exists(): missing.append("Key")
-                self._append_log(f"   Fichiers manquants: {', '.join(missing)}")
+                if not ca_path.exists():
+                    missing.append(f"CA ({ca_path})")
+                if not cert_path.exists():
+                    missing.append(f"Cert ({cert_path})")
+                if not key_path.exists():
+                    missing.append(f"Key ({key_path})")
+
+                if missing:
+                    self._append_log(f"   Fichiers manquants: {', '.join(missing)}")
+                else:
+                    self._append_log("   ⚠️ Chemins configurés mais fichiers potentiellement corrompus")
 
         except Exception as e:
             self._append_log(f"❌ Erreur mise à jour certificats: {e}")
+            import traceback
+            self._append_log(f"   Détails: {traceback.format_exc()}")
     
     def eventFilter(self, obj, event):
         """Simplified event filter - let Qt handle ComboBox behavior naturally"""

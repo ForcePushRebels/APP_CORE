@@ -637,7 +637,7 @@ message(STATUS "")
 add_custom_command(
     TARGET explo                                             # cible concernée
     POST_BUILD                                               # après un build réussi[5]
-    COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/gen_pki.sh" "$<TARGET_FILE:explo>"
+    COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/gen_pki.sh" "$<TARGET_FILE:explo>" || true 
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
     COMMENT "Génération des certificats PKI pour explo"
     VERBATIM)
@@ -645,7 +645,7 @@ add_custom_command(
 add_custom_command(
     TARGET inter
     POST_BUILD
-    COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/gen_pki.sh" "$<TARGET_FILE:inter>"
+    COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/gen_pki.sh" "$<TARGET_FILE:inter>" || true
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
     COMMENT "Génération des certificats PKI pour inter"
     VERBATIM)

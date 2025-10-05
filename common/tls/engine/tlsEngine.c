@@ -155,7 +155,7 @@ int tlsEngineCreate(xTlsEngine_t **p_pptEngine,
 
 #if defined(__arm__) && defined(__ARM_ARCH_6__)
     // Raspberry Pi Zero - prioritize CHACHA20 for better performance on ARMv6
-    wolfSSL_CTX_set_cipher_list(l_ptCtx, "TLS13-CHACHA20-POLY1305-SHA256:ECDHE-RSA-CHACHA20-POLY1305");
+    wolfSSL_CTX_set_cipher_list(l_ptCtx, "TLS13-CHACHA20-POLY1305-SHA256");
 #else
     // Standard platforms - prioritize AES256 with ECDHE
     wolfSSL_CTX_set_cipher_list(l_ptCtx, "TLS13-AES256-GCM-SHA384:TLS13-CHACHA20-POLY1305-SHA256");
@@ -182,6 +182,23 @@ int tlsEngineCreate(xTlsEngine_t **p_pptEngine,
     {
         wolfSSL_CTX_free(l_ptCtx);
         return l_iRes;
+    }
+
+    if (p_eMode == TLS_MODE_SERVER)
+    {
+        // Serveur: exiger et valider le certificat client
+        wolfSSL_CTX_set_verify(l_ptCtx, 
+                            WOLFSSL_VERIFY_PEER | WOLFSSL_VERIFY_FAIL_IF_NO_PEER_CERT,
+                            NULL);
+        X_LOG_TRACE("Server mode: mTLS verification enabled (VERIFY_PEER + FAIL_IF_NO_PEER_CERT)");
+    }
+    else
+    {
+        // Client: valider le certificat serveur
+        wolfSSL_CTX_set_verify(l_ptCtx, 
+                            WOLFSSL_VERIFY_PEER,
+                            NULL);
+        X_LOG_TRACE("Client mode: Server verification enabled (VERIFY_PEER)");
     }
 
     // Allocate engine structure

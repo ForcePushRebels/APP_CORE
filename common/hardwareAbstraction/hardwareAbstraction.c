@@ -272,7 +272,7 @@ int GetFloorSensorValue()
 {
     X_ASSERT(t_bHardwareAbstractionInitialized == true);
 
-    int l_iValue = lumpiz_luminosity_get();
+    int l_iValue = 0;// lumpiz_luminosity_get();
     if (l_iValue == -1)
     {
         //X_LOG_TRACE("Failed to read floor sensor");

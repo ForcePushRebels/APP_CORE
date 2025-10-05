@@ -61,52 +61,58 @@ from PyQt6.QtWidgets import (
 
 SERVER_TARGETS = [
     {
-        "name": "🔧 Local Development",
+        "name": "🏠 Local Development Server",
         "host": "127.0.0.1",
         "port": 8080,
         "description": "Serveur local de développement",
-        "environment": "local",
-        "sni": "localhost"
+        "actor": "local",
+        "sni": "localhost",
+        "cert_info": "Certificats de développement local"
     },
     {
-        "name": "📱 Command Tablet",
+        "name": "📱 Command Tablet Server",
         "host": "command.robot.local",
         "port": 8080,
         "description": "Serveur tablette de commande",
-        "environment": "command",
-        "sni": "command.robot.local"
+        "actor": "command",
+        "sni": "command.robot.local",
+        "cert_info": "Certificats tablette de commande"
     },
     {
-        "name": "🤖 Robot Pato-Explo",
+        "name": "🤖 PATO Exploration Robot",
         "host": "pato-explo.robot.local",
         "port": 8080,
         "description": "Robot d'exploration PATO",
-        "environment": "pato-explo",
-        "sni": "pato-explo.robot.local"
+        "actor": "pato-explo",
+        "sni": "pato-explo.robot.local",
+        "cert_info": "Certificats robot exploration"
     },
     {
-        "name": "🔧 Robot Pato-Inter",
+        "name": "🔧 PATO Intervention Robot",
         "host": "pato-inter.robot.local",
         "port": 8080,
         "description": "Robot d'intervention PATO",
-        "environment": "pato-inter",
-        "sni": "pato-inter.robot.local"
+        "actor": "pato-inter",
+        "sni": "pato-inter.robot.local",
+        "cert_info": "Certificats robot intervention"
     },
     {
         "name": "🌐 Production Server",
         "host": "prod.robot.local",
         "port": 8080,
         "description": "Serveur de production",
-        "environment": "production",
-        "sni": "prod.robot.local"
+        "actor": "command",  # Utilise les mêmes certificats que command
+        "sni": "prod.robot.local",
+        "cert_info": "Certificats de production"
     },
     {
-        "name": "🔧 Custom Target",
+        "name": "⚙️ Custom Configuration",
         "host": "",
         "port": 8080,
-        "description": "Configuration personnalisée",
-        "environment": "manual",
-        "sni": ""
+        "description": "Configuration personnalisée manuelle",
+        "actor": "manual",
+        "sni": "",
+        "cert_info": "Configuration manuelle des certificats"
     }
 ]
 
@@ -453,11 +459,10 @@ class FrameBuilderDialog(QDialog):
 # Networking worker thread
 # ---------------------------------------------------------------------------
 
-# Auto-detect PKI directory and certificates based on environment
-def detect_pki_environment_for_target(target_environment):
-    """Detect PKI environment and return appropriate certificate paths for a specific target."""
+# Auto-detect PKI directory and certificates based on actor
+def detect_pki_for_actor(target_actor):
+    """Detect PKI and return appropriate certificate paths for a specific actor."""
     import os
-    import platform
 
     # Get project root directory
     project_root = Path("/home/christophe/pato/APP_CORE")
@@ -471,16 +476,18 @@ def detect_pki_environment_for_target(target_environment):
         "build/production"
     ]
 
-    # Map target environments to certificate directories
-    env_to_actor = {
-        "local": "local",
-        "command": "command",
-        "pato-explo": "pato-explo",
-        "pato-inter": "pato-inter",
-        "production": "command"  # Default to command for production
-    }
-
-    target_actor = env_to_actor.get(target_environment, "local")
+    # Handle special cases
+    if target_actor == "manual":
+        # For manual configuration, return empty paths that will be filled by user
+        default_pki = project_root / "build" / "x86_64-debug" / "pki"
+        return {
+            "pki_dir": default_pki,
+            "ca_cert": default_pki / "root-ca" / "root-ca.pem",
+            "client_cert": Path(""),
+            "client_key": Path(""),
+            "actor": "manual",
+            "status": "manual_config"
+        }
 
     for build_dir in possible_build_dirs:
         pki_path = project_root / build_dir / "pki"
@@ -499,26 +506,27 @@ def detect_pki_environment_for_target(target_environment):
                     "ca_cert": root_ca,
                     "client_cert": actor_cert,
                     "client_key": actor_key,
-                    "environment": target_environment,
-                    "actor": target_actor
+                    "actor": target_actor,
+                    "status": "found"
                 }
+            else:
+                print(f"⚠️ Certificats {target_actor} manquants dans {pki_path}")
 
-    # Fallback to default paths
-    print(f"⚠️ Aucune PKI détectée pour {target_environment}, utilisation des chemins par défaut")
+    # Fallback to default paths even if files don't exist
+    print(f"⚠️ Aucune PKI complète trouvée pour {target_actor}, utilisation des chemins par défaut")
     default_pki = project_root / "build" / "x86_64-debug" / "pki"
-    default_actor = env_to_actor.get(target_environment, "local")
     return {
         "pki_dir": default_pki,
         "ca_cert": default_pki / "root-ca" / "root-ca.pem",
-        "client_cert": default_pki / default_actor / "client-chain.pem",
-        "client_key": default_pki / default_actor / "client.key",
-        "environment": "fallback",
-        "actor": default_actor
+        "client_cert": default_pki / target_actor / "client-chain.pem",
+        "client_key": default_pki / target_actor / "client.key",
+        "actor": target_actor,
+        "status": "fallback"
     }
 
 def detect_pki_environment():
     """Legacy function - kept for backward compatibility."""
-    return detect_pki_environment_for_target("local")
+    return detect_pki_for_actor("local")
 
 # Detect PKI environment
 PKI_CONFIG = detect_pki_environment()
@@ -855,13 +863,9 @@ class ConnectionTab(QWidget):
         self.port_spin = QSpinBox()
         self.port_spin.setRange(1, 65535)
 
-        # Environment selector (auto-synced with target)
-        self.env_combo = QComboBox()
-        self.env_combo.addItem("🏠 Local (Développement)", "local")
-        self.env_combo.addItem("📱 Command (Tablette)", "command")
-        self.env_combo.addItem("🤖 Pato-Explo (Robot)", "pato-explo")
-        self.env_combo.addItem("🔧 Pato-Inter (Robot)", "pato-inter")
-        self.env_combo.addItem("🔧 Manuel (Personnalisé)", "manual")
+        # Actor info label (shows which certificates are being used)
+        self.actor_info_label = QLabel("Sélectionnez une cible serveur")
+        self.actor_info_label.setStyleSheet("color: #4fc3f7; font-weight: bold; padding: 4px;")
         
         # Certificate paths (for manual mode)
         self.ca_path_edit = QLineEdit(str(CA_CERT))
@@ -944,14 +948,13 @@ class ConnectionTab(QWidget):
         conn_bar.addWidget(self.btn_disconnect)
         conn_bar.addStretch()
 
-        # SNI and Environment bar
-        sni_env_bar = QHBoxLayout()
-        sni_env_bar.setSpacing(12)
-        sni_env_bar.addWidget(create_label("🔒 SNI:"))
-        sni_env_bar.addWidget(self.sni_edit)
-        sni_env_bar.addWidget(create_label("🏗️ Environnement:"))
-        sni_env_bar.addWidget(self.env_combo)
-        sni_env_bar.addStretch()
+        # SNI and Actor info bar
+        sni_actor_bar = QHBoxLayout()
+        sni_actor_bar.setSpacing(12)
+        sni_actor_bar.addWidget(create_label("🔒 SNI:"))
+        sni_actor_bar.addWidget(self.sni_edit)
+        sni_actor_bar.addWidget(self.actor_info_label)
+        sni_actor_bar.addStretch()
         
         # Manual certificate paths (initially hidden)
         cert_bar = QHBoxLayout()
@@ -980,7 +983,7 @@ class ConnectionTab(QWidget):
         root.setContentsMargins(16, 16, 16, 16)
         root.addLayout(target_bar)
         root.addLayout(conn_bar)
-        root.addLayout(sni_env_bar)
+        root.addLayout(sni_actor_bar)
         root.addLayout(cert_bar)
         root.addLayout(send_bar)
         root.addWidget(self.log_view)
@@ -992,7 +995,6 @@ class ConnectionTab(QWidget):
         # Utiliser seulement les signaux standard Qt - pas de customisation
         self.template_combo.currentIndexChanged.connect(self._on_template_changed)
         self.cipher_combo.currentIndexChanged.connect(self._on_cipher_changed)
-        self.env_combo.currentIndexChanged.connect(self._on_environment_changed)
         self.target_combo.currentIndexChanged.connect(self._on_target_changed)
         
         # Appliquer les thèmes ComboBox simplifiés
@@ -1013,43 +1015,33 @@ class ConnectionTab(QWidget):
         # Configuration de base seulement
         self.template_combo.setMaxVisibleItems(8)
         self.cipher_combo.setMaxVisibleItems(5)
-        self.env_combo.setMaxVisibleItems(5)
     
     def _initialize_target_selection(self):
         """Initialize target selection and related UI elements."""
         # Hide manual fields initially
         self._update_custom_target_visibility()
 
-        # Set default target based on detected PKI environment
+        # Set default target to Local Development
         default_target_idx = 0  # Local Development
-        if PKI_CONFIG['environment'] == 'production':
-            actor = PKI_CONFIG.get('actor', 'local')
-            if actor == 'command':
-                default_target_idx = 1  # Command Tablet
-            elif actor == 'pato-explo':
-                default_target_idx = 2  # Robot Pato-Explo
-            elif actor == 'pato-inter':
-                default_target_idx = 3  # Robot Pato-Inter
-
         self.target_combo.setCurrentIndex(default_target_idx)
         self._on_target_changed(default_target_idx)
 
     def _update_custom_target_visibility(self):
         """Show/hide custom target fields based on selected target."""
         target = self.target_combo.currentData()
-        if target and target["name"] == "🔧 Custom Target":
+        if target and target["name"] == "⚙️ Custom Configuration":
             # Show custom fields for manual configuration
             self.host_edit.setVisible(True)
             self.port_spin.setVisible(True)
             self.sni_edit.setVisible(True)
-            self.target_info_label.setText("Configuration personnalisée")
+            self.actor_info_label.setText("Configuration manuelle")
         else:
             # Hide custom fields for predefined targets
             self.host_edit.setVisible(False)
             self.port_spin.setVisible(False)
             self.sni_edit.setVisible(False)
             if target:
-                self.target_info_label.setText(f"📋 {target['description']}")
+                self.actor_info_label.setText(f"📋 {target['cert_info']}")
 
     def _on_target_changed(self, index: int):
         """Handle target selection change."""
@@ -1060,10 +1052,11 @@ class ConnectionTab(QWidget):
         self.current_target = target
 
         # Update host/port for custom target
-        if target["name"] == "🔧 Custom Target":
+        if target["name"] == "⚙️ Custom Configuration":
             self.host_edit.setText("")
             self.port_spin.setValue(8080)
             self.sni_edit.setText("")
+            self.actor_info_label.setText("Configuration manuelle")
             self._update_custom_target_visibility()
             self._append_log(f"🎯 Cible sélectionnée: {target['name']} - Configuration personnalisée requise")
         else:
@@ -1071,23 +1064,13 @@ class ConnectionTab(QWidget):
             self.host_edit.setText(target["host"])
             self.port_spin.setValue(target["port"])
             self.sni_edit.setText(target["sni"])
+            self.actor_info_label.setText(f"📋 {target['cert_info']}")
             self._update_custom_target_visibility()
             self._append_log(f"🎯 Cible sélectionnée: {target['name']} ({target['host']}:{target['port']})")
 
-        # Auto-sync environment with target
-        env_mapping = {
-            "local": 0,
-            "command": 1,
-            "pato-explo": 2,
-            "pato-inter": 3,
-            "production": 4,
-            "manual": 4
-        }
-        env_index = env_mapping.get(target["environment"], 0)
-        self.env_combo.setCurrentIndex(env_index)
-
-        # Update certificate paths
-        self._on_environment_changed(env_index)
+        # Update certificate paths based on actor
+        actor = target.get("actor", "local")
+        self._update_certificate_paths(actor)
 
     def apply_cipher_combo_theme(self):
         """Apply theme to cipher suite combo box"""
@@ -1150,9 +1133,9 @@ class ConnectionTab(QWidget):
         cipher_suite = self.cipher_combo.currentData()
         sni = self.sni_edit.text().strip() or host  # Use host as SNI if not specified
 
-        # Get certificate paths based on environment
-        env = self.env_combo.currentData()
-        if env == "manual":
+        # Get certificate paths based on target actor
+        actor = self.current_target.get("actor", "local") if self.current_target else "local"
+        if actor == "manual":
             # Use manual paths
             ca_path = Path(self.ca_path_edit.text())
             cert_path = Path(self.cert_path_edit.text())
@@ -1277,67 +1260,42 @@ class ConnectionTab(QWidget):
         if cipher_suite:
             self._append_log(f"🔐 Cipher sélectionné: {cipher_name}")
     
-    def _on_environment_changed(self, index: int):
-        """Handle environment selection change."""
-        env = self.env_combo.currentData()
-        env_name = self.env_combo.currentText()
-        
-        # Show/hide manual certificate paths
-        if env == "manual":
-            self.ca_path_edit.setVisible(True)
-            self.cert_path_edit.setVisible(True)
-            self.key_path_edit.setVisible(True)
-            self._append_log("🔧 Mode manuel activé - configurez les chemins de certificats")
-        else:
-            self.ca_path_edit.setVisible(False)
-            self.cert_path_edit.setVisible(False)
-            self.key_path_edit.setVisible(False)
-            
-            # Update certificate paths based on environment
-            self._update_certificate_paths(env)
-            self._append_log(f"🏗️ Environnement sélectionné: {env_name}")
-    
-    def _update_certificate_paths(self, environment):
-        """Update certificate paths based on selected environment."""
+    def _update_certificate_paths(self, actor):
+        """Update certificate paths based on selected actor."""
         try:
             # Use the new auto-detection function
-            cert_config = detect_pki_environment_for_target(environment)
+            cert_config = detect_pki_for_actor(actor)
 
             ca_path = cert_config["ca_cert"]
             cert_path = cert_config["client_cert"]
             key_path = cert_config["client_key"]
-            actor = cert_config["actor"]
+            status = cert_config.get("status", "unknown")
 
             # Update the edit fields
             self.ca_path_edit.setText(str(ca_path))
-            self.cert_path_edit.setText(str(cert_path))
-            self.key_path_edit.setText(str(key_path))
+            if actor != "manual":  # Only update cert paths for non-manual actors
+                self.cert_path_edit.setText(str(cert_path))
+                self.key_path_edit.setText(str(key_path))
 
-            # Update info label
-            if hasattr(self, 'cert_info_label'):
-                self.cert_info_label.setText(f"📋 Environnement: {environment} ({actor})")
+            # Show/hide manual certificate fields based on actor
+            is_manual = (actor == "manual")
+            self.ca_path_edit.setVisible(is_manual)
+            self.cert_path_edit.setVisible(is_manual)
+            self.key_path_edit.setVisible(is_manual)
 
-            # Check if files exist and provide verbose feedback
-            if ca_path.exists() and cert_path.exists() and key_path.exists():
-                self._append_log(f"✅ Certificats {environment} ({actor}) trouvés")
+            # Verbose feedback based on status
+            if status == "found":
+                self._append_log(f"✅ Certificats {actor} chargés automatiquement")
                 self._append_log(f"   CA: {ca_path}")
                 self._append_log(f"   Cert: {cert_path}")
                 self._append_log(f"   Key: {key_path}")
-            else:
-                self._append_log(f"⚠️ Certificats {environment} ({actor}) manquants ou incomplets")
-                # Debug: show what files are missing
-                missing = []
-                if not ca_path.exists():
-                    missing.append(f"CA ({ca_path})")
-                if not cert_path.exists():
-                    missing.append(f"Cert ({cert_path})")
-                if not key_path.exists():
-                    missing.append(f"Key ({key_path})")
-
-                if missing:
-                    self._append_log(f"   Fichiers manquants: {', '.join(missing)}")
-                else:
-                    self._append_log("   ⚠️ Chemins configurés mais fichiers potentiellement corrompus")
+            elif status == "fallback":
+                self._append_log(f"⚠️ Certificats {actor} en mode fallback")
+                self._append_log(f"   CA: {ca_path}")
+                self._append_log(f"   Chemins par défaut utilisés (vérifiez que les fichiers existent)")
+            elif status == "manual_config":
+                self._append_log(f"🔧 Mode configuration manuelle pour {actor}")
+                self._append_log("   Configurez les chemins de certificats ci-dessous")
 
         except Exception as e:
             self._append_log(f"❌ Erreur mise à jour certificats: {e}")
@@ -1552,29 +1510,6 @@ class ConnectionTab(QWidget):
             }}
         """)
 
-        # Environment combo box
-        self.env_combo.setStyleSheet(f"""
-            QComboBox {{
-                {base_input_style}
-                min-width: 200px;
-                color: {theme['accent']};
-                font-weight: 600;
-            }}
-            QComboBox:focus {{
-                {focus_style}
-                color: {theme['accent']};
-            }}
-            QComboBox:hover {{
-                border-color: {theme['border_focus']};
-            }}
-            QComboBox QAbstractItemView {{
-                background: {theme['secondary_bg']};
-                color: {theme['text']};
-                selection-background-color: {theme['accent']};
-                border: 1px solid {theme['border']};
-                border-radius: 4px;
-            }}
-        """)
         
         # Certificate path inputs (for manual mode)
         cert_input_style = f"""

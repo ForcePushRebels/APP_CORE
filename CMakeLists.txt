@@ -48,74 +48,31 @@ set(INTOX_ADDRESS "127.0.0.1")
 
 # Raspberry Pi Zero W configuration (for cross-compilation)
 if(TARGET_RASPI_ZERO_W)
-    # Cross-compilation toolchain setup
+    # Cross-compilation toolchain setup - Force x-tools usage only
     set(CMAKE_SYSTEM_NAME Linux)
     set(CMAKE_SYSTEM_PROCESSOR arm)
-    
-    # Toolchain paths - search for ARM v6 compiler in system
-    find_program(CROSS_GCC_FOUND armv6-rpi-linux-gnueabihf-gcc)
-    if(CROSS_GCC_FOUND)
-        get_filename_component(CROSS_TOOLS "${CROSS_GCC_FOUND}" DIRECTORY)
-        get_filename_component(CROSS_TOOLS "${CROSS_TOOLS}" DIRECTORY)
-        set(CROSS_GCC "${CROSS_GCC_FOUND}" CACHE FILEPATH "ARM v6 Cross GCC compiler")
-        set(CROSS_GPP "${CROSS_TOOLS}/bin/armv6-rpi-linux-gnueabihf-g++" CACHE FILEPATH "ARM v6 Cross G++ compiler")
-        set(CROSS_CLANG "${CROSS_TOOLS}/bin/clang" CACHE FILEPATH "ARM v6 Cross Clang compiler")
-        
-        # Try to find sysroot in the toolchain directory structure
-        if(EXISTS "${CROSS_TOOLS}/armv6-rpi-linux-gnueabihf/sysroot")
-            set(CROSS_SYSROOT "${CROSS_TOOLS}/armv6-rpi-linux-gnueabihf/sysroot" CACHE PATH "ARM v6 Cross-compilation sysroot")
-        else()
-            set(CROSS_SYSROOT "${CROSS_TOOLS}/armv6-rpi-linux-gnueabihf" CACHE PATH "ARM v6 Cross-compilation sysroot")
-        endif()
-        
-        message(STATUS "Found ARM v6 Raspberry Pi toolchain:")
-        message(STATUS "  Toolchain directory: ${CROSS_TOOLS}")
-        message(STATUS "  GCC compiler: ${CROSS_GCC}")
-        message(STATUS "  G++ compiler: ${CROSS_GPP}")
-        message(STATUS "  Sysroot: ${CROSS_SYSROOT}")
-    else()
-        # Fallback to /usr if system compiler not found
-        set(CROSS_TOOLS "/usr" CACHE PATH "Path to cross-compilation tools")
-        set(CROSS_GCC "${CROSS_TOOLS}/bin/arm-linux-gnueabihf-gcc" CACHE FILEPATH "Cross GCC compiler")
-        set(CROSS_GPP "${CROSS_TOOLS}/bin/arm-linux-gnueabihf-g++" CACHE FILEPATH "Cross G++ compiler")
-        set(CROSS_CLANG "${CROSS_TOOLS}/bin/clang" CACHE FILEPATH "Cross Clang compiler")
-        set(CROSS_SYSROOT "/usr/arm-linux-gnueabihf" CACHE PATH "Cross-compilation sysroot")
-        message(WARNING "ARM v6 toolchain not found in system, falling back to standard ARM toolchain")
+
+    # Force x-tools toolchain paths
+    set(CROSS_TOOLS "/opt/x-tools/armv6-rpi-linux-gnueabihf" CACHE PATH "x-tools cross-compilation directory")
+    set(CROSS_GCC "${CROSS_TOOLS}/bin/armv6-rpi-linux-gnueabihf-gcc" CACHE FILEPATH "ARM v6 Cross GCC compiler")
+    set(CROSS_GPP "${CROSS_TOOLS}/bin/armv6-rpi-linux-gnueabihf-g++" CACHE FILEPATH "ARM v6 Cross G++ compiler")
+    set(CROSS_SYSROOT "${CROSS_TOOLS}/armv6-rpi-linux-gnueabihf/sysroot" CACHE PATH "ARM v6 Cross-compilation sysroot")
+
+    # Verify x-tools installation
+    if(NOT EXISTS "${CROSS_GCC}")
+        message(FATAL_ERROR "x-tools ARM v6 compiler not found at ${CROSS_GCC}. Please install x-tools for armv6-rpi-linux-gnueabihf in /opt/x-tools.")
     endif()
-    
-    # For Raspberry Pi, use GCC from toolchain (not Clang)
-    find_program(GCC_FOUND ${CROSS_GCC})
-    if(GCC_FOUND)
-        set(CMAKE_C_COMPILER "${CROSS_GCC}")
-        # Set C++ compiler if G++ exists
-        find_program(GPP_FOUND ${CROSS_GPP})
-        if(GPP_FOUND)
-            set(CMAKE_CXX_COMPILER "${CROSS_GPP}")
-        endif()
-        set(COMPILER_DETECTED "GCC")
-        message(STATUS "Selected compiler: GCC for ARMv6 Raspberry Pi cross-compilation")
-        message(STATUS "  C Compiler: ${CROSS_GCC}")
-        if(GPP_FOUND)
-            message(STATUS "  C++ Compiler: ${CROSS_GPP}")
-        else()
-            message(STATUS "  C++ Compiler: Not found")
-        endif()
-    else()
-        # Fallback to Clang only if GCC is not available
-        find_program(CLANG_FOUND ${CROSS_CLANG})
-        if(CLANG_FOUND)
-            set(CMAKE_C_COMPILER "${CROSS_CLANG}")
-            set(CMAKE_CXX_COMPILER "${CROSS_CLANG}++")
-            set(CMAKE_C_COMPILER_TARGET "armv6-rpi-linux-gnueabihf")
-            set(CMAKE_CXX_COMPILER_TARGET "armv6-rpi-linux-gnueabihf")
-            set(COMPILER_DETECTED "CLANG")
-            message(STATUS "Selected compiler: Clang for ARMv6 Raspberry Pi cross-compilation (GCC not found)")
-            message(STATUS "  C Compiler: ${CROSS_CLANG}")
-            message(STATUS "  C++ Compiler: ${CROSS_CLANG}++")
-        else()
-            message(FATAL_ERROR "Neither GCC nor Clang cross-compiler found!")
-        endif()
-    endif()
+
+    # Set compilers directly (no find_program needed for x-tools)
+    set(CMAKE_C_COMPILER "${CROSS_GCC}")
+    set(CMAKE_CXX_COMPILER "${CROSS_GPP}")
+    set(COMPILER_DETECTED "GCC")
+
+    message(STATUS "Using x-tools ARM v6 Raspberry Pi toolchain:")
+    message(STATUS "  Toolchain directory: ${CROSS_TOOLS}")
+    message(STATUS "  C Compiler: ${CMAKE_C_COMPILER}")
+    message(STATUS "  C++ Compiler: ${CMAKE_CXX_COMPILER}")
+    message(STATUS "  Sysroot: ${CROSS_SYSROOT}")
     
     add_compile_definitions(RASPI_ZERO_W)
     set(CMAKE_SYSROOT "${CROSS_SYSROOT}")

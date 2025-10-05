@@ -464,8 +464,9 @@ def detect_pki_for_actor(target_actor):
     """Detect PKI and return appropriate certificate paths for a specific actor."""
     import os
 
-    # Get project root directory
-    project_root = Path("/home/christophe/pato/APP_CORE")
+    # Get project root directory (relative to script location)
+    script_dir = Path(__file__).parent
+    project_root = script_dir.parent  # Go up one level from python_test/ to APP_CORE/
 
     # Try to detect build directory
     possible_build_dirs = [
@@ -552,6 +553,7 @@ class ClientWorker(QThread):
         key_path: Path = CLIENT_KEY,
         cipher_suite: str = "ECDHE+CHACHA20",
         server_hostname: Optional[str] = None,
+        check_hostname: bool = True,
         parent: Optional[QWidget] = None,
     ) -> None:
         super().__init__(parent)
@@ -562,6 +564,7 @@ class ClientWorker(QThread):
         self.key_path = key_path
         self.cipher_suite = cipher_suite
         self.server_hostname = server_hostname or host  # Default to host if not specified
+        self.check_hostname = check_hostname
 
         self._send_queue: "queue.Queue[bytes]" = queue.Queue()
         self._stop_event = threading.Event()
@@ -685,6 +688,13 @@ class ClientWorker(QThread):
             ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
             ctx.minimum_version = ssl.TLSVersion.TLSv1_3
 
+            # Configuration de la vérification hostname
+            ctx.check_hostname = self.check_hostname
+            if self.check_hostname:
+                self.log.emit(f"🔍 Vérification hostname activée pour: {self.server_hostname}")
+            else:
+                self.log.emit("⚠️ Vérification hostname désactivée (mode développement)")
+
             # Configuration de la vérification des certificats
             self.log.emit("🔍 Configuration de la vérification des certificats...")
             try:
@@ -734,10 +744,34 @@ class ClientWorker(QThread):
                 self.log.emit("✅ Handshake TLS réussi!")
             except ssl.SSLCertVerificationError as e:
                 self.log.emit(f"❌ Erreur vérification certificat serveur: {e}")
-                self.log.emit("   Vérifiez que le certificat serveur est valide et signé par la CA")
+                self.log.emit("   Causes possibles:")
+                self.log.emit("   - Le certificat serveur n'est pas signé par la CA de confiance")
+                self.log.emit("   - Le hostname ne correspond pas aux SAN du certificat")
+                self.log.emit("   - Le certificat serveur a expiré")
+                if "hostname" in str(e).lower():
+                    self.log.emit("   💡 Conseil: Désactivez 'Vérifier le hostname' pour le développement")
+                raise
+            except ssl.SSLZeroReturnError:
+                self.log.emit("❌ Connexion fermée proprement par le serveur")
+                raise
+            except ssl.SSLWantReadError:
+                self.log.emit("❌ Erreur SSL: Données insuffisantes (WANT_READ)")
+                raise
+            except ssl.SSLWantWriteError:
+                self.log.emit("❌ Erreur SSL: Buffer plein (WANT_WRITE)")
+                raise
+            except ssl.SSLSyscallError as e:
+                self.log.emit(f"❌ Erreur système SSL: {e}")
+                self.log.emit("   Vérifiez la connectivité réseau")
                 raise
             except ssl.SSLError as e:
-                self.log.emit(f"❌ Erreur SSL/TLS: {e}")
+                error_code = getattr(e, 'errno', None)
+                if error_code == -308:  # ASN_NO_SIGNER_E
+                    self.log.emit(f"❌ Erreur wolfSSL -308 (ASN_NO_SIGNER_E): Pas d'autorité de certification")
+                    self.log.emit("   Le certificat serveur n'est pas signé par une CA de confiance")
+                    self.log.emit("   Vérifiez que le serveur utilise les bons certificats")
+                else:
+                    self.log.emit(f"❌ Erreur SSL/TLS (code: {error_code}): {e}")
                 self.log.emit("   Vérifiez la configuration des certificats et la compatibilité TLS")
                 raise
 
@@ -900,6 +934,11 @@ class ConnectionTab(QWidget):
         self.cipher_combo.addItem("🔧 Automatique (Défaut)", "DEFAULT")
         self.cipher_combo.setCurrentIndex(0)  # CHACHA20 par défaut
 
+        # Hostname verification checkbox
+        self.hostname_check = QCheckBox("🔍 Vérifier le hostname du certificat")
+        self.hostname_check.setChecked(True)  # Enabled by default
+        self.hostname_check.setToolTip("Désactivez pour le développement si les certificats n'ont pas le bon SAN")
+
         self.msg_edit = QLineEdit("30")  # message type hex sans 0x
         self.payload_edit = QLineEdit("")  # payload hex (optionnel)
         
@@ -944,6 +983,7 @@ class ConnectionTab(QWidget):
         conn_bar.addWidget(self.port_spin)
         conn_bar.addWidget(create_label("🔐 Chiffrement:"))
         conn_bar.addWidget(self.cipher_combo)
+        conn_bar.addWidget(self.hostname_check)
         conn_bar.addWidget(self.btn_connect)
         conn_bar.addWidget(self.btn_disconnect)
         conn_bar.addStretch()
@@ -1147,11 +1187,13 @@ class ConnectionTab(QWidget):
             key_path = Path(self.key_path_edit.text())
 
         # Créer un worker unique pour ce client avec SNI
+        check_hostname = self.hostname_check.isChecked()
         self.worker = ClientWorker(host, port,
                                  ca_path=ca_path,
                                  cert_path=cert_path,
                                  key_path=key_path,
-                                 cipher_suite=cipher_suite)
+                                 cipher_suite=cipher_suite,
+                                 check_hostname=check_hostname)
         self.worker.log.connect(self._append_log)
         self.worker.connected.connect(self._on_connected)
         self.worker.disconnected.connect(self._on_disconnected)
@@ -1532,6 +1574,31 @@ class ConnectionTab(QWidget):
         self.ca_path_edit.setStyleSheet(cert_input_style)
         self.cert_path_edit.setStyleSheet(cert_input_style)
         self.key_path_edit.setStyleSheet(cert_input_style)
+
+        # Hostname verification checkbox
+        self.hostname_check.setStyleSheet(f"""
+            QCheckBox {{
+                color: {theme['text']};
+                font-weight: 500;
+                font-size: 13px;
+                padding: 4px 8px;
+                spacing: 8px;
+            }}
+            QCheckBox::indicator {{
+                width: 16px;
+                height: 16px;
+                border: 2px solid {theme['border']};
+                border-radius: 4px;
+                background: {theme['secondary_bg']};
+            }}
+            QCheckBox::indicator:checked {{
+                background: {theme['accent']};
+                border-color: {theme['accent']};
+            }}
+            QCheckBox:hover {{
+                color: {theme['accent']};
+            }}
+        """)
     
     def apply_button_themes(self, theme):
         # Base button style

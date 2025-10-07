@@ -96,6 +96,34 @@
         "TARGET_RASPI_ZERO_W": "OFF",
         "USE_3D_SIMULATION": "OFF"
       }
+    },
+    {
+      "name": "audren-debug",
+      "displayName": "Audren Debug",
+      "description": "Debug build for Audren target (aarch64 with GCC and custom wolfSSL)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/audren-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "DEBUG": "ON",
+        "TARGET_AUDREN": "ON",
+        "TARGET_RASPI_ZERO_W": "OFF",
+        "USE_3D_SIMULATION": "OFF"
+      }
+    },
+    {
+      "name": "audren-release",
+      "displayName": "Audren Release",
+      "description": "Release build for Audren target (aarch64 with GCC and custom wolfSSL)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/audren-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "DEBUG": "OFF",
+        "TARGET_AUDREN": "ON",
+        "TARGET_RASPI_ZERO_W": "OFF",
+        "USE_3D_SIMULATION": "OFF"
+      }
     }
   ],
   "buildPresets": [
@@ -126,6 +154,14 @@
     {
       "name": "production",
       "configurePreset": "production"
+    },
+    {
+      "name": "audren-debug",
+      "configurePreset": "audren-debug"
+    },
+    {
+      "name": "audren-release",
+      "configurePreset": "audren-release"
     }
   ]
 }

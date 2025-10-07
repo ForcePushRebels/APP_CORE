@@ -8,7 +8,11 @@ set(CMAKE_GENERATOR "Ninja" CACHE INTERNAL "" FORCE)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Detect architecture
-if(TARGET_RASPI_ZERO_W)
+if(TARGET_AUDREN)
+    # For Audren target, force aarch64 architecture
+    set(TARGET_ARCH "aarch64")
+    set(CMAKE_SYSTEM_PROCESSOR "aarch64")
+elseif(TARGET_RASPI_ZERO_W)
     # For cross-compilation to Raspberry Pi, force ARM architecture
     set(TARGET_ARCH "armv6")
     set(CMAKE_SYSTEM_PROCESSOR "arm")
@@ -22,10 +26,11 @@ message(STATUS "Target architecture: ${TARGET_ARCH}")
 
 # Target options
 option(TARGET_RASPI_ZERO_W "Build for Raspberry Pi Zero W target (cross-compile)" OFF)
+option(TARGET_AUDREN "Build for Audren target (aarch64 with GCC and custom wolfSSL)" OFF)
 option(DEBUG "Enable debug build" OFF)
 option(USE_3D_SIMULATION "Use 3D simulation instead of 2D (changes Intox port from 12345 to 12348)" OFF)
 
-# Auto-detect and choose compiler: prefer Clang, fallback to GCC
+# Auto-detect and choose compiler: prefer Clang, fallback to GCC, force GCC for Audren
 set(COMPILER_DETECTED "UNKNOWN")
 
 # Output directories
@@ -46,8 +51,42 @@ endif()
 
 set(INTOX_ADDRESS "127.0.0.1")
 
-# Raspberry Pi Zero W configuration (for cross-compilation)
-if(TARGET_RASPI_ZERO_W)
+# Audren configuration (aarch64 with GCC and custom wolfSSL)
+if(TARGET_AUDREN)
+    # Force GCC compiler for Audren target
+    find_program(GCC_FOUND gcc)
+    if(GCC_FOUND)
+        set(CMAKE_C_COMPILER "gcc")
+        set(COMPILER_DETECTED "GCC")
+        message(STATUS "Selected compiler: GCC for Audren target")
+        message(STATUS "  C Compiler: ${GCC_FOUND}")
+        find_program(GPP_FOUND g++)
+        if(GPP_FOUND)
+            set(CMAKE_CXX_COMPILER "g++")
+            message(STATUS "  C++ Compiler: ${GPP_FOUND}")
+        endif()
+    else()
+        message(FATAL_ERROR "GCC compiler not found for Audren target!")
+    endif()
+
+    add_compile_definitions(AUDREN)
+    set(CMAKE_SYSROOT "/")
+    set(CMAKE_FIND_ROOT_PATH "/")
+
+    # Output executable name for Audren
+    if(DEBUG)
+        set(EXPLO_EXE_NAME "explo_audren_debug")
+        set(INTER_EXE_NAME "inter_audren_debug")
+    else()
+        set(EXPLO_EXE_NAME "explo_audren_release")
+        set(INTER_EXE_NAME "inter_audren_release")
+    endif()
+
+    # Use aarch64 libraries for Audren target
+    set(MRPIZ_LIB "libmrpiz.a")
+    set(LUMPIZ_LIB "liblumpiz.a")
+    set(EXTRA_LIBS "m") # math library
+elseif(TARGET_RASPI_ZERO_W)
     # Cross-compilation toolchain setup - Force x-tools usage only
     set(CMAKE_SYSTEM_NAME Linux)
     set(CMAKE_SYSTEM_PROCESSOR arm)
@@ -291,7 +330,71 @@ endif()
 add_compile_definitions(_USE_TLS)
 
 # Configure wolfSSL based on target
-if(TARGET_RASPI_ZERO_W)
+if(TARGET_AUDREN)
+    # For Audren, try custom wolfSSL library in libs/wolfssl/audren first, fallback to system
+    set(WOLFSSL_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs/wolfssl/audren")
+    set(WOLFSSL_AUDREN_TYPE "system")  # Default to system
+
+    # Check if custom wolfSSL exists
+    set(WOLFSSL_CUSTOM_FOUND FALSE)
+    set(_WOLFSSL_CANDIDATE_INCLUDE_DIRS
+        "${WOLFSSL_ROOT_DIR}/include"
+        "${WOLFSSL_ROOT_DIR}/build/include"
+        "${WOLFSSL_ROOT_DIR}/build-aarch64/include"
+    )
+    set(WOLFSSL_INCLUDE_DIR "")
+    foreach(_dir ${_WOLFSSL_CANDIDATE_INCLUDE_DIRS})
+        if(EXISTS "${_dir}/wolfssl/ssl.h")
+            set(WOLFSSL_INCLUDE_DIR "${_dir}")
+            set(WOLFSSL_CUSTOM_FOUND TRUE)
+            break()
+        endif()
+    endforeach()
+
+    if(WOLFSSL_CUSTOM_FOUND)
+        set(_WOLFSSL_CANDIDATE_LIB_DIRS
+            "${WOLFSSL_ROOT_DIR}/lib"
+            "${WOLFSSL_ROOT_DIR}/build/lib"
+            "${WOLFSSL_ROOT_DIR}/build-aarch64/lib"
+        )
+        set(WOLFSSL_LIBRARY "")
+        foreach(_libdir ${_WOLFSSL_CANDIDATE_LIB_DIRS})
+            if(EXISTS "${_libdir}/libwolfssl.a")
+                set(WOLFSSL_LIBRARY "${_libdir}/libwolfssl.a")
+                break()
+            elseif(EXISTS "${_libdir}/libwolfssl.so")
+                set(WOLFSSL_LIBRARY "${_libdir}/libwolfssl.so")
+                break()
+            endif()
+        endforeach()
+
+        if(WOLFSSL_LIBRARY)
+            include_directories(${WOLFSSL_INCLUDE_DIR})
+            set(WOLFSSL_LIBRARIES "${WOLFSSL_LIBRARY}")
+            set(WOLFSSL_AUDREN_TYPE "custom")
+            message(STATUS "TLS support enabled - Using custom wolfSSL for Audren")
+            message(STATUS "  wolfSSL include: ${WOLFSSL_INCLUDE_DIR}")
+            message(STATUS "  wolfSSL library: ${WOLFSSL_LIBRARY}")
+        else()
+            message(WARNING "Custom wolfSSL library not found in ${WOLFSSL_ROOT_DIR}, falling back to system wolfSSL")
+            set(WOLFSSL_CUSTOM_FOUND FALSE)
+        endif()
+    else()
+        message(WARNING "Custom wolfSSL not found in ${WOLFSSL_ROOT_DIR}, falling back to system wolfSSL")
+    endif()
+
+    # Fallback to system wolfSSL if custom not found
+    if(NOT WOLFSSL_CUSTOM_FOUND)
+        find_package(PkgConfig REQUIRED)
+        pkg_check_modules(WOLFSSL REQUIRED wolfssl)
+        include_directories(${WOLFSSL_INCLUDE_DIRS})
+        message(STATUS "TLS support enabled - Using system wolfSSL for Audren")
+        message(STATUS "  wolfSSL library: ${WOLFSSL_LIBRARIES}")
+        if(WOLFSSL_LIBRARY_DIRS)
+            message(STATUS "  wolfSSL library directories: ${WOLFSSL_LIBRARY_DIRS}")
+        endif()
+    endif()
+elseif(TARGET_RASPI_ZERO_W)
     # For Raspberry Pi, use local wolfSSL library in libs/wolfssl (support common build subdirs)
     set(WOLFSSL_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs/wolfssl")
 
@@ -541,7 +644,9 @@ message(STATUS "╚════════════════════�
 message(STATUS "")
 message(STATUS "TARGET CONFIGURATION:")
 message(STATUS "   Architecture: ${TARGET_ARCH}")
-if(TARGET_RASPI_ZERO_W)
+if(TARGET_AUDREN)
+    message(STATUS "   Platform: Audren (aarch64 with GCC and custom wolfSSL)")
+elseif(TARGET_RASPI_ZERO_W)
     message(STATUS "   Platform: Raspberry Pi Zero W (ARMv6 cross-compile)")
     message(STATUS "   Sysroot: ${CMAKE_SYSROOT}")
 else()
@@ -561,7 +666,9 @@ message(STATUS "")
 message(STATUS "BUILD CONFIGURATION:")
 message(STATUS "   Build Type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "   Debug Mode: ${DEBUG}")
-if(TARGET_RASPI_ZERO_W)
+if(TARGET_AUDREN)
+    message(STATUS "   TLS Support: Always Enabled (${WOLFSSL_AUDREN_TYPE} wolfSSL)")
+elseif(TARGET_RASPI_ZERO_W)
     message(STATUS "   TLS Support: Always Enabled (local wolfSSL)")
 else()
     message(STATUS "   TLS Support: Always Enabled (system wolfSSL ${WOLFSSL_VERSION})")
@@ -579,7 +686,7 @@ message(STATUS "   EXPLO executable: ${EXPLO_EXE_NAME}")
 message(STATUS "   INTER executable: ${INTER_EXE_NAME}")
 message(STATUS "")
 message(STATUS "LIBRARIES:")
-if(TARGET_RASPI_ZERO_W)
+if(TARGET_AUDREN OR TARGET_RASPI_ZERO_W)
     message(STATUS "   MRPIZ: ${MRPIZ_LIB_DIR}/${MRPIZ_LIB}")
     message(STATUS "   LUMPIZ: ${LUMPIZ_LIB_DIR}/${LUMPIZ_LIB}")
 else()
@@ -709,6 +816,34 @@ file(WRITE ${PRESETS_FILE} [=[
         "TARGET_RASPI_ZERO_W": "OFF",
         "USE_3D_SIMULATION": "OFF"
       }
+    },
+    {
+      "name": "audren-debug",
+      "displayName": "Audren Debug",
+      "description": "Debug build for Audren target (aarch64 with GCC and custom wolfSSL)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/audren-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "DEBUG": "ON",
+        "TARGET_AUDREN": "ON",
+        "TARGET_RASPI_ZERO_W": "OFF",
+        "USE_3D_SIMULATION": "OFF"
+      }
+    },
+    {
+      "name": "audren-release",
+      "displayName": "Audren Release",
+      "description": "Release build for Audren target (aarch64 with GCC and custom wolfSSL)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/audren-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "DEBUG": "OFF",
+        "TARGET_AUDREN": "ON",
+        "TARGET_RASPI_ZERO_W": "OFF",
+        "USE_3D_SIMULATION": "OFF"
+      }
     }
   ],
   "buildPresets": [
@@ -739,6 +874,14 @@ file(WRITE ${PRESETS_FILE} [=[
     {
       "name": "production",
       "configurePreset": "production"
+    },
+    {
+      "name": "audren-debug",
+      "configurePreset": "audren-debug"
+    },
+    {
+      "name": "audren-release",
+      "configurePreset": "audren-release"
     }
   ]
 }

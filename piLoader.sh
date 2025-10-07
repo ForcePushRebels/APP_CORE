@@ -6,7 +6,10 @@ PI_USER="${PI_USER:-pato}"
 PI_PASS="${PI_PASS:-pato}"
 PI_HOST="${PI_HOST:-10.42.0.1}"
 REMOTE_BASE="${REMOTE_BASE:-/home/${PI_USER}/app_core}"
-LOCAL_BUILD_DIR="${LOCAL_BUILD_DIR:-/home/chris/PATO/APP_CORE/build/raspi-debug}"
+
+# Chemin relatif au script (dossier racine du projet)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LOCAL_BUILD_DIR="${LOCAL_BUILD_DIR:-${SCRIPT_DIR}/build/raspi-debug}"
 
 # Déductions
 LOCAL_BIN_DIR="${LOCAL_BUILD_DIR}/bin"
@@ -16,7 +19,7 @@ LOCAL_PKI_ROOT_DIR="${LOCAL_PKI_DIR}/root-ca"
 
 usage() {
   echo "Usage: PI_USER=pato PI_PASS=pato PI_HOST=10.42.0.1 LOCAL_BUILD_DIR=/path/to/build ./piLoader.sh"
-  echo "Par défaut: PI_USER=pato, PI_PASS=pato, PI_HOST=10.42.0.1, LOCAL_BUILD_DIR=${LOCAL_BUILD_DIR}"
+  echo "Par défaut: PI_USER=pato, PI_PASS=pato, PI_HOST=10.42.0.1, LOCAL_BUILD_DIR=./build/raspi-debug (relatif au script)"
   echo "Cette version déploie uniquement l'explorateur (explo) et la PKI minimale: 'root-ca' + 'pato-explo'."
 }
 

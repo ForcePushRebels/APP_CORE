@@ -86,9 +86,9 @@ if(TARGET_AUDREN)
         set(INTER_EXE_NAME "inter_audren_release")
     endif()
 
-    # Use aarch64 static libraries (from libs/lib_mrpiz-aarch64-v0.6.1 and libs/lib_lumpiz-aarch64-v0.1.1)
-    set(MRPIZ_LIB "libintoxmrpiz.a")
-    set(LUMPIZ_LIB "libintoxlumpiz.a")
+    # Use aarch64 Intox libraries (like x86_64 but with aarch64 versions)
+    set(MRPIZ_LIB "intoxmrpiz;intox")
+    set(LUMPIZ_LIB "intoxlumpiz")
     set(EXTRA_LIBS "m") # math library
 elseif(TARGET_RASPI_ZERO_W)
     # Cross-compilation toolchain setup - Force x-tools usage only
@@ -531,7 +531,7 @@ add_executable(explo ${COMMON_SOURCES} ${EXPLO_SOURCES})
 set_target_properties(explo PROPERTIES OUTPUT_NAME ${EXPLO_EXE_NAME})
 
 # Link MRPIZ libraries
-if(TARGET_RASPI_ZERO_W OR TARGET_AUDREN)
+if(TARGET_RASPI_ZERO_W)
     target_link_libraries(explo "${MRPIZ_LIB_DIR}/${MRPIZ_LIB}")
 else()
     foreach(LIB ${MRPIZ_LIB})
@@ -540,7 +540,7 @@ else()
 endif()
 
 # Link LUMPIZ libraries
-if(TARGET_RASPI_ZERO_W OR TARGET_AUDREN)
+if(TARGET_RASPI_ZERO_W)
     target_link_libraries(explo "${LUMPIZ_LIB_DIR}/${LUMPIZ_LIB}")
 else()
     foreach(LIB ${LUMPIZ_LIB})
@@ -574,7 +574,7 @@ add_executable(inter ${COMMON_SOURCES} ${INTER_SOURCES})
 set_target_properties(inter PROPERTIES OUTPUT_NAME ${INTER_EXE_NAME})
 
 # Link MRPIZ libraries
-if(TARGET_RASPI_ZERO_W OR TARGET_AUDREN)
+if(TARGET_RASPI_ZERO_W)
     target_link_libraries(inter "${MRPIZ_LIB_DIR}/${MRPIZ_LIB}")
 else()
     foreach(LIB ${MRPIZ_LIB})
@@ -583,7 +583,7 @@ else()
 endif()
 
 # Link LUMPIZ libraries
-if(TARGET_RASPI_ZERO_W OR TARGET_AUDREN)
+if(TARGET_RASPI_ZERO_W)
     target_link_libraries(inter "${LUMPIZ_LIB_DIR}/${LUMPIZ_LIB}")
 else()
     foreach(LIB ${LUMPIZ_LIB})

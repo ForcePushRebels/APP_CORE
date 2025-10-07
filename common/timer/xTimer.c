@@ -487,10 +487,16 @@ int xTimerProcessCallback(xOsTimerCtx *p_ptTimer, void (*p_pfCallback)(void *), 
             uint32_t l_ulCallbackCount = l_ulExpirations;
             if (l_ulCallbackCount > XOS_TIMER_MAX_CALLBACKS)
             {
+                #ifdef DEBUG
                 X_LOG_TRACE("xTimerProcessCallback: Limiting callbacks from %lu to %d for function %s",
                             l_ulCallbackCount,
                             XOS_TIMER_MAX_CALLBACKS,
                             p_ptTimer->t_acTimerName);
+                #else
+                X_LOG_TRACE("xTimerProcessCallback: Limiting callbacks from %lu to %d",
+                            l_ulCallbackCount,
+                            XOS_TIMER_MAX_CALLBACKS);
+                #endif
                 l_ulCallbackCount = XOS_TIMER_MAX_CALLBACKS;
             }
 

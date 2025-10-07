@@ -310,8 +310,10 @@ int tlsEngineShutdown(WOLFSSL *p_ptSsl)
             }
             else
             {
+                char l_buffer[256];
+                wolfSSL_ERR_error_string_n(l_iError, l_buffer, sizeof(l_buffer));
                 // Erreur définitive ou connexion déjà fermée
-                X_LOG_TRACE("TLS shutdown error: %d", l_iError);
+                X_LOG_TRACE("TLS shutdown error: %d ; %s", l_iError, l_buffer);
                 break;
             }
         }

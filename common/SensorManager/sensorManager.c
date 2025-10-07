@@ -9,22 +9,19 @@
 #include "sensorManager.h"
 #include "idCard.h"
 #include "map_engine.h"
-#include <stdbool.h>
 #include <stdatomic.h>
+#include <stdbool.h>
 
 static sensorManager_t s_tSensorManager;
 
-#define SENSOR_MANAGER_TASK_PERIOD 5
+#define SENSOR_MANAGER_TASK_PERIOD 30
 #define SENSOR_OBSTACLE_THRESHOLD 50
 
 /* Pre-computed thresholds for each sensor :
  * index 0 and 2 are "side" sensors ⇒ threshold / 4
  * index 1 is the front sensor         ⇒ full threshold */
-static const uint16_t s_ausObstacleThreshold[SENSOR_MANAGER_SENSORS_COUNT] = {
-    SENSOR_OBSTACLE_THRESHOLD / 4,
-    SENSOR_OBSTACLE_THRESHOLD,
-    SENSOR_OBSTACLE_THRESHOLD / 4
-};
+static const uint16_t s_ausObstacleThreshold[SENSOR_MANAGER_SENSORS_COUNT]
+    = {SENSOR_OBSTACLE_THRESHOLD / 4, SENSOR_OBSTACLE_THRESHOLD, SENSOR_OBSTACLE_THRESHOLD / 4};
 
 // Lookup table to convert raw sensor readings to millimetres
 static bool s_bLUTInitialized = false;
@@ -57,9 +54,9 @@ static void initRawToMmLUT(void)
             clamped = SENSOR_MIN_RAW_VALUE;
         }
 
-        s_ausRawToMmLUT[raw] = (clamped * (SENSOR_MAX_MM_VALUE - SENSOR_MIN_MM_VALUE)) /
-                               (SENSOR_MAX_RAW_VALUE - SENSOR_MIN_RAW_VALUE) +
-                               SENSOR_MIN_MM_VALUE;
+        s_ausRawToMmLUT[raw]
+            = (clamped * (SENSOR_MAX_MM_VALUE - SENSOR_MIN_MM_VALUE)) / (SENSOR_MAX_RAW_VALUE - SENSOR_MIN_RAW_VALUE)
+              + SENSOR_MIN_MM_VALUE;
     }
 
     s_bLUTInitialized = true;
@@ -103,7 +100,7 @@ int sensorManagerInit(void)
 
     // Pre-compute conversion LUT (only once)
     initRawToMmLUT();
-    
+
     return SENSOR_MANAGER_OK;
 }
 

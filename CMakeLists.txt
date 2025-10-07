@@ -69,9 +69,13 @@ if(TARGET_AUDREN)
         message(FATAL_ERROR "GCC compiler not found for Audren target!")
     endif()
 
-    add_compile_definitions(AUDREN)
-    set(CMAKE_SYSROOT "/")
-    set(CMAKE_FIND_ROOT_PATH "/")
+    add_compile_definitions(
+        INTOX
+        AUDREN
+        # Define the required Intox variables with dynamic port
+        intox_address="${INTOX_ADDRESS}"
+        intox_port=${INTOX_PORT}
+    )
 
     # Output executable name for Audren
     if(DEBUG)
@@ -82,9 +86,9 @@ if(TARGET_AUDREN)
         set(INTER_EXE_NAME "inter_audren_release")
     endif()
 
-    # Use aarch64 libraries for Audren target
-    set(MRPIZ_LIB "libmrpiz.a")
-    set(LUMPIZ_LIB "liblumpiz.a")
+    # Use aarch64 static libraries (from libs/lib_mrpiz-aarch64-v0.6.1 and libs/lib_lumpiz-aarch64-v0.1.1)
+    set(MRPIZ_LIB "libintoxmrpiz.a")
+    set(LUMPIZ_LIB "libintoxlumpiz.a")
     set(EXTRA_LIBS "m") # math library
 elseif(TARGET_RASPI_ZERO_W)
     # Cross-compilation toolchain setup - Force x-tools usage only
@@ -527,7 +531,7 @@ add_executable(explo ${COMMON_SOURCES} ${EXPLO_SOURCES})
 set_target_properties(explo PROPERTIES OUTPUT_NAME ${EXPLO_EXE_NAME})
 
 # Link MRPIZ libraries
-if(TARGET_RASPI_ZERO_W)
+if(TARGET_RASPI_ZERO_W OR TARGET_AUDREN)
     target_link_libraries(explo "${MRPIZ_LIB_DIR}/${MRPIZ_LIB}")
 else()
     foreach(LIB ${MRPIZ_LIB})
@@ -536,7 +540,7 @@ else()
 endif()
 
 # Link LUMPIZ libraries
-if(TARGET_RASPI_ZERO_W)
+if(TARGET_RASPI_ZERO_W OR TARGET_AUDREN)
     target_link_libraries(explo "${LUMPIZ_LIB_DIR}/${LUMPIZ_LIB}")
 else()
     foreach(LIB ${LUMPIZ_LIB})
@@ -570,7 +574,7 @@ add_executable(inter ${COMMON_SOURCES} ${INTER_SOURCES})
 set_target_properties(inter PROPERTIES OUTPUT_NAME ${INTER_EXE_NAME})
 
 # Link MRPIZ libraries
-if(TARGET_RASPI_ZERO_W)
+if(TARGET_RASPI_ZERO_W OR TARGET_AUDREN)
     target_link_libraries(inter "${MRPIZ_LIB_DIR}/${MRPIZ_LIB}")
 else()
     foreach(LIB ${MRPIZ_LIB})
@@ -579,7 +583,7 @@ else()
 endif()
 
 # Link LUMPIZ libraries
-if(TARGET_RASPI_ZERO_W)
+if(TARGET_RASPI_ZERO_W OR TARGET_AUDREN)
     target_link_libraries(inter "${LUMPIZ_LIB_DIR}/${LUMPIZ_LIB}")
 else()
     foreach(LIB ${LUMPIZ_LIB})
@@ -645,7 +649,9 @@ message(STATUS "")
 message(STATUS "TARGET CONFIGURATION:")
 message(STATUS "   Architecture: ${TARGET_ARCH}")
 if(TARGET_AUDREN)
-    message(STATUS "   Platform: Audren (aarch64 with GCC and custom wolfSSL)")
+    message(STATUS "   Platform: Audren (aarch64 with GCC, Intox simulator and custom wolfSSL)")
+    message(STATUS "   Intox Address: ${INTOX_ADDRESS}")
+    message(STATUS "   Intox Port: ${INTOX_PORT}")
 elseif(TARGET_RASPI_ZERO_W)
     message(STATUS "   Platform: Raspberry Pi Zero W (ARMv6 cross-compile)")
     message(STATUS "   Sysroot: ${CMAKE_SYSROOT}")

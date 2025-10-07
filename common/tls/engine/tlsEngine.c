@@ -190,7 +190,7 @@ int tlsEngineCreate(xTlsEngine_t **p_pptEngine,
         wolfSSL_CTX_set_verify(l_ptCtx, 
                             WOLFSSL_VERIFY_PEER | WOLFSSL_VERIFY_FAIL_IF_NO_PEER_CERT,
                             NULL);
-        X_LOG_TRACE("Server mode: mTLS verification enabled (VERIFY_PEER + FAIL_IF_NO_PEER_CERT)");
+        X_LOG_INFO("Server mode: mTLS verification enabled (VERIFY_PEER + FAIL_IF_NO_PEER_CERT)");
     }
     else
     {

@@ -274,6 +274,9 @@ int32_t supervisor_init(void)
 
     // Initialize high-performance timer with kernel-based implementation
     l_iResult = xTimerCreate(&s_tSupervisorCtx.t_tTimer, SUPERVISOR_TIMER_PERIOD_MS, XOS_TIMER_MODE_PERIODIC);
+#ifdef DEBUG
+    strcpy(s_tSupervisorCtx.t_tTimer.t_acTimerName, "supervisor Timer");
+#endif
     if (l_iResult != XOS_TIMER_OK)
     {
         mutexDestroy(&s_tSupervisorCtx.t_tMutex);

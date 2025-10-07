@@ -243,6 +243,7 @@ int xLogWrite(const char *p_ptkcFile, uint32_t p_ulLine, const char *p_ptkcForma
     if (p_ptkcFile != NULL)
     {
         char l_cFileCopy[XOS_LOG_PATH_SIZE] = {0};
+        //ajout du formatage %-20.20s
         strncpy(l_cFileCopy, p_ptkcFile, sizeof(l_cFileCopy) - 1);
         l_cFileCopy[sizeof(l_cFileCopy) - 1] = '\0';
 
@@ -293,16 +294,18 @@ int xLogWrite(const char *p_ptkcFile, uint32_t p_ulLine, const char *p_ptkcForma
         l_cUserMsg[sizeof(l_cUserMsg) - 1] = '\0';
     }
 
+    // Format file:line with fixed width
+    char l_cFileLine[32];
+    int l_iFileLineRet = snprintf(l_cFileLine, sizeof(l_cFileLine), "%s:%u", l_cSafeFileName, l_ulLineNumber);
+    if (l_iFileLineRet < 0 || l_iFileLineRet >= (int)sizeof(l_cFileLine))
+    {
+        strncpy(l_cFileLine, "Unknown:0", sizeof(l_cFileLine) - 1);
+        l_cFileLine[sizeof(l_cFileLine) - 1] = '\0';
+    }
+
     // Format complete log message with fixed bounds - removed sanitization for color codes
-    int l_iSnprintfRet = snprintf(
-        l_cFullMsg, 
-        sizeof(l_cFullMsg), 
-        "%s | %s:%u | %s\n", 
-        l_cTimestamp, 
-        l_cSafeFileName, 
-        l_ulLineNumber, 
-        l_cUserMsg
-    );
+    int l_iSnprintfRet
+        = snprintf(l_cFullMsg, sizeof(l_cFullMsg), "%s | %-25s | %s\n", l_cTimestamp, l_cFileLine, l_cUserMsg);
 
     // Check for formatting errors
     if (l_iSnprintfRet < 0)
@@ -584,7 +587,7 @@ static void sanitizeLogContent(char *p_ptcContent, size_t p_iMaxSize)
             in_escape = true;
             continue;
         }
-        
+
         if (in_escape)
         {
             if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'))

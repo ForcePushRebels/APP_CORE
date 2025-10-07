@@ -836,7 +836,7 @@ int loadRootCAIntoCtx(WOLFSSL_CTX *p_ptSSLContext, const char *p_ptcCADirectoryP
     int l_iWolfResult = wolfSSL_CTX_load_verify_locations(p_ptSSLContext, l_acCAFilePath, NULL);
     if (l_iWolfResult == WOLFSSL_SUCCESS)
     {
-        X_LOG_TRACE("Root CA loaded successfully from file: %s", l_acCAFilePath);
+        X_LOG_INFO("Root CA loaded successfully from file: %s", l_acCAFilePath);
         return CERT_OK;
     }
 
@@ -848,7 +848,7 @@ int loadRootCAIntoCtx(WOLFSSL_CTX *p_ptSSLContext, const char *p_ptcCADirectoryP
         char l_acError[256];
         wolfSSL_ERR_error_string_n(l_ulError, l_acError, sizeof(l_acError));
         X_LOG_ERROR("WolfSSL error: %s", l_acError);
-        X_LOG_TRACE("File load failed, trying directory: %s", p_ptcCADirectoryPath);
+        X_LOG_ERROR("File load failed, trying directory: %s", p_ptcCADirectoryPath);
         l_iWolfResult = wolfSSL_CTX_load_verify_locations(p_ptSSLContext, NULL, p_ptcCADirectoryPath);
         if (l_iWolfResult == WOLFSSL_SUCCESS)
         {

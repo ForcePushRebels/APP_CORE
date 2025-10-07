@@ -79,7 +79,9 @@ int sensorManagerInit(void)
     }
 
     l_iRet = xTimerCreate(&s_tSensorManager.t_tTimer, SENSOR_MANAGER_TASK_PERIOD, XOS_TIMER_MODE_PERIODIC);
-
+#ifdef DEBUG
+    strcpy(s_tSensorManager.t_tTimer.t_acTimerName, "sensorManager Timer");
+#endif
     if (l_iRet != XOS_TIMER_OK)
     {
         X_LOG_TRACE("Error creating timer");

@@ -1187,10 +1187,12 @@ ServerConfig xServerCreateDefaultConfig(void)
         && access(l_sConfig.t_acCaDir, R_OK) == 0)
     {
         l_sConfig.t_bUseTls = true;
+#ifdef DEBUG
         X_LOG_INFO("TLS configuration loaded successfully");
-        X_LOG_INFO("  Certificate: %s", l_sConfig.t_acCertFile);
-        X_LOG_INFO("  Private Key: %s", l_sConfig.t_acKeyFile);
-        X_LOG_INFO("  CA Directory: %s", l_sConfig.t_acCaDir);
+        X_LOG_INFO("Certificate: %s", l_sConfig.t_acCertFile);
+        X_LOG_INFO("Private Key: %s", l_sConfig.t_acKeyFile);
+        X_LOG_INFO("CA Directory: %s", l_sConfig.t_acCaDir);
+#endif
     }
     else
     {

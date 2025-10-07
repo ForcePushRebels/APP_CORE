@@ -13,11 +13,11 @@
 #include "xLog.h"
 #include "xOsMemory.h"
 #include <errno.h>
+#include <fcntl.h>
+#include <poll.h>
+#include <sys/timerfd.h>
 #include <time.h>
 #include <unistd.h>
-#include <fcntl.h>
-#include <sys/timerfd.h>
-#include <poll.h>
 
 ////////////////////////////////////////////////////////////
 /// xTimerCreate
@@ -44,7 +44,7 @@ int xTimerCreate(xOsTimerCtx *p_ptTimer, uint32_t p_ulPeriod, uint8_t p_ucMode)
     p_ptTimer->t_ucMode = p_ucMode;
     atomic_store(&p_ptTimer->t_bActive, false);
     atomic_store(&p_ptTimer->t_bStopRequested, false);
-    p_ptTimer->t_ullExpirationCount = 0;
+    p_ptTimer->t_ulExpirationCount = 0;
 
     // Initialize mutex for control operations
     int l_iResult = mutexCreate(&p_ptTimer->t_tMutex);
@@ -56,8 +56,9 @@ int xTimerCreate(xOsTimerCtx *p_ptTimer, uint32_t p_ulPeriod, uint8_t p_ucMode)
         return l_iResult;
     }
 
-    X_LOG_TRACE("xTimerCreate: Timer created with period %u ms, mode %s", 
-                p_ulPeriod, p_ucMode == XOS_TIMER_MODE_PERIODIC ? "periodic" : "oneshot");
+    X_LOG_TRACE("xTimerCreate: Timer created with period %u ms, mode %s",
+                p_ulPeriod,
+                p_ucMode == XOS_TIMER_MODE_PERIODIC ? "periodic" : "oneshot");
 
     return XOS_TIMER_OK;
 }
@@ -87,10 +88,14 @@ int xTimerStart(xOsTimerCtx *p_ptTimer)
 
     // Configure timer specification
     struct itimerspec l_tTimerSpec;
-    
-    // Convert period to timespec
-    l_tTimerSpec.it_value.tv_sec = p_ptTimer->t_ulPeriod / 1000;
-    l_tTimerSpec.it_value.tv_nsec = (p_ptTimer->t_ulPeriod % 1000) * 1000000L;
+
+    // Convert period to timespec - safe conversion since timer periods are positive
+    {
+        time_t l_tSeconds = (time_t)(p_ptTimer->t_ulPeriod / 1000U);
+        long l_lNanoseconds = (long)((p_ptTimer->t_ulPeriod % 1000U) * 1000000U);
+        l_tTimerSpec.it_value.tv_sec = l_tSeconds;
+        l_tTimerSpec.it_value.tv_nsec = l_lNanoseconds;
+    }
 
     if (p_ptTimer->t_ucMode == XOS_TIMER_MODE_PERIODIC)
     {
@@ -114,7 +119,7 @@ int xTimerStart(xOsTimerCtx *p_ptTimer)
 
     atomic_store(&p_ptTimer->t_bActive, true);
     atomic_store(&p_ptTimer->t_bStopRequested, false);
-    p_ptTimer->t_ullExpirationCount = 0;
+    p_ptTimer->t_ulExpirationCount = 0;
 
     mutexUnlock(&p_ptTimer->t_tMutex);
 
@@ -192,7 +197,7 @@ int xTimerDestroy(xOsTimerCtx *p_ptTimer)
 ////////////////////////////////////////////////////////////
 /// xTimerWaitExpiration
 ////////////////////////////////////////////////////////////
-int xTimerWaitExpiration(xOsTimerCtx *p_ptTimer, uint64_t *p_pullExpirations)
+int xTimerWaitExpiration(xOsTimerCtx *p_ptTimer, uint32_t *p_pulExpirations)
 {
     X_ASSERT(p_ptTimer != NULL);
     X_ASSERT(p_ptTimer->t_iTimerFd != -1);
@@ -202,12 +207,17 @@ int xTimerWaitExpiration(xOsTimerCtx *p_ptTimer, uint64_t *p_pullExpirations)
         return XOS_TIMER_NOT_INIT;
     }
 
-    uint64_t l_ullExpirations;
-    ssize_t l_iBytes = read(p_ptTimer->t_iTimerFd, &l_ullExpirations, sizeof(l_ullExpirations));
+    uint64_t l_ulExpirations;
+    ssize_t l_iBytes = read(p_ptTimer->t_iTimerFd, &l_ulExpirations, sizeof(l_ulExpirations));
 
     if (l_iBytes == -1)
     {
+        // Check for non-blocking I/O completion
+#if defined(__ARM_ARCH_6__)
+        if (errno == EAGAIN)
+#else
         if (errno == EAGAIN || errno == EWOULDBLOCK)
+#endif
         {
             return XOS_TIMER_TIMEOUT;
         }
@@ -224,18 +234,41 @@ int xTimerWaitExpiration(xOsTimerCtx *p_ptTimer, uint64_t *p_pullExpirations)
         return XOS_TIMER_ERROR;
     }
 
-    if (l_iBytes != sizeof(l_ullExpirations))
+    if (l_iBytes != sizeof(l_ulExpirations))
     {
         X_LOG_TRACE("xTimerWaitExpiration: unexpected read size: %zd", l_iBytes);
         return XOS_TIMER_ERROR;
     }
 
-    // Update expiration statistics
-    p_ptTimer->t_ullExpirationCount += l_ullExpirations;
-
-    if (p_pullExpirations != NULL)
+    // Vérification de dépassement pour l_ulExpirations seul
+    if (l_ulExpirations > UINT32_MAX)
     {
-        *p_pullExpirations = l_ullExpirations;
+        X_LOG_TRACE("xTimer: expiration count exceeds UINT32_MAX");
+        p_ptTimer->t_ulExpirationCount = UINT32_MAX;
+        if (p_pulExpirations != NULL)
+        {
+            *p_pulExpirations = UINT32_MAX;
+        }
+    }
+    else
+    {
+        uint32_t l_ulExpirations32 = (uint32_t)l_ulExpirations;
+
+        // Vérification de dépassement pour l'addition
+        if (p_ptTimer->t_ulExpirationCount > UINT32_MAX - l_ulExpirations32)
+        {
+            X_LOG_TRACE("xTimer: expiration count would overflow, resetting to max");
+            p_ptTimer->t_ulExpirationCount = UINT32_MAX;
+        }
+        else
+        {
+            p_ptTimer->t_ulExpirationCount += l_ulExpirations32;
+        }
+
+        if (p_pulExpirations != NULL)
+        {
+            *p_pulExpirations = l_ulExpirations32;
+        }
     }
 
     // For one-shot timers, mark as inactive after expiration
@@ -250,7 +283,7 @@ int xTimerWaitExpiration(xOsTimerCtx *p_ptTimer, uint64_t *p_pullExpirations)
 ////////////////////////////////////////////////////////////
 /// xTimerCheckExpired
 ////////////////////////////////////////////////////////////
-int xTimerCheckExpired(xOsTimerCtx *p_ptTimer, uint64_t *p_pullExpirations)
+int xTimerCheckExpired(xOsTimerCtx *p_ptTimer, uint32_t *p_pulExpirations)
 {
     X_ASSERT(p_ptTimer != NULL);
     X_ASSERT(p_ptTimer->t_iTimerFd != -1);
@@ -260,18 +293,12 @@ int xTimerCheckExpired(xOsTimerCtx *p_ptTimer, uint64_t *p_pullExpirations)
         return XOS_TIMER_NOT_INIT;
     }
 
-    /* Utilise poll(2) avec timeout immédiat pour éviter deux appels fcntl   */
-    struct pollfd l_tPfd = {
-        .fd = p_ptTimer->t_iTimerFd,
-        .events = POLLIN,
-        .revents = 0
-    };
-
-    int l_iPoll = poll(&l_tPfd, 1, 0); // timeout 0 ⇒ non bloquant
+    struct pollfd l_tPfd = {.fd = p_ptTimer->t_iTimerFd, .events = POLLIN, .revents = 0};
+    int l_iPoll = poll(&l_tPfd, 1, 0);
 
     if (l_iPoll == 0)
     {
-        return XOS_TIMER_TIMEOUT; // rien à lire
+        return XOS_TIMER_TIMEOUT;
     }
     else if (l_iPoll < 0)
     {
@@ -279,12 +306,16 @@ int xTimerCheckExpired(xOsTimerCtx *p_ptTimer, uint64_t *p_pullExpirations)
         return XOS_TIMER_ERROR;
     }
 
-    uint64_t l_ullExpirations;
-    ssize_t l_iBytes = read(p_ptTimer->t_iTimerFd, &l_ullExpirations, sizeof(l_ullExpirations));
+    uint64_t l_ulExpirations;
+    ssize_t l_iBytes = read(p_ptTimer->t_iTimerFd, &l_ulExpirations, sizeof(l_ulExpirations));
 
     if (l_iBytes == -1)
     {
+#if defined(__ARM_ARCH_6__)
+        if (errno == EAGAIN)
+#else
         if (errno == EAGAIN || errno == EWOULDBLOCK)
+#endif
         {
             return XOS_TIMER_TIMEOUT;
         }
@@ -292,21 +323,41 @@ int xTimerCheckExpired(xOsTimerCtx *p_ptTimer, uint64_t *p_pullExpirations)
         return XOS_TIMER_ERROR;
     }
 
-    if (l_iBytes != sizeof(l_ullExpirations))
+    if (l_iBytes != sizeof(l_ulExpirations))
     {
         X_LOG_TRACE("xTimerCheckExpired: unexpected read size: %zd", l_iBytes);
         return XOS_TIMER_ERROR;
     }
 
-    // Update expiration statistics
-    p_ptTimer->t_ullExpirationCount += l_ullExpirations;
-
-    if (p_pullExpirations != NULL)
+    // Convert to uint32_t with overflow protection
+    uint32_t l_ulExpirations32;
+    if (l_ulExpirations > UINT32_MAX)
     {
-        *p_pullExpirations = l_ullExpirations;
+        X_LOG_TRACE("xTimer: expiration count exceeds UINT32_MAX, capping at max value");
+        l_ulExpirations32 = UINT32_MAX;
+        p_ptTimer->t_ulExpirationCount = UINT32_MAX;
+    }
+    else
+    {
+        l_ulExpirations32 = (uint32_t)l_ulExpirations;
+
+        // Check for addition overflow
+        if (p_ptTimer->t_ulExpirationCount > UINT32_MAX - l_ulExpirations32)
+        {
+            X_LOG_TRACE("xTimer: expiration count would overflow, resetting to max");
+            p_ptTimer->t_ulExpirationCount = UINT32_MAX;
+        }
+        else
+        {
+            p_ptTimer->t_ulExpirationCount += l_ulExpirations32;
+        }
     }
 
-    // For one-shot timers, mark as inactive after expiration
+    if (p_pulExpirations != NULL)
+    {
+        *p_pulExpirations = l_ulExpirations32;
+    }
+
     if (p_ptTimer->t_ucMode == XOS_TIMER_MODE_ONESHOT)
     {
         atomic_store(&p_ptTimer->t_bActive, false);
@@ -318,7 +369,7 @@ int xTimerCheckExpired(xOsTimerCtx *p_ptTimer, uint64_t *p_pullExpirations)
 ////////////////////////////////////////////////////////////
 /// xTimerGetCurrentMs
 ////////////////////////////////////////////////////////////
-inline uint64_t xTimerGetCurrentMs(void)
+inline uint32_t xTimerGetCurrentMs(void)
 {
     struct timespec l_tNow;
     if (clock_gettime(CLOCK_MONOTONIC, &l_tNow) != 0)
@@ -326,8 +377,24 @@ inline uint64_t xTimerGetCurrentMs(void)
         X_LOG_TRACE("xTimerGetCurrentMs: clock_gettime failed: %d", errno);
         return 0;
     }
-    return (uint64_t)((uint64_t)l_tNow.tv_sec * 1000ULL +
-                     (uint64_t)l_tNow.tv_nsec / 1000000ULL);
+
+    // Strict overflow check: tv_sec must not exceed max safe value
+    if ((uint64_t)l_tNow.tv_sec > XOS_TIMER_MAX_TIMESTAMP_SEC)
+    {
+        X_LOG_TRACE("xTimerGetCurrentMs: timestamp overflow detected");
+        return UINT32_MAX;
+    }
+
+    // Safe conversion: calculate milliseconds with overflow protection
+    uint64_t l_ullMs = (uint64_t)l_tNow.tv_sec * 1000ULL + (uint64_t)l_tNow.tv_nsec / 1000000ULL;
+
+    if (l_ullMs > UINT32_MAX)
+    {
+        X_LOG_TRACE("xTimerGetCurrentMs: calculation overflow detected");
+        return UINT32_MAX;
+    }
+
+    return (uint32_t)l_ullMs;
 }
 
 ////////////////////////////////////////////////////////////
@@ -346,6 +413,14 @@ int xTimerDelay(uint32_t p_ulDelay)
         return XOS_TIMER_OK;
     }
 
+    // Check for potential overflow in nanosecond calculation
+    const uint32_t l_ulMaxSafeDelayMs = XOS_TIMER_MAX_DELAY_MS;
+    if (p_ulDelay > l_ulMaxSafeDelayMs)
+    {
+        X_LOG_TRACE("xTimerDelay: Delay %u ms would cause nanosecond overflow", p_ulDelay);
+        return XOS_TIMER_INVALID;
+    }
+
     // Calculate absolute wakeup time using monotonic clock
     struct timespec l_tWakeup;
     if (clock_gettime(CLOCK_MONOTONIC, &l_tWakeup) != 0)
@@ -354,16 +429,29 @@ int xTimerDelay(uint32_t p_ulDelay)
         return XOS_TIMER_ERROR;
     }
 
-    // Add delay to current time
+    // Add delay to current time with overflow protection
     uint64_t l_ullDelayNs = (uint64_t)p_ulDelay * 1000000ULL;
     uint64_t l_ullTotalNs = (uint64_t)l_tWakeup.tv_nsec + l_ullDelayNs;
 
-    l_tWakeup.tv_sec += l_ullTotalNs / 1000000000ULL;
-    l_tWakeup.tv_nsec = l_ullTotalNs % 1000000000ULL;
+    // Check for seconds overflow
+    uint64_t l_ullAdditionalSec = l_ullTotalNs / 1000000000ULL;
+    if (l_ullAdditionalSec > UINT32_MAX - (uint64_t)l_tWakeup.tv_sec)
+    {
+        X_LOG_TRACE("xTimerDelay: Total seconds would overflow");
+        return XOS_TIMER_INVALID;
+    }
+
+    // Safe assignment to timespec fields
+    {
+        time_t l_tAdditionalSec = (time_t)l_ullAdditionalSec;
+        long l_lRemainderNs = (long)(l_ullTotalNs % 1000000000ULL);
+        l_tWakeup.tv_sec += l_tAdditionalSec;
+        l_tWakeup.tv_nsec = l_lRemainderNs;
+    }
 
     // Use absolute time sleep - let kernel handle the precise timing
     int l_iResult = clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &l_tWakeup, NULL);
-    
+
     if (l_iResult != 0 && l_iResult != EINTR)
     {
         X_LOG_TRACE("xTimerDelay: clock_nanosleep failed with error %d", l_iResult);
@@ -390,22 +478,24 @@ int xTimerProcessCallback(xOsTimerCtx *p_ptTimer, void (*p_pfCallback)(void *), 
 
     while (atomic_load(&p_ptTimer->t_bActive) && !atomic_load(&p_ptTimer->t_bStopRequested))
     {
-        uint64_t l_ullExpirations;
-        int l_iResult = xTimerWaitExpiration(p_ptTimer, &l_ullExpirations);
+        uint32_t l_ulExpirations;
+        int l_iResult = xTimerWaitExpiration(p_ptTimer, &l_ulExpirations);
 
         if (l_iResult == XOS_TIMER_OK)
         {
             // Limit callbacks to prevent DoS
-            uint64_t l_ullCallbackCount = l_ullExpirations;
-            if (l_ullCallbackCount > XOS_TIMER_MAX_CALLBACKS)
+            uint32_t l_ulCallbackCount = l_ulExpirations;
+            if (l_ulCallbackCount > XOS_TIMER_MAX_CALLBACKS)
             {
-                X_LOG_TRACE("xTimerProcessCallback: Limiting callbacks from %llu to %d",
-                            l_ullCallbackCount, XOS_TIMER_MAX_CALLBACKS);
-                l_ullCallbackCount = XOS_TIMER_MAX_CALLBACKS;
+                X_LOG_TRACE("xTimerProcessCallback: Limiting callbacks from %lu to %d for function %s",
+                            l_ulCallbackCount,
+                            XOS_TIMER_MAX_CALLBACKS,
+                            p_ptTimer->t_acTimerName);
+                l_ulCallbackCount = XOS_TIMER_MAX_CALLBACKS;
             }
 
             // Execute callbacks for each expiration
-            for (uint64_t i = 0; i < l_ullCallbackCount; i++)
+            for (uint32_t i = 0; i < l_ulCallbackCount; i++)
             {
                 p_pfCallback(p_pvData);
                 l_iTotalCallbacks++;
@@ -445,48 +535,4 @@ int xTimerGetFd(xOsTimerCtx *p_ptTimer)
 {
     X_ASSERT(p_ptTimer != NULL);
     return p_ptTimer->t_iTimerFd;
-}
-
-////////////////////////////////////////////////////////////
-/// xTimerGetStats
-////////////////////////////////////////////////////////////
-int xTimerGetStats(xOsTimerCtx *p_ptTimer, uint64_t *p_pullTotalExpirations, uint64_t *p_pullUptime)
-{
-    X_ASSERT(p_ptTimer != NULL);
-
-    int l_iResult = mutexLock(&p_ptTimer->t_tMutex);
-    if (l_iResult != MUTEX_OK)
-    {
-        return l_iResult;
-    }
-
-    if (p_pullTotalExpirations != NULL)
-    {
-        *p_pullTotalExpirations = p_ptTimer->t_ullExpirationCount;
-    }
-
-    if (p_pullUptime != NULL)
-    {
-        if (atomic_load(&p_ptTimer->t_bActive))
-        {
-            struct timespec l_tNow;
-            if (clock_gettime(CLOCK_MONOTONIC, &l_tNow) == 0)
-            {
-                uint64_t l_ullNowMs = (uint64_t)l_tNow.tv_sec * 1000ULL + (uint64_t)l_tNow.tv_nsec / 1000000ULL;
-                uint64_t l_ullStartMs = (uint64_t)p_ptTimer->t_tStart.tv_sec * 1000ULL + (uint64_t)p_ptTimer->t_tStart.tv_nsec / 1000000ULL;
-                *p_pullUptime = l_ullNowMs - l_ullStartMs;
-            }
-            else
-            {
-                *p_pullUptime = 0;
-            }
-        }
-        else
-        {
-            *p_pullUptime = 0;
-        }
-    }
-
-    mutexUnlock(&p_ptTimer->t_tMutex);
-    return XOS_TIMER_OK;
 }

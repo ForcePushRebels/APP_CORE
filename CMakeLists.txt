@@ -30,6 +30,36 @@ option(TARGET_AUDREN "Build for Audren target (aarch64 with GCC and custom wolfS
 option(DEBUG "Enable debug build" OFF)
 option(USE_3D_SIMULATION "Use 3D simulation instead of 2D (changes Intox port from 12345 to 12348)" OFF)
 
+# Function to check GCC version >= 12
+function(check_gcc_version gcc_executable)
+    execute_process(
+        COMMAND ${gcc_executable} --version
+        OUTPUT_VARIABLE GCC_VERSION_OUTPUT
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+    )
+
+    # Extract version number from first line
+    string(REGEX MATCH "[0-9]+\\.[0-9]+\\.[0-9]+" GCC_VERSION "${GCC_VERSION_OUTPUT}")
+    if(NOT GCC_VERSION)
+        # Try alternative pattern (e.g., "gcc (GCC) 12.2.0")
+        string(REGEX MATCH "([0-9]+)\\.([0-9]+)\\.([0-9]+)" GCC_VERSION "${GCC_VERSION_OUTPUT}")
+    endif()
+
+    if(GCC_VERSION)
+        # Extract major version
+        string(REGEX MATCH "^([0-9]+)" GCC_MAJOR_VERSION "${GCC_VERSION}")
+
+        if(GCC_MAJOR_VERSION LESS 12)
+            message(FATAL_ERROR "GCC version ${GCC_VERSION} found, but GCC >= 12 is required. Current version: ${GCC_MAJOR_VERSION}")
+        else()
+            message(STATUS "GCC version ${GCC_VERSION} is compatible (major version: ${GCC_MAJOR_VERSION})")
+        endif()
+    else()
+        message(WARNING "Could not determine GCC version from: ${GCC_VERSION_OUTPUT}")
+    endif()
+endfunction()
+
 # Auto-detect and choose compiler: prefer Clang, fallback to GCC, force GCC for Audren
 set(COMPILER_DETECTED "UNKNOWN")
 
@@ -56,6 +86,9 @@ if(TARGET_AUDREN)
     # Force GCC compiler for Audren target
     find_program(GCC_FOUND gcc)
     if(GCC_FOUND)
+        # Check GCC version >= 12
+        check_gcc_version(${GCC_FOUND})
+
         set(CMAKE_C_COMPILER "gcc")
         set(COMPILER_DETECTED "GCC")
         message(STATUS "Selected compiler: GCC for Audren target")
@@ -154,6 +187,9 @@ else()
     else()
         find_program(GCC_FOUND gcc)
         if(GCC_FOUND)
+            # Check GCC version >= 12
+            check_gcc_version(${GCC_FOUND})
+
             set(CMAKE_C_COMPILER "gcc")
             set(COMPILER_DETECTED "GCC")
             message(STATUS "Selected compiler: GCC for PC development")

@@ -450,11 +450,54 @@ elseif(TARGET_RASPI_ZERO_W)
     message(STATUS "  wolfSSL include: ${WOLFSSL_INCLUDE_DIR}")
     message(STATUS "  wolfSSL library: ${WOLFSSL_LIBRARY}")
 else()
-    # For PC development, use system wolfSSL via pkg-config
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(WOLFSSL REQUIRED wolfssl)
-    include_directories(${WOLFSSL_INCLUDE_DIRS})
-    message(STATUS "TLS support enabled - Using system wolfSSL")
+    # For PC development, use local wolfSSL library in libs/wolfssl/x86-64
+    set(WOLFSSL_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs/wolfssl/x86-64")
+
+    # Manually locate headers and library
+    set(_WOLFSSL_CANDIDATE_INCLUDE_DIRS
+        "${WOLFSSL_ROOT_DIR}/include"
+        "${WOLFSSL_ROOT_DIR}/build/include"
+        "${WOLFSSL_ROOT_DIR}/build-x86-64/include"
+        "${WOLFSSL_ROOT_DIR}/build-x86_64/include"
+    )
+    set(WOLFSSL_INCLUDE_DIR "")
+    foreach(_dir ${_WOLFSSL_CANDIDATE_INCLUDE_DIRS})
+        if(EXISTS "${_dir}/wolfssl/ssl.h")
+            set(WOLFSSL_INCLUDE_DIR "${_dir}")
+            break()
+        endif()
+    endforeach()
+
+    set(_WOLFSSL_CANDIDATE_LIB_DIRS
+        "${WOLFSSL_ROOT_DIR}/lib"
+        "${WOLFSSL_ROOT_DIR}/build/lib"
+        "${WOLFSSL_ROOT_DIR}/build-x86-64/lib"
+        "${WOLFSSL_ROOT_DIR}/build-x86_64/lib"
+    )
+    set(WOLFSSL_LIBRARY "")
+    foreach(_libdir ${_WOLFSSL_CANDIDATE_LIB_DIRS})
+        if(EXISTS "${_libdir}/libwolfssl.a")
+            set(WOLFSSL_LIBRARY "${_libdir}/libwolfssl.a")
+            break()
+        elseif(EXISTS "${_libdir}/libwolfssl.so")
+            set(WOLFSSL_LIBRARY "${_libdir}/libwolfssl.so")
+            break()
+        endif()
+    endforeach()
+
+    if(NOT WOLFSSL_INCLUDE_DIR)
+        message(FATAL_ERROR "wolfSSL headers not found under ${WOLFSSL_ROOT_DIR}. Expected wolfssl/ssl.h in an include directory.")
+    endif()
+
+    if(NOT WOLFSSL_LIBRARY)
+        message(FATAL_ERROR "wolfSSL library not found under ${WOLFSSL_ROOT_DIR}. Expected libwolfssl.(a|so) in a lib directory.")
+    endif()
+
+    include_directories(${WOLFSSL_INCLUDE_DIR})
+    set(WOLFSSL_LIBRARIES "${WOLFSSL_LIBRARY}")
+    message(STATUS "TLS support enabled - Using local wolfSSL for x86-64")
+    message(STATUS "  wolfSSL include: ${WOLFSSL_INCLUDE_DIR}")
+    message(STATUS "  wolfSSL library: ${WOLFSSL_LIBRARY}")
 endif()
 
 # Add libraries based on target architecture

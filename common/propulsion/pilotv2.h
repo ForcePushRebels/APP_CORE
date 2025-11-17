@@ -36,7 +36,7 @@
 /// @brief Noms (paths) des POSIX queues
 /////////////////////////////////
 #define PILOT_MQ_EVT_NAME      "/pilot_event_queue"
-#define PILOT_MQ_MOVE_NAME     "/pilot_move_queue"
+//#define PILOT_MQ_MOVE_NAME     "/pilot_move_queue"
 
 /////////////////////////////////
 /// @brief Types d’événements du pilot
